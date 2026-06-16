@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuários | Controle de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
+        <strong>Controle de Saída</strong>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="materiais.html">Materiais</a>
+        <a href="registrar-saida.html">Registrar saída</a>
+        <a href="registrar-entrada.html">Registrar entrada</a>
+        <a href="historico.html">Histórico</a>
+        <a href="relatorios.html">Relatórios</a>
+        <a href="dashboard-cartoes.html">Cartões corporativos</a>
+        <a class="active admin-only" href="usuarios.html">Usuários</a>
+        <a href="login.html">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Administração</span>
+          <h1>Usuários e permissões</h1>
+        </div>
+        <span class="user-chip">Administrador</span>
+      </header>
+
+      <section class="card">
+        <div id="usuariosMensagem" class="alert-success hidden"></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Setor</th>
+                <th>Status</th>
+                <th>Cadastrar material</th>
+                <th>Saída</th>
+                <th>Entrada</th>
+                <th>Relatórios</th>
+                <th>Admin</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="usuariosTabela"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/usuarios.js"></script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registrar saída | Controle de Saída de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
+        <strong>Controle de Saída</strong>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="materiais.html">Materiais</a>
+        <a class="active" href="registrar-saida.html">Registrar saída</a>
+        <a href="registrar-entrada.html">Registrar entrada</a>
+        <a href="historico.html">Histórico</a>
+        <a href="relatorios.html">Relatórios</a>
+        <a href="dashboard-cartoes.html">Cartões corporativos</a>
+        <a class="admin-only" href="usuarios.html">Usuários</a>
+        <a href="login.html">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Movimentação mensal</span>
+          <h1>Registrar saída</h1>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="support-strip compact">
+          <img src="img/mascote-comemorando.png" alt="Mascote SM&A comemorando">
+          <div>
+            <strong>Registro rápido de retirada</strong>
+            <span>Preencha os dados da saída para manter o controle mensal organizado.</span>
+          </div>
+        </div>
+
+        <div id="mensagemSucesso" class="alert-success hidden">Saída registrada com sucesso.</div>
+
+        <form id="saidaForm" class="form-grid form-grid-two">
+          <label>
+            Material
+            <select id="material" required></select>
+          </label>
+          <label>
+            Quantidade
+            <input id="quantidade" type="number" min="1" value="1" required>
+          </label>
+          <label>
+            Data
+            <input id="data" type="date" required>
+          </label>
+          <label>
+            Setor
+            <select id="setor" required></select>
+          </label>
+          <label>
+            Responsável
+            <input id="responsavel" type="text" placeholder="Nome do responsável" required>
+          </label>
+          <label>
+            Local de uso
+            <input id="localUso" type="text" placeholder="Ex.: sala administrativa" required>
+          </label>
+          <label class="full-width">
+            Motivo
+            <input id="motivo" type="text" placeholder="Informe o motivo da retirada" required>
+          </label>
+          <label class="full-width">
+            Observação
+            <textarea id="observacao" rows="4" placeholder="Informações complementares"></textarea>
+          </label>
+          <div class="form-actions full-width">
+            <button class="btn btn-primary" type="submit">Salvar</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/saidas.js"></script>
+</body>
+</html>

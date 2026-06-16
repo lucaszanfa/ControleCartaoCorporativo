@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Conciliação de Cartões</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar"><div class="sidebar-brand"><img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A"><strong>Cartões Corporativos</strong></div><nav class="sidebar-nav"><a href="dashboard.html">Dashboard materiais</a><a href="dashboard-cartoes.html">Dashboard cartões</a><a href="cartoes.html">Cartões</a><a href="compra-cartao.html">Registrar compra</a><a href="faturas-cartao.html">Faturas</a><a class="active" href="conciliacao-cartao.html">Conciliação</a><a href="alertas-cartao.html">Alertas</a><a href="relatorios-cartao.html">Relatórios cartão</a><a href="login.html">Sair</a></nav></aside>
+    <main class="main-content">
+      <header class="topbar"><div><span class="eyebrow">Fatura x compras registradas</span><h1>Conciliação</h1></div><span class="user-chip">Usuário</span></header>
+      <section class="card"><div class="filters-row"><label>Status <select id="filtroStatus"><option value="">Todos</option><option value="conciliada">Conciliada</option><option value="sem_registro">Sem registro</option><option value="valor_divergente">Valor divergente</option><option value="data_divergente">Data divergente</option><option value="aguardando_comprovante">Aguardando comprovante</option><option value="resolvida">Resolvida</option></select></label><label>Cartão <select id="filtroCartao"><option value="">Todos</option></select></label></div></section>
+      <section class="card"><div class="table-wrapper"><table><thead><tr><th>Data fatura</th><th>Estabelecimento</th><th>Valor</th><th>Cartão</th><th>Compra encontrada</th><th>Responsável</th><th>Status</th><th>Ações</th></tr></thead><tbody id="conciliacoesTabela"></tbody></table></div></section>
+    </main>
+  </div>
+  <script src="js/dados.js"></script><script src="js/auth.js"></script><script src="js/cartoes-utils.js"></script><script src="js/conciliacao-cartao.js"></script>
+</body>
+</html>

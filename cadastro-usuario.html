@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadastro de usuário | Controle de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+  <main class="login-container">
+    <section class="login-card">
+      <div class="brand-block">
+        <img class="brand-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
+        <div>
+          <h1>Cadastro de usuário</h1>
+          <p>Aguarde liberação do administrador após o cadastro.</p>
+        </div>
+      </div>
+
+      <form id="cadastroUsuarioForm" class="form-grid">
+        <div id="cadastroMensagem" class="alert-success hidden"></div>
+        <label>
+          Nome
+          <input type="text" id="nome" placeholder="Seu nome" required>
+        </label>
+        <label>
+          E-mail
+          <input type="email" id="email" placeholder="usuario@empresa.com" required>
+        </label>
+        <label>
+          Senha
+          <input type="password" id="senha" placeholder="Crie uma senha" required>
+        </label>
+        <label>
+          Setor
+          <select id="setor" required></select>
+        </label>
+        <button class="btn btn-primary" type="submit">Solicitar cadastro</button>
+        <a class="form-link" href="login.html">Voltar para login</a>
+      </form>
+    </section>
+    <section class="login-showcase" aria-label="Cadastro de usuário SM&A">
+      <img src="img/mascote-comemorando.png" alt="Mascote SM&A comemorando">
+      <div>
+        <span class="eyebrow">Acesso controlado</span>
+        <h2>O administrador libera as permissões de cada usuário.</h2>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/dados.js"></script>
+  <script src="js/cadastro-usuario.js"></script>
+</body>
+</html>

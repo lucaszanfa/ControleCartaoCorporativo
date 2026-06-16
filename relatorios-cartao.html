@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatórios de Cartão</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Análise de cartões</span>
+          <h1>Relatórios de cartão</h1>
+        </div>
+        <span class="user-chip">Usuário</span>
+      </header>
+
+      <section class="card report-filter-card">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Filtros</span>
+            <h2>Escolha o que deseja analisar</h2>
+          </div>
+          <button class="btn btn-secondary" id="limparFiltros">Limpar filtros</button>
+        </div>
+        <div class="filters-row filters-six">
+          <label>Departamento
+            <select id="filtroDepartamento">
+              <option value="">Todos os departamentos</option>
+            </select>
+          </label>
+          <label>Cartão
+            <select id="filtroCartao">
+              <option value="">Todos os cartões</option>
+            </select>
+          </label>
+          <label>Categoria
+            <select id="filtroCategoria">
+              <option value="">Todas as categorias</option>
+            </select>
+          </label>
+          <label>Status da pendência
+            <select id="filtroStatus">
+              <option value="">Todos os status</option>
+              <option value="sem_registro">Sem registro</option>
+              <option value="aguardando_comprovante">Sem comprovante</option>
+              <option value="valor_divergente">Valor divergente</option>
+              <option value="data_divergente">Data divergente</option>
+              <option value="resolvida">Resolvida</option>
+              <option value="conciliada">Conciliada</option>
+            </select>
+          </label>
+          <label>Data inicial
+            <input id="filtroDataInicial" type="date">
+          </label>
+          <label>Data final
+            <input id="filtroDataFinal" type="date">
+          </label>
+        </div>
+      </section>
+
+      <section class="cards-grid report-summary-grid">
+        <article class="card metric-card">
+          <span>Total gasto</span>
+          <strong id="resumoTotal">R$ 0,00</strong>
+        </article>
+        <article class="card metric-card">
+          <span>Compras registradas</span>
+          <strong id="resumoCompras">0</strong>
+        </article>
+        <article class="card metric-card">
+          <span>Maior departamento</span>
+          <strong id="resumoDepartamento">-</strong>
+        </article>
+        <article class="card metric-card">
+          <span>Pendências</span>
+          <strong id="resumoPendencias">0</strong>
+        </article>
+      </section>
+
+      <section class="card report-tabs-card">
+        <div class="report-tabs" role="tablist">
+          <button class="active" data-tab="cartao" type="button">Por cartão</button>
+          <button data-tab="departamento" type="button">Por departamento</button>
+          <button data-tab="categoria" type="button">Por categoria</button>
+          <button data-tab="compras" type="button">Compras do período</button>
+          <button data-tab="pendencias" type="button">Pendências</button>
+        </div>
+
+        <div class="report-panel active" id="tab-cartao">
+          <div class="section-header">
+            <div>
+              <h2>Gastos por cartão</h2>
+              <p>Veja quais cartões concentram mais gastos no filtro selecionado.</p>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Cartão</th><th>Departamento</th><th>Total</th><th>Compras</th><th>Média</th></tr></thead>
+              <tbody id="gastosCartaoTabela"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="report-panel" id="tab-departamento">
+          <div class="section-header">
+            <div>
+              <h2>Gastos por departamento</h2>
+              <p>Compare o consumo entre áreas da empresa.</p>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Departamento</th><th>Total</th><th>Compras</th><th>Participação</th></tr></thead>
+              <tbody id="gastosDepartamentoTabela"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="report-panel" id="tab-categoria">
+          <div class="section-header">
+            <div>
+              <h2>Compras por categoria</h2>
+              <p>Entenda para quais finalidades o cartão foi usado.</p>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Categoria</th><th>Total</th><th>Compras</th></tr></thead>
+              <tbody id="gastosCategoriaTabela"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="report-panel" id="tab-compras">
+          <div class="section-header">
+            <div>
+              <h2>Compras do período</h2>
+              <p>Liste todas as compras registradas conforme o período e os filtros escolhidos.</p>
+            </div>
+          </div>
+          <div class="filters-row filters-three report-inline-filters">
+            <label>Tipo de listagem
+              <select id="filtroTipoCompras">
+                <option value="geral">Compras gerais</option>
+                <option value="cartao">Compras por cartão</option>
+                <option value="departamento">Compras por departamento</option>
+              </select>
+            </label>
+            <label>Cartão para listar
+              <select id="filtroComprasCartao">
+                <option value="">Selecione um cartão</option>
+              </select>
+            </label>
+            <label>Departamento para listar
+              <select id="filtroComprasDepartamento">
+                <option value="">Selecione um departamento</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Data</th><th>Cartão</th><th>Departamento</th><th>Responsável</th><th>Fornecedor</th><th>Categoria</th><th>Valor</th><th>Status</th></tr></thead>
+              <tbody id="comprasPeriodoTabela"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="report-panel" id="tab-pendencias">
+          <div class="section-header">
+            <div>
+              <h2>Pendências de conciliação</h2>
+              <p>Acompanhe itens sem registro, comprovante ou com divergências.</p>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Status</th><th>Total</th></tr></thead>
+              <tbody id="pendenciasTabela"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cartoes-utils.js"></script>
+  <script src="js/relatorios-cartao.js"></script>
+</body>
+</html>

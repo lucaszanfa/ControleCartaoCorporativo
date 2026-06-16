@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Controle de Saída de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+  <main class="login-container">
+    <section class="login-card">
+      <div class="brand-block">
+        <img class="brand-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A Sistemas Elétricos e Automação">
+        <div>
+          <h1>Controle de Saída</h1>
+          <p>Materiais administrativos</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="form-grid">
+        <div id="loginMensagem" class="alert-success hidden"></div>
+        <label>
+          E-mail
+          <input type="email" id="email" placeholder="usuario@empresa.com" required>
+        </label>
+        <label>
+          Senha
+          <input type="password" id="senha" placeholder="Digite sua senha" required>
+        </label>
+        <button class="btn btn-primary" type="submit">Entrar</button>
+        <a class="form-link" href="cadastro-usuario.html">Cadastrar novo usuário</a>
+      </form>
+    </section>
+    <section class="login-showcase" aria-label="Sistema de controle de materiais SM&A">
+      <img src="img/smamateriais1.png" alt="Mascote SM&A segurando materiais administrativos">
+      <div>
+        <span class="eyebrow">SM&A Materiais</span>
+        <h2>Controle mensal de saídas com visual simples e corporativo.</h2>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/login.js"></script>
+</body>
+</html>

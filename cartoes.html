@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cartões Corporativos | Controle de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
+        <strong>Cartões Corporativos</strong>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard materiais</a>
+        <a href="dashboard-cartoes.html">Dashboard cartões</a>
+        <a class="active" href="cartoes.html">Cartões</a>
+        <a href="compra-cartao.html">Registrar compra</a>
+        <a href="faturas-cartao.html">Faturas</a>
+        <a href="conciliacao-cartao.html">Conciliação</a>
+        <a href="alertas-cartao.html">Alertas</a>
+        <a href="relatorios-cartao.html">Relatórios cartão</a>
+        <a href="login.html">Sair</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Segurança: apenas últimos 4 dígitos</span>
+          <h1>Cartões corporativos</h1>
+        </div>
+        <button id="novoCartaoBtn" class="btn btn-primary" type="button">Novo cartão</button>
+      </header>
+      <section id="cartaoFormCard" class="card hidden">
+        <div id="cartaoMensagem" class="alert-success hidden"></div>
+        <form id="cartaoForm" class="form-grid form-grid-two">
+          <input id="cartaoId" type="hidden">
+          <label>Nome do cartão <input id="nomeCartao" required></label>
+          <label>Departamento <select id="departamentoId" required></select></label>
+          <label>Responsável <select id="responsavelId" required></select></label>
+          <label>Gerente <select id="gerenteId" required></select></label>
+          <label>Últimos 4 dígitos <input id="ultimos4Digitos" maxlength="4" pattern="[0-9]{4}" required></label>
+          <label>Limite mensal <input id="limiteMensal" type="number" min="0" step="0.01"></label>
+          <label>Status <select id="status"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></label>
+          <label class="full-width">Observação <textarea id="observacao" rows="3"></textarea></label>
+          <div class="form-actions full-width">
+            <button id="cancelarCartaoBtn" class="btn btn-secondary" type="button">Cancelar</button>
+            <button class="btn btn-primary" type="submit">Salvar</button>
+          </div>
+        </form>
+      </section>
+      <section class="card">
+        <div class="filters-row">
+          <label>Departamento <select id="filtroDepartamento"><option value="">Todos</option></select></label>
+          <label>Status <select id="filtroStatus"><option value="">Todos</option><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></label>
+        </div>
+      </section>
+      <section class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Cartão</th><th>Departamento</th><th>Responsável</th><th>Gerente</th><th>Final</th><th>Limite</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="cartoesTabela"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cartoes-utils.js"></script>
+  <script src="js/cartoes.js"></script>
+</body>
+</html>

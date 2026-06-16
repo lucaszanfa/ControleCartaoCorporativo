@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | Controle de Saída de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
+        <strong>Controle de Saída</strong>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="active" href="dashboard.html">Dashboard</a>
+        <a href="materiais.html">Materiais</a>
+        <a href="registrar-saida.html">Registrar saída</a>
+        <a href="registrar-entrada.html">Registrar entrada</a>
+        <a href="historico.html">Histórico</a>
+        <a href="relatorios.html">Relatórios</a>
+        <a href="dashboard-cartoes.html">Cartões corporativos</a>
+        <a class="admin-only" href="usuarios.html">Usuários</a>
+        <a href="login.html">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Setor administrativo</span>
+          <h1>Dashboard</h1>
+        </div>
+        <span class="user-chip">Administrador</span>
+      </header>
+
+      <section class="hero-panel">
+        <div>
+          <span class="eyebrow">SM&A Materiais</span>
+          <h2>Visão geral das retiradas administrativas</h2>
+          <p>Acompanhe saídas, consumo por setor e materiais mais utilizados no mês.</p>
+        </div>
+        <img src="img/smamateriais1.png" alt="Mascote SM&A com materiais">
+      </section>
+
+      <section class="cards-grid">
+        <article class="card metric-card">
+          <span>Total de saídas no mês</span>
+          <strong id="totalSaidasMes">0</strong>
+        </article>
+        <article class="card metric-card">
+          <span>Material mais retirado</span>
+          <strong id="materialMaisRetirado">-</strong>
+        </article>
+        <article class="card metric-card">
+          <span>Setor que mais consumiu</span>
+          <strong id="setorMaisConsumiu">-</strong>
+        </article>
+        <article class="card metric-card">
+          <span>Total de itens retirados</span>
+          <strong id="totalItensRetirados">0</strong>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>Últimas saídas</h2>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Material</th>
+                <th>Quantidade</th>
+                <th>Setor</th>
+                <th>Responsável</th>
+              </tr>
+            </thead>
+            <tbody id="ultimasSaidasTabela"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

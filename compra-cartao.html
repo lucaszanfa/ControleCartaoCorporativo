@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registrar compra no cartão</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Compra corporativa</span>
+          <h1>Registrar compra no cartão</h1>
+        </div>
+        <span class="user-chip">Usuário</span>
+      </header>
+
+      <section class="card">
+        <div id="compraMensagem" class="alert-success hidden"></div>
+        <form id="compraCartaoForm" class="form-grid form-grid-two">
+          <label>Cartão <select id="cartaoId" required></select></label>
+          <label>Departamento <select id="departamentoId" required></select></label>
+          <label>Responsável <select id="responsavelCompraId" required></select></label>
+          <label>Data <input id="dataCompra" type="date" required></label>
+          <label>Valor <input id="valor" type="number" min="0.01" step="0.01" required></label>
+          <label>Fornecedor <input id="fornecedor" required></label>
+          <label>Categoria <select id="categoria" required></select></label>
+          <label>Comprovante
+            <input id="comprovanteArquivo" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">
+            <input id="comprovanteUrl" type="hidden">
+            <small id="comprovanteAtual" class="field-hint">Nenhum comprovante anexado.</small>
+          </label>
+          <label class="full-width">Motivo <input id="motivo" required></label>
+          <label class="full-width">Observação <textarea id="observacao" rows="3"></textarea></label>
+          <div class="form-actions full-width"><button class="btn btn-primary" type="submit">Salvar compra</button></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>Compras registradas</h2>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Cartão</th>
+                <th>Fornecedor</th>
+                <th>Valor</th>
+                <th>Categoria</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="comprasCartaoTabela"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="detalheCompraModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Detalhes da compra</span>
+          <h2 id="detalheCompraTitulo">Compra</h2>
+        </div>
+        <button class="btn btn-secondary" type="button" onclick="fecharDetalheCompra()">Fechar</button>
+      </div>
+      <div id="detalheCompraConteudo" class="detail-grid"></div>
+    </div>
+  </div>
+
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cartoes-utils.js"></script>
+  <script src="js/compra-cartao.js"></script>
+</body>
+</html>

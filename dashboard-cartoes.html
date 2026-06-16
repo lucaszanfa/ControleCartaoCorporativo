@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Cartões | Controle de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
+        <strong>Cartões Corporativos</strong>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard materiais</a>
+        <a class="active" href="dashboard-cartoes.html">Dashboard cartões</a>
+        <a href="cartoes.html">Cartões</a>
+        <a href="compra-cartao.html">Registrar compra</a>
+        <a href="faturas-cartao.html">Faturas</a>
+        <a href="conciliacao-cartao.html">Conciliação</a>
+        <a href="alertas-cartao.html">Alertas</a>
+        <a href="relatorios-cartao.html">Relatórios cartão</a>
+        <a href="login.html">Sair</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Cartões corporativos</span>
+          <h1>Dashboard de cartões</h1>
+        </div>
+        <span class="user-chip">Usuário</span>
+      </header>
+      <section class="cards-grid" id="cartoesDashboardCards"></section>
+    </main>
+  </div>
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cartoes-utils.js"></script>
+  <script src="js/dashboard-cartoes.js"></script>
+</body>
+</html>
