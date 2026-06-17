@@ -1035,7 +1035,43 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
 
   const pendencias = await get("SELECT COUNT(*) AS total FROM transacoes_fatura WHERE fatura_id = ? AND status_conciliacao != 'conciliada'", [request.params.faturaId]);
   await run("UPDATE faturas_cartao SET status = ? WHERE id = ?", [pendencias.total ? "com_pendencias" : "conciliada", request.params.faturaId]);
-  response.json({ mensagem: "Conciliação concluída.", processadas: gerados });
+  const pendenciasAtuais = await all(
+    `SELECT t.id AS transacaoId,
+            co.compra_cartao_id AS compraId,
+            (
+              SELECT a.id
+              FROM alertas_cartao a
+              WHERE a.status != 'resolvido'
+                AND a.transacao_fatura_id = t.id
+                AND ifnull(a.compra_cartao_id, 0) = ifnull(co.compra_cartao_id, 0)
+              ORDER BY a.id DESC
+              LIMIT 1
+            ) AS alertaId,
+            ifnull(co.status, t.status_conciliacao) AS status,
+            t.data_transacao AS dataTransacao,
+            t.estabelecimento,
+            t.valor,
+            t.cartao_id AS cartaoId,
+            c.nome_cartao AS cartao,
+            c.ultimos_4_digitos AS ultimos4Digitos,
+            c.departamento_id AS departamentoId,
+            s.nome AS departamento,
+            cc.fornecedor AS compraFornecedor,
+            cc.data_compra AS compraData,
+            cc.valor AS compraValor,
+            ifnull(co.diferenca_valor, 0) AS diferencaValor,
+            ifnull(co.diferenca_dias, 0) AS diferencaDias
+     FROM transacoes_fatura t
+     JOIN cartoes_corporativos c ON c.id = t.cartao_id
+     JOIN setores s ON s.id = c.departamento_id
+     LEFT JOIN conciliacoes_cartao co ON co.transacao_fatura_id = t.id
+     LEFT JOIN compras_cartao cc ON cc.id = co.compra_cartao_id
+     WHERE t.fatura_id = ?
+       AND t.status_conciliacao != 'conciliada'
+     ORDER BY t.data_transacao DESC, t.id DESC`,
+    [request.params.faturaId]
+  );
+  response.json({ mensagem: "Conciliação concluída.", processadas: gerados, pendencias: pendenciasAtuais });
 });
 
 app.get("/api/conciliacoes-cartao", async (request, response) => {
@@ -1049,7 +1085,7 @@ app.get("/api/conciliacoes-cartao", async (request, response) => {
     where.push("co.cartao_id = ?");
     params.push(request.query.cartaoId);
   }
-  const sql = `SELECT co.*, t.data_transacao, t.estabelecimento, t.valor AS valor_fatura, c.nome_cartao AS cartao,
+  const sql = `SELECT co.*, t.data_transacao, t.estabelecimento, t.valor AS valor_fatura, t.categoria_detectada, c.nome_cartao AS cartao, c.departamento_id,
                       cc.fornecedor AS compra_fornecedor, cc.responsavel_compra_id, u.nome AS responsavel
                FROM conciliacoes_cartao co
                JOIN transacoes_fatura t ON t.id = co.transacao_fatura_id

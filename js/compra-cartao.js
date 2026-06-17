@@ -57,7 +57,7 @@ async function carregarComprasCartao() {
       <td>${compra.fornecedor}</td>
       <td>${moeda(compra.valor)}</td>
       <td>${compra.categoria}</td>
-      <td><span class="status">${compra.status}</span></td>
+      <td><span class="${classeStatus(compra.status)}">${compra.status}</span></td>
       <td>
         ${podeVerDetalhes
           ? `<button class="btn btn-secondary" type="button" onclick="abrirDetalheCompra(${compra.id})">Ver detalhes</button>`
@@ -85,12 +85,38 @@ function detalheItem(rotulo, valor, extraClass = "") {
   `;
 }
 
+function comprovanteUrlValido(comprovanteUrl) {
+  const valor = String(comprovanteUrl || "").trim();
+  if (!valor || valor === "." || valor === "-") return false;
+  if (/^https?:\/\//i.test(valor)) return true;
+  return valor.startsWith("/uploads/comprovantes/");
+}
+
+function linkComprovanteAtual(comprovanteUrl, prefixo = "Comprovante atual") {
+  if (!comprovanteUrl) return "Nenhum comprovante anexado.";
+  if (!comprovanteUrlValido(comprovanteUrl)) {
+    return "Comprovante antigo inválido. Anexe o arquivo novamente.";
+  }
+  const url = escapeHtml(comprovanteUrl);
+  return `${prefixo}: <a href="${url}" target="_blank" rel="noopener">abrir arquivo</a>`;
+}
+
 function renderComprovante(comprovanteUrl) {
   if (!comprovanteUrl) {
     return `
       <div class="detail-item full-width">
         <span>Comprovante</span>
         <strong>Nenhum comprovante anexado.</strong>
+      </div>
+    `;
+  }
+
+  if (!comprovanteUrlValido(comprovanteUrl)) {
+    return `
+      <div class="detail-item full-width">
+        <span>Comprovante</span>
+        <strong>Comprovante antigo inválido.</strong>
+        <p class="field-hint">Edite a compra e anexe o arquivo novamente.</p>
       </div>
     `;
   }
@@ -180,7 +206,8 @@ function lerArquivoComoBase64(file) {
 async function enviarComprovanteSeNecessario() {
   const input = document.getElementById("comprovanteArquivo");
   const file = input.files?.[0];
-  if (!file) return document.getElementById("comprovanteUrl").value;
+  const atual = document.getElementById("comprovanteUrl").value;
+  if (!file) return comprovanteUrlValido(atual) ? atual : "";
 
   const mensagem = document.getElementById("compraMensagem");
   mensagem.textContent = "Enviando comprovante...";
@@ -201,7 +228,7 @@ async function enviarComprovanteSeNecessario() {
   const data = await res.json();
   if (!res.ok) throw new Error(data.erro || "Erro ao enviar comprovante.");
   document.getElementById("comprovanteUrl").value = data.caminho;
-  document.getElementById("comprovanteAtual").innerHTML = `Comprovante anexado: <a href="${data.caminho}" target="_blank" rel="noopener">abrir arquivo</a>`;
+  document.getElementById("comprovanteAtual").innerHTML = linkComprovanteAtual(data.caminho, "Comprovante anexado");
   return data.caminho;
 }
 
@@ -238,10 +265,8 @@ async function carregarCompraParaEdicao(id) {
   document.getElementById("fornecedor").value = compra.fornecedor;
   document.getElementById("categoria").value = compra.categoria;
   document.getElementById("motivo").value = compra.motivo;
-  document.getElementById("comprovanteUrl").value = compra.comprovanteUrl || "";
-  document.getElementById("comprovanteAtual").innerHTML = compra.comprovanteUrl
-    ? `Comprovante atual: <a href="${compra.comprovanteUrl}" target="_blank" rel="noopener">abrir arquivo</a>`
-    : "Nenhum comprovante anexado.";
+  document.getElementById("comprovanteUrl").value = comprovanteUrlValido(compra.comprovanteUrl) ? compra.comprovanteUrl : "";
+  document.getElementById("comprovanteAtual").innerHTML = linkComprovanteAtual(compra.comprovanteUrl);
   document.getElementById("observacao").value = compra.observacao || "";
 }
 
@@ -272,7 +297,44 @@ function escolherPendenciaCompativel(pendencias) {
     "OK = Sim, vincular à pendência",
     "Cancelar = Não, registrar como nova compra"
   ].join("\n");
-  return confirm(detalhes) ? primeira : null;
+  return escolherPendenciaCompativelModal(pendencias);
+}
+
+function escolherPendenciaCompativelModal(pendencias) {
+  if (!pendencias.length) return Promise.resolve(null);
+  const primeira = pendencias[0];
+  const modal = document.getElementById("pendenciaCompatibilidadeModal");
+  const conteudo = document.getElementById("pendenciaCompatibilidadeConteudo");
+  const vincularBtn = document.getElementById("vincularPendenciaBtn");
+  const novaCompraBtn = document.getElementById("registrarNovaCompraBtn");
+
+  conteudo.innerHTML = `
+    ${detalheItem("Data na fatura", formatarData(primeira.dataTransacao))}
+    ${detalheItem("Cartao", primeira.cartao)}
+    ${detalheItem("Departamento", primeira.departamento)}
+    ${detalheItem("Estabelecimento", primeira.estabelecimento)}
+    ${detalheItem("Valor", moeda(primeira.valor))}
+    ${detalheItem("Status", primeira.statusConciliacao, "full-width")}
+    <div class="detail-item full-width">
+      <span>Decisao</span>
+      <strong>Confira se a compra que voce acabou de preencher corresponde a esta pendencia da fatura.</strong>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+
+  return new Promise((resolve) => {
+    const finalizar = (pendencia) => {
+      modal.classList.add("hidden");
+      vincularBtn.removeEventListener("click", vincular);
+      novaCompraBtn.removeEventListener("click", novaCompra);
+      resolve(pendencia);
+    };
+    const vincular = () => finalizar(primeira);
+    const novaCompra = () => finalizar(null);
+
+    vincularBtn.addEventListener("click", vincular);
+    novaCompraBtn.addEventListener("click", novaCompra);
+  });
 }
 
 document.getElementById("compraCartaoForm").addEventListener("submit", async (event) => {
@@ -310,7 +372,7 @@ document.getElementById("compraCartaoForm").addEventListener("submit", async (ev
     payload.transacaoFaturaId = transacaoResolucaoId;
   } else {
     const pendencias = await buscarPendenciasCompativeis(payload);
-    const pendenciaEscolhida = escolherPendenciaCompativel(pendencias);
+    const pendenciaEscolhida = await escolherPendenciaCompativelModal(pendencias);
     if (pendenciaEscolhida) {
       payload.vincularPendencia = true;
       payload.transacaoFaturaId = pendenciaEscolhida.id;

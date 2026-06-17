@@ -532,6 +532,16 @@ tr:last-child td {
   font-weight: 700;
 }
 
+.status-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pending {
+  background: #fecdd3;
+  color: #991b1b;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -758,6 +768,45 @@ textarea:focus {
   font-weight: 700;
 }
 
+.conciliation-result {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(8, 135, 216, 0.16);
+  border-radius: 8px;
+  background: #f7fcff;
+}
+
+.pending-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pending-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--cinza-borda);
+  border-radius: 8px;
+  background: var(--branco);
+}
+
+.pending-item div {
+  display: grid;
+  gap: 6px;
+}
+
+.pending-item strong {
+  color: var(--preto);
+}
+
+.pending-item p {
+  margin: 0;
+  color: var(--cinza-texto);
+  line-height: 1.35;
+}
+
 .hidden {
   display: none;
 }
@@ -792,6 +841,11 @@ textarea:focus {
     linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(239, 250, 255, 0.96)),
     var(--branco);
   box-shadow: 0 24px 70px rgba(7, 17, 31, 0.28);
+}
+
+.modal-actions {
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .detail-grid {
@@ -932,6 +986,11 @@ textarea:focus {
   }
 
   .support-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pending-item {
     align-items: flex-start;
     flex-direction: column;
   }

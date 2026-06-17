@@ -12,7 +12,7 @@ async function carregarAlertas() {
       <td>${row.tipo_alerta}</td>
       <td>${row.estabelecimento || "-"}</td>
       <td>${moeda(row.valor)}</td>
-      <td><span class="status">${row.status}</span></td>
+      <td><span class="${classeStatus(row.status)}">${row.status}</span></td>
       <td>${row.enviado_teams ? "Sim" : "Não"}</td>
       <td>
         <div class="actions">

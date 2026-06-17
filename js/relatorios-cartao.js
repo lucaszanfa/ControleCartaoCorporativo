@@ -122,13 +122,13 @@ function renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, c
         r.fornecedor,
         String(r.categoria || "-").replaceAll("_", " "),
         moeda(r.valor),
-        `<span class="status">${String(r.status || "-").replaceAll("_", " ")}</span>`
+        `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`
       ])).join("")
     : vazio(8, "Nenhuma compra encontrada para o período selecionado.");
 
   document.getElementById("pendenciasTabela").innerHTML = pendencias.length
     ? pendencias.map((r) => linha([
-        `<span class="status">${String(r.status || "-").replaceAll("_", " ")}</span>`,
+        `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`,
         r.total
       ], { destaque: r.status !== "conciliada" && r.status !== "resolvida" ? "row-inactive" : "" })).join("")
     : vazio(2, "Nenhuma pendência encontrada.");

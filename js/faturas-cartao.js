@@ -13,17 +13,116 @@ function parseCsv(texto) {
   });
 }
 
+function escapeHtml(valor) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function rotuloPendencia(status) {
+  const labels = {
+    sem_registro: "Compra sem registro",
+    valor_divergente: "Valor divergente",
+    data_divergente: "Data divergente",
+    aguardando_comprovante: "Aguardando comprovante"
+  };
+  return labels[status] || status;
+}
+
+function linkResolucaoPendencia(pendencia) {
+  if (pendencia.compraId) {
+    const params = new URLSearchParams({ compraId: pendencia.compraId });
+    if (pendencia.alertaId) params.set("alertaId", pendencia.alertaId);
+    return `compra-cartao.html?${params.toString()}`;
+  }
+
+  const params = new URLSearchParams({
+    transacaoId: pendencia.transacaoId,
+    cartaoId: pendencia.cartaoId,
+    departamentoId: pendencia.departamentoId,
+    dataCompra: pendencia.dataTransacao || "",
+    valor: pendencia.valor || "",
+    fornecedor: pendencia.estabelecimento || "",
+    categoria: "outros"
+  });
+  if (pendencia.alertaId) params.set("alertaId", pendencia.alertaId);
+  return `compra-cartao.html?${params.toString()}`;
+}
+
+function detalheCompraEncontrada(pendencia) {
+  if (!pendencia.compraId) return "Nenhuma compra encontrada para essa transação.";
+
+  const detalhes = [
+    pendencia.compraFornecedor,
+    pendencia.compraData ? formatarData(pendencia.compraData) : null,
+    pendencia.compraValor ? moeda(pendencia.compraValor) : null
+  ].filter(Boolean).join(" - ");
+
+  return `Compra encontrada: ${detalhes || "dados incompletos"}.`;
+}
+
+function renderResultadoConciliacao(data) {
+  const container = document.getElementById("resultadoConciliacao");
+  const pendencias = data.pendencias || [];
+  container.classList.remove("hidden");
+
+  if (!pendencias.length) {
+    container.innerHTML = `
+      <div class="section-header">
+        <div>
+          <h2>Conciliação concluída</h2>
+          <p>${data.processadas || 0} transações processadas. Nenhuma pendência encontrada.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="section-header">
+      <div>
+        <h2>Pendências encontradas</h2>
+        <p>${pendencias.length} item(ns) precisam de revisão após a conciliação.</p>
+      </div>
+      <a class="btn btn-secondary" href="conciliacao-cartao.html">Ver conciliação</a>
+    </div>
+    <div class="pending-list">
+      ${pendencias.map((pendencia) => `
+        <div class="pending-item">
+          <div>
+            <span class="${classeStatus(pendencia.status)}">${escapeHtml(rotuloPendencia(pendencia.status))}</span>
+            <strong>${escapeHtml(pendencia.estabelecimento || "-")} - ${moeda(pendencia.valor)}</strong>
+            <p>${formatarData(pendencia.dataTransacao)} - ${escapeHtml(pendencia.cartao || "-")} final ${escapeHtml(pendencia.ultimos4Digitos || "-")} - ${escapeHtml(pendencia.departamento || "-")}</p>
+            <p>${escapeHtml(detalheCompraEncontrada(pendencia))}</p>
+          </div>
+          <a class="btn btn-primary" href="${linkResolucaoPendencia(pendencia)}">Resolver</a>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 async function carregarFaturas() {
   const faturas = await (await fetch("/api/faturas-cartao")).json();
   document.getElementById("faturasTabela").innerHTML = faturas.map((fatura) => `
-    <tr><td>${fatura.cartao}</td><td>${fatura.mes_referencia}/${fatura.ano_referencia}</td><td>${fatura.arquivo_nome || "-"}</td><td><span class="status">${fatura.status}</span></td><td><button class="btn btn-primary" onclick="rodarConciliacao(${fatura.id})">Rodar conciliação</button></td></tr>
+    <tr><td>${fatura.cartao}</td><td>${fatura.mes_referencia}/${fatura.ano_referencia}</td><td>${fatura.arquivo_nome || "-"}</td><td><span class="${classeStatus(fatura.status)}">${fatura.status}</span></td><td><button class="btn btn-primary" onclick="rodarConciliacao(${fatura.id})">Rodar conciliação</button></td></tr>
   `).join("");
 }
 
 async function rodarConciliacao(id) {
-  await fetch(`/api/conciliacoes-cartao/rodar/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conciliadoPorId: usuarioIdAtual() }) });
+  const res = await fetch(`/api/conciliacoes-cartao/rodar/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conciliadoPorId: usuarioIdAtual() }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const mensagem = document.getElementById("faturaMensagem");
+    mensagem.textContent = data.erro || "Nao foi possivel rodar a conciliacao.";
+    mensagem.classList.remove("hidden");
+    return;
+  }
   await carregarFaturas();
-  alert("Conciliação executada.");
+  renderResultadoConciliacao(data);
 }
 
 document.getElementById("faturaForm").addEventListener("submit", async (event) => {

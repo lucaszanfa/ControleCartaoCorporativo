@@ -53,7 +53,7 @@ function renderizarMateriais() {
         <td>${material.nome}</td>
         <td>${material.categoria}</td>
         <td>${material.unidade}</td>
-        <td><span class="status">${textoStatus}</span></td>
+        <td><span class="status ${material.ativo ? "status-ok" : "status-pending"}">${textoStatus}</span></td>
         <td>
           ${podeGerenciarMateriais ? `
             <div class="actions">

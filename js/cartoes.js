@@ -20,7 +20,7 @@ async function carregarCartoes() {
   document.getElementById("cartoesTabela").innerHTML = cartoes.map((cartao) => `
     <tr class="${cartao.status === "inativo" ? "row-inactive" : ""}">
       <td>${cartao.nomeCartao}</td><td>${cartao.departamento}</td><td>${cartao.responsavel}</td><td>${cartao.gerente}</td>
-      <td>${cartao.ultimos4Digitos}</td><td>${moeda(cartao.limiteMensal)}</td><td><span class="status">${cartao.status}</span></td>
+      <td>${cartao.ultimos4Digitos}</td><td>${moeda(cartao.limiteMensal)}</td><td><span class="${classeStatus(cartao.status)}">${cartao.status}</span></td>
       <td><div class="actions"><button class="btn btn-secondary" onclick="editarCartao(${cartao.id})">Editar</button><button class="btn btn-danger" onclick="alternarCartao(${cartao.id}, '${cartao.status}')">${cartao.status === "ativo" ? "Inativar" : "Ativar"}</button></div></td>
     </tr>
   `).join("");
