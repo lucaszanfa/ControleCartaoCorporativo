@@ -13,7 +13,11 @@
           <label>Cartão <select id="cartaoId" required></select></label>
           <label>Mês <select id="mesReferencia" required></select></label>
           <label>Ano <input id="anoReferencia" type="number" value="2026" required></label>
-          <label>Arquivo nome <input id="arquivoNome" placeholder="fatura.csv"></label>
+          <label>Arquivo CSV
+            <input id="arquivoFatura" type="file" accept=".csv,text/csv">
+            <input id="arquivoNome" type="hidden">
+            <small id="arquivoFaturaAtual" class="field-hint">Nenhum arquivo selecionado.</small>
+          </label>
           <label class="full-width">Transações CSV <textarea id="csvTransacoes" rows="6" placeholder="data_transacao;estabelecimento;valor;ultimos_4_digitos;codigo_autorizacao;categoria"></textarea></label>
           <label class="full-width">Observação <textarea id="observacao" rows="2"></textarea></label>
           <div class="form-actions full-width"><button class="btn btn-primary" type="submit">Importar fatura</button></div>

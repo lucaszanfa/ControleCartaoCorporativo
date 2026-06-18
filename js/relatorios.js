@@ -635,6 +635,57 @@ function renderizarGastosMensais() {
   renderizarVisualizacaoGastos();
 }
 
+function textoSelecionado(select) {
+  return select.options[select.selectedIndex]?.textContent || "-";
+}
+
+function baixarPdfConsumoMensal() {
+  const dados = dadosRelatorioMensal().filter((material) => material.total > 0);
+  const mes = textoSelecionado(controles.mesRelatorio);
+  const ano = controles.anoRelatorio.value;
+  const setor = textoSelecionado(controles.setorRelatorio);
+  const totalItens = dados.reduce((sum, material) => sum + Number(material.total || 0), 0);
+  const totalMateriais = dados.length;
+
+  const pdf = new PdfReport({
+    title: "Relatorio mensal de consumo",
+    subtitle: `Gerado em ${new Date().toLocaleDateString("pt-BR")} - Controle de materiais`
+  });
+
+  pdf.section("Filtros selecionados");
+  pdf.keyValues([
+    { label: "Mes", value: mes },
+    { label: "Ano", value: ano },
+    { label: "Departamento", value: setor || "Geral" },
+    { label: "Materiais consumidos", value: totalMateriais },
+    { label: "Total de itens consumidos", value: totalItens },
+    { label: "Visualizacao da tela", value: textoSelecionado(controles.tipoVisualizacao) }
+  ]);
+
+  pdf.section("Consumo por material");
+  pdf.table(
+    ["Material", "Categoria", "Unidade", "Total", "Por departamento"],
+    dados.map((material) => [
+      material.nome,
+      material.categoria,
+      material.unidade,
+      material.total,
+      controles.setorRelatorio.value
+        ? setor
+        : Object.entries(material.departamentos)
+          .map(([departamento, quantidade]) => `${departamento}: ${quantidade}`)
+          .join("; ") || "-"
+    ]),
+    [190, 120, 80, 55, 320]
+  );
+
+  if (!dados.length) {
+    pdf.text("Nenhum consumo encontrado para os filtros selecionados.", pdf.margin, pdf.y, { size: 10 });
+  }
+
+  pdf.output(`relatorio-consumo-${ano}-${controles.mesRelatorio.value}.pdf`);
+}
+
 function renderizarVisualizacaoGastos() {
   const tipo = controles.tipoVisualizacaoGastos.value;
   document.getElementById("visualizacaoGastosLista").classList.toggle("hidden", tipo !== "lista");
@@ -757,3 +808,4 @@ function atualizarRelatorios() {
 preencherSelects();
 atualizarRelatorios();
 Object.values(controles).forEach((select) => select.addEventListener("change", atualizarRelatorios));
+document.getElementById("baixarPdfConsumo").addEventListener("click", baixarPdfConsumoMensal);

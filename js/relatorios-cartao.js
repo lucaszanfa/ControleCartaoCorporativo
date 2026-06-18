@@ -7,6 +7,7 @@ const categoriasRelatorioCartao = [
   "servicos",
   "outros"
 ];
+let ultimoRelatorioCartao = null;
 
 function linha(cells, options = {}) {
   const classe = options.destaque ? ` class="${options.destaque}"` : "";
@@ -150,11 +151,111 @@ async function carregarRelatoriosCartao() {
     comprasPromise
   ]);
 
+  ultimoRelatorioCartao = {
+    porCartao,
+    porDepartamento,
+    porCategoria,
+    pendencias,
+    comprasPeriodo: comprasResultado.rows,
+    comprasBloqueadas: comprasResultado.blocked || ""
+  };
   renderResumo({ porCartao, porDepartamento, pendencias });
   renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, comprasPeriodo: comprasResultado.rows });
   if (comprasResultado.blocked) {
     document.getElementById("comprasPeriodoTabela").innerHTML = vazio(8, comprasResultado.blocked);
   }
+}
+
+function textoSelecionadoCartao(id) {
+  const select = document.getElementById(id);
+  return select.options[select.selectedIndex]?.textContent || "-";
+}
+
+function baixarPdfRelatorioCartao() {
+  if (!ultimoRelatorioCartao) return;
+
+  const { porCartao, porDepartamento, porCategoria, pendencias, comprasPeriodo, comprasBloqueadas } = ultimoRelatorioCartao;
+  const total = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
+  const compras = porCartao.reduce((sum, item) => sum + Number(item.quantidade_compras || 0), 0);
+  const totalPendencias = pendencias
+    .filter((item) => item.status !== "conciliada" && item.status !== "resolvida")
+    .reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+  const pdf = new PdfReport({
+    title: "Relatorio de cartoes corporativos",
+    subtitle: `Gerado em ${new Date().toLocaleDateString("pt-BR")} - Filtros selecionados`
+  });
+
+  pdf.section("Filtros selecionados");
+  pdf.keyValues([
+    { label: "Departamento", value: textoSelecionadoCartao("filtroDepartamento") },
+    { label: "Cartao", value: textoSelecionadoCartao("filtroCartao") },
+    { label: "Categoria", value: textoSelecionadoCartao("filtroCategoria") },
+    { label: "Status da pendencia", value: textoSelecionadoCartao("filtroStatus") },
+    { label: "Data inicial", value: document.getElementById("filtroDataInicial").value || "-" },
+    { label: "Data final", value: document.getElementById("filtroDataFinal").value || "-" },
+    { label: "Tipo compras", value: textoSelecionadoCartao("filtroTipoCompras") },
+    { label: "Cartao compras", value: textoSelecionadoCartao("filtroComprasCartao") },
+    { label: "Departamento compras", value: textoSelecionadoCartao("filtroComprasDepartamento") }
+  ]);
+
+  pdf.section("Resumo executivo");
+  pdf.keyValues([
+    { label: "Total gasto", value: moeda(total) },
+    { label: "Compras registradas", value: compras },
+    { label: "Maior departamento", value: porDepartamento[0]?.departamento || "-" },
+    { label: "Pendencias abertas", value: totalPendencias }
+  ]);
+
+  pdf.section("Gastos por cartao");
+  pdf.table(
+    ["Cartao", "Departamento", "Total", "Compras", "Media"],
+    porCartao.map((r) => [r.cartao, r.departamento, moeda(r.total_gasto), r.quantidade_compras, moeda(r.media_compra)]),
+    [210, 170, 105, 75, 105]
+  );
+
+  pdf.section("Gastos por departamento");
+  pdf.table(
+    ["Departamento", "Total", "Compras", "Participacao"],
+    porDepartamento.map((r) => [r.departamento, moeda(r.total_gasto), r.quantidade_compras, `${Number(r.percentual || 0).toFixed(1)}%`]),
+    [260, 130, 90, 110]
+  );
+
+  pdf.section("Compras por categoria");
+  pdf.table(
+    ["Categoria", "Total", "Compras"],
+    porCategoria.map((r) => [String(r.categoria || "-").replaceAll("_", " "), moeda(r.total_gasto), r.quantidade_compras]),
+    [260, 130, 90]
+  );
+
+  pdf.section("Pendencias de conciliacao");
+  pdf.table(
+    ["Status", "Total"],
+    pendencias.map((r) => [String(r.status || "-").replaceAll("_", " "), r.total]),
+    [260, 80]
+  );
+
+  pdf.section("Compras do periodo");
+  if (comprasBloqueadas) {
+    pdf.text(comprasBloqueadas, pdf.margin, pdf.y, { size: 10 });
+  } else {
+    pdf.table(
+      ["Data", "Cartao", "Departamento", "Responsavel", "Fornecedor", "Categoria", "Valor", "Status"],
+      comprasPeriodo.map((r) => [
+        formatarData(r.data_compra),
+        r.cartao,
+        r.departamento,
+        r.responsavel,
+        r.fornecedor,
+        String(r.categoria || "-").replaceAll("_", " "),
+        moeda(r.valor),
+        String(r.status || "-").replaceAll("_", " ")
+      ]),
+      [62, 115, 100, 95, 125, 85, 70, 85]
+    );
+  }
+
+  pdf.output(`relatorio-cartoes-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 function configurarEventos() {
@@ -169,6 +270,8 @@ function configurarEventos() {
     document.getElementById("filtroTipoCompras").value = "geral";
     carregarRelatoriosCartao();
   });
+
+  document.getElementById("baixarPdfCartao").addEventListener("click", baixarPdfRelatorioCartao);
 
   document.querySelectorAll(".report-tabs button").forEach((button) => {
     button.addEventListener("click", () => {
