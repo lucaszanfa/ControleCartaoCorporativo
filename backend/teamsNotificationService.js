@@ -63,6 +63,10 @@ async function sendTeamsAlert(alerta) {
   const destinatariosDepartamento = Array.isArray(alerta.destinatarios_departamento)
     ? alerta.destinatarios_departamento
     : [];
+  const isCompraSemRegistro = alerta.tipo_alerta === "compra_sem_registro";
+  const isCompraSemComprovante = alerta.tipo_alerta === "compra_sem_comprovante";
+  const notificarDepartamento = isCompraSemRegistro;
+  const notificarComprador = !isCompraSemRegistro;
 
   const payload = {
     alerta_id: alerta.id,
@@ -81,19 +85,30 @@ async function sendTeamsAlert(alerta) {
     url_resolucao: alerta.url_resolucao || "",
     destinatarios_departamento: destinatariosDepartamento,
     destinatarios_departamento_emails: destinatariosDepartamento.map((usuario) => usuario.email).filter(Boolean).join(";"),
-    notificar_departamento: alerta.tipo_alerta === "compra_sem_registro"
+    notificar_departamento: notificarDepartamento,
+    notificar_grupo: notificarDepartamento,
+    notificar_comprador: notificarComprador,
+    destinatario_tipo: notificarDepartamento ? "grupo" : "individual",
+    acao_pendente: isCompraSemComprovante ? "solicitar_comprovante" : isCompraSemRegistro ? "solicitar_cadastro" : "revisar_compra",
+    titulo: isCompraSemComprovante
+      ? "Compra sem comprovante"
+      : isCompraSemRegistro
+        ? "Compra sem registro"
+        : "Pendência em cartão corporativo"
   };
 
   payload.mensagem_texto = buildTeamsMessageText(payload);
   payload.mensagem_html = buildTeamsMessageHtml(payload);
   payload.mensagem = payload.mensagem_texto;
 
-  const powerAutomateUrl = alerta.tipo_alerta === "compra_sem_registro"
+  const powerAutomateUrl = isCompraSemRegistro
     ? process.env.POWER_AUTOMATE_COMPRA_SEM_REGISTRO_URL
-    : process.env.POWER_AUTOMATE_ALERTA_CARTAO_URL;
+    : isCompraSemComprovante
+      ? process.env.POWER_AUTOMATE_COMPRA_SEM_COMPROVANTE_URL || process.env.POWER_AUTOMATE_ALERTA_CARTAO_URL
+      : process.env.POWER_AUTOMATE_ALERTA_CARTAO_URL;
   const teamsWebhookUrl = process.env.TEAMS_WEBHOOK_URL;
 
-  if (alerta.tipo_alerta === "compra_sem_registro" && !powerAutomateUrl) {
+  if (isCompraSemRegistro && !powerAutomateUrl) {
     throw new Error("Configure POWER_AUTOMATE_COMPRA_SEM_REGISTRO_URL no .env para enviar alertas de compra sem registro.");
   }
 
@@ -116,7 +131,7 @@ async function sendTeamsAlert(alerta) {
   return {
     simulated: false,
     provider: powerAutomateUrl ? "power_automate" : "teams_webhook",
-    automation: alerta.tipo_alerta === "compra_sem_registro" ? "compra_sem_registro" : "alerta_cartao"
+    automation: isCompraSemRegistro ? "compra_sem_registro" : isCompraSemComprovante ? "compra_sem_comprovante" : "alerta_cartao"
   };
 }
 

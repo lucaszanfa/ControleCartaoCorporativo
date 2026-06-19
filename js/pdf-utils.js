@@ -22,6 +22,30 @@ function pdfDownload(blob, fileName) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function pdfAsciiBytes(text) {
+  return new TextEncoder().encode(text);
+}
+
+function pdfConcatBytes(parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  parts.forEach((part) => {
+    result.set(part, offset);
+    offset += part.length;
+  });
+  return result;
+}
+
+function pdfBase64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
 class PdfReport {
   constructor({ title, subtitle = "", orientation = "landscape" }) {
     this.width = orientation === "landscape" ? 842 : 595;
@@ -30,6 +54,7 @@ class PdfReport {
     this.title = title;
     this.subtitle = subtitle;
     this.pages = [];
+    this.images = [];
     this.addPage();
   }
 
@@ -116,6 +141,22 @@ class PdfReport {
     this.y += Math.ceil(items.length / 3) * 28 + 8;
   }
 
+  bullets(items) {
+    this.ensureSpace(items.length * 18 + 12);
+    items.forEach((item) => {
+      const lines = this.wrapText(item, this.width - this.margin * 2 - 28, 9);
+      const height = Math.max(18, lines.length * 11 + 8);
+      this.ensureSpace(height);
+      this.rect(this.margin, this.y, this.width - this.margin * 2, height, [248, 250, 252]);
+      this.rect(this.margin, this.y, 4, height, [20, 184, 166]);
+      lines.forEach((line, index) => {
+        this.text(line, this.margin + 14, this.y + 9 + index * 11, { size: 9, color: [15, 23, 42] });
+      });
+      this.y += height + 6;
+    });
+    this.y += 4;
+  }
+
   table(headers, rows, widths) {
     const x0 = this.margin;
     const tableWidth = widths.reduce((sum, width) => sum + width, 0);
@@ -152,6 +193,25 @@ class PdfReport {
     this.y += 16;
   }
 
+  imageFromCanvas(canvas, x, y, width, height) {
+    this.ensureSpace(height + 18);
+    const name = `Im${this.images.length + 1}`;
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.94);
+    const bytes = pdfBase64ToBytes(dataUrl.split(",")[1]);
+    const pageIndex = this.pages.length - 1;
+    const pdfY = this.height - y - height;
+
+    this.images.push({
+      name,
+      bytes,
+      width: canvas.width,
+      height: canvas.height,
+      pageIndex
+    });
+    this.current.push(`q ${width.toFixed(2)} 0 0 ${height.toFixed(2)} ${x.toFixed(2)} ${pdfY.toFixed(2)} cm /${name} Do Q`);
+    this.y = y + height + 16;
+  }
+
   output(fileName) {
     const objects = [];
     const addObject = (content) => {
@@ -161,12 +221,29 @@ class PdfReport {
 
     const font1 = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
     const font2 = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+    const imageIds = new Map();
+
+    this.images.forEach((image) => {
+      const imageId = addObject({
+        binary: true,
+        header: `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>\nstream\n`,
+        bytes: image.bytes,
+        footer: "\nendstream"
+      });
+      imageIds.set(image.name, imageId);
+    });
+
     const pageIds = [];
 
-    this.pages.forEach((commands) => {
+    this.pages.forEach((commands, pageIndex) => {
       const stream = commands.join("\n");
       const contentId = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
-      const pageId = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${this.width} ${this.height}] /Resources << /Font << /F1 ${font1} 0 R /F2 ${font2} 0 R >> >> /Contents ${contentId} 0 R >>`);
+      const pageImages = this.images
+        .filter((image) => image.pageIndex === pageIndex)
+        .map((image) => `/${image.name} ${imageIds.get(image.name)} 0 R`)
+        .join(" ");
+      const xObject = pageImages ? ` /XObject << ${pageImages} >>` : "";
+      const pageId = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${this.width} ${this.height}] /Resources << /Font << /F1 ${font1} 0 R /F2 ${font2} 0 R >>${xObject} >> /Contents ${contentId} 0 R >>`);
       pageIds.push(pageId);
     });
 
@@ -176,19 +253,29 @@ class PdfReport {
     });
     const catalogId = addObject(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
 
-    let pdf = "%PDF-1.4\n";
+    const chunks = [pdfAsciiBytes("%PDF-1.4\n")];
     const offsets = [0];
     objects.forEach((object, index) => {
-      offsets.push(pdf.length);
-      pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+      const currentLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      offsets.push(currentLength);
+      chunks.push(pdfAsciiBytes(`${index + 1} 0 obj\n`));
+      if (typeof object === "string") {
+        chunks.push(pdfAsciiBytes(object));
+      } else {
+        chunks.push(pdfAsciiBytes(object.header));
+        chunks.push(object.bytes);
+        chunks.push(pdfAsciiBytes(object.footer));
+      }
+      chunks.push(pdfAsciiBytes("\nendobj\n"));
     });
-    const xref = pdf.length;
-    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    const xref = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    let trailer = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
     offsets.slice(1).forEach((offset) => {
-      pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+      trailer += `${String(offset).padStart(10, "0")} 00000 n \n`;
     });
-    pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    trailer += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    chunks.push(pdfAsciiBytes(trailer));
 
-    pdfDownload(new Blob([pdf], { type: "application/pdf" }), fileName);
+    pdfDownload(new Blob([pdfConcatBytes(chunks)], { type: "application/pdf" }), fileName);
   }
 }

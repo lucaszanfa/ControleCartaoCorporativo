@@ -180,6 +180,8 @@ function renderizarVisualizacao() {
 function prepararCanvas(canvas) {
   const contexto = canvas.getContext("2d");
   contexto.clearRect(0, 0, canvas.width, canvas.height);
+  contexto.fillStyle = "#ffffff";
+  contexto.fillRect(0, 0, canvas.width, canvas.height);
   contexto.imageSmoothingEnabled = true;
   contexto.font = "13px Arial";
   contexto.textBaseline = "middle";
@@ -713,30 +715,46 @@ function textoSelecionado(select) {
   return select.options[select.selectedIndex]?.textContent || "-";
 }
 
-function baixarPdfConsumoMensal() {
-  const dados = dadosRelatorioMensal().filter((material) => material.total > 0);
-  const mes = textoSelecionado(controles.mesRelatorio);
-  const ano = controles.anoRelatorio.value;
-  const setor = textoSelecionado(controles.setorRelatorio);
-  const totalItens = dados.reduce((sum, material) => sum + Number(material.total || 0), 0);
-  const totalMateriais = dados.length;
+function topMateriaisConsumo(dados, limite = 5) {
+  return [...dados]
+    .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))
+    .slice(0, limite);
+}
 
-  const pdf = new PdfReport({
-    title: "Relatorio mensal de consumo",
-    subtitle: `Gerado em ${new Date().toLocaleDateString("pt-BR")} - Controle de materiais`
-  });
+function textoMaiorDepartamento(material) {
+  const departamentos = Object.entries(material.departamentos || {}).sort((a, b) => b[1] - a[1]);
+  if (!departamentos.length) return "-";
+  return `${departamentos[0][0]} (${departamentos[0][1]})`;
+}
 
-  pdf.section("Filtros selecionados");
-  pdf.keyValues([
-    { label: "Mes", value: mes },
-    { label: "Ano", value: ano },
-    { label: "Departamento", value: setor || "Geral" },
-    { label: "Materiais consumidos", value: totalMateriais },
-    { label: "Total de itens consumidos", value: totalItens },
-    { label: "Visualizacao da tela", value: textoSelecionado(controles.tipoVisualizacao) }
-  ]);
+function canvasRelatorioMensalSelecionado() {
+  if (controles.tipoVisualizacao.value === "barras") {
+    desenharGraficoBarras(dadosRelatorioMensal());
+    return document.getElementById("graficoBarras");
+  }
 
-  pdf.section("Consumo por material");
+  if (controles.tipoVisualizacao.value === "pizza") {
+    desenharGraficoPizza(dadosRelatorioMensal());
+    return document.getElementById("graficoPizza");
+  }
+
+  return null;
+}
+
+function adicionarTabelaConsumoPdf(pdf, dados, setor) {
+  pdf.section("Materiais com maior consumo");
+  const topMateriais = topMateriaisConsumo(dados);
+  if (topMateriais.length) {
+    pdf.bullets(topMateriais.map((material, index) => {
+      const departamento = controles.setorRelatorio.value ? setor : textoMaiorDepartamento(material);
+      return `${index + 1}. ${material.nome}: ${material.total} ${material.unidade} - principal setor: ${departamento}`;
+    }));
+  } else {
+    pdf.text("Nenhum material consumido no periodo selecionado.", pdf.margin, pdf.y, { size: 10 });
+    pdf.y += 18;
+  }
+
+  pdf.section("Detalhamento por material");
   pdf.table(
     ["Material", "Categoria", "Unidade", "Total", "Por departamento"],
     dados.map((material) => [
@@ -752,6 +770,78 @@ function baixarPdfConsumoMensal() {
     ]),
     [190, 120, 80, 55, 320]
   );
+}
+
+function adicionarGraficoConsumoPdf(pdf, dados, setor) {
+  const canvas = canvasRelatorioMensalSelecionado();
+
+  pdf.section("Leitura rapida do grafico");
+  const topMateriais = topMateriaisConsumo(dados, 3);
+  if (topMateriais.length) {
+    pdf.bullets(topMateriais.map((material) => {
+      const departamento = controles.setorRelatorio.value ? setor : textoMaiorDepartamento(material);
+      return `${material.nome} concentra ${material.total} itens consumidos. Principal setor: ${departamento}.`;
+    }));
+  } else {
+    pdf.text("Nenhum consumo encontrado para os filtros selecionados.", pdf.margin, pdf.y, { size: 10 });
+    pdf.y += 18;
+  }
+
+  pdf.section(textoSelecionado(controles.tipoVisualizacao));
+  if (canvas) {
+    pdf.rect(pdf.margin, pdf.y, pdf.width - pdf.margin * 2, 316, [248, 250, 252]);
+    pdf.imageFromCanvas(canvas, pdf.margin, pdf.y, pdf.width - pdf.margin * 2, 300);
+  }
+
+  if (controles.tipoVisualizacao.value === "pizza") {
+    const descricao = controles.setorRelatorio.value
+      ? dados.map((material) => `${material.nome}: ${material.total}`).join("; ")
+      : dados.map((material) => {
+          const departamentos = Object.entries(material.departamentos)
+            .map(([departamento, quantidade]) => `${departamento}: ${quantidade}`)
+            .join(", ");
+          return `${material.nome}: ${material.total}${departamentos ? ` (${departamentos})` : ""}`;
+        }).join("; ");
+    pdf.text(`Base do grafico: ${descricao || `Nenhum consumo em ${setor}`}`, pdf.margin, pdf.y, { size: 8, color: [71, 85, 105] });
+  }
+}
+
+function baixarPdfConsumoMensal() {
+  const dados = dadosRelatorioMensal().filter((material) => material.total > 0);
+  const mes = textoSelecionado(controles.mesRelatorio);
+  const ano = controles.anoRelatorio.value;
+  const setor = textoSelecionado(controles.setorRelatorio);
+  const totalItens = dados.reduce((sum, material) => sum + Number(material.total || 0), 0);
+  const totalMateriais = dados.length;
+  const maiorConsumo = topMateriaisConsumo(dados, 1)[0];
+
+  const pdf = new PdfReport({
+    title: "Relatorio mensal de consumo",
+    subtitle: `Gerado em ${new Date().toLocaleDateString("pt-BR")} - Controle de materiais`
+  });
+
+  pdf.section("Resumo do periodo");
+  pdf.keyValues([
+    { label: "Periodo", value: `${mes}/${ano}` },
+    { label: "Departamento", value: setor || "Geral" },
+    { label: "Materiais consumidos", value: totalMateriais },
+    { label: "Itens consumidos", value: totalItens },
+    { label: "Maior consumo", value: maiorConsumo ? `${maiorConsumo.nome} (${maiorConsumo.total})` : "-" },
+    { label: "Formato exportado", value: textoSelecionado(controles.tipoVisualizacao) }
+  ]);
+
+  pdf.section("Filtros aplicados");
+  pdf.keyValues([
+    { label: "Mes", value: mes },
+    { label: "Ano", value: ano },
+    { label: "Departamento", value: setor || "Geral" }
+  ]);
+
+  if (controles.tipoVisualizacao.value === "lista") {
+    adicionarTabelaConsumoPdf(pdf, dados, setor);
+  } else {
+    adicionarGraficoConsumoPdf(pdf, dados, setor);
+  }
 
   if (!dados.length) {
     pdf.text("Nenhum consumo encontrado para os filtros selecionados.", pdf.margin, pdf.y, { size: 10 });
