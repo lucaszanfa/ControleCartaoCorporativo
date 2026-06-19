@@ -33,10 +33,10 @@ function renderizarUltimasSaidas() {
     const material = buscarMaterial(saida.materialId);
 
     return `
-      <tr>
-        <td>${formatarData(saida.data)}</td>
-        <td>${material.nome}</td>
-        <td>${saida.quantidade} ${material.unidade}</td>
+      <tr class="report-data-row">
+        <td><strong>${formatarData(saida.data)}</strong></td>
+        <td><strong>${material.nome}</strong></td>
+        <td><span class="report-number-pill">${saida.quantidade} ${material.unidade}</span></td>
         <td>${saida.setor}</td>
         <td>${saida.responsavel}</td>
       </tr>

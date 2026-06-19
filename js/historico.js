@@ -4,6 +4,10 @@ const filtroMaterial = document.getElementById("filtroMaterial");
 const filtroSetor = document.getElementById("filtroSetor");
 const filtroResponsavel = document.getElementById("filtroResponsavel");
 const historicoTabela = document.getElementById("historicoTabela");
+const resumoMovimentacoes = document.getElementById("resumoMovimentacoes");
+const resumoSaidas = document.getElementById("resumoSaidas");
+const resumoEntradas = document.getElementById("resumoEntradas");
+const resumoValorEntradas = document.getElementById("resumoValorEntradas");
 
 function preencherFiltrosHistorico() {
   filtroMaterial.innerHTML += materiais.map((material) => {
@@ -68,17 +72,28 @@ function renderizarHistorico() {
     const correspondeResponsavel = movimentacao.responsavel.toLowerCase().includes(responsavel);
     return correspondeTipo && correspondeData && correspondeMaterial && correspondeSetor && correspondeResponsavel;
   });
+  const totalSaidas = movimentacoesFiltradas.filter((movimentacao) => movimentacao.tipo === "saida").length;
+  const totalEntradas = movimentacoesFiltradas.filter((movimentacao) => movimentacao.tipo === "entrada").length;
+  const valorEntradas = movimentacoesFiltradas
+    .filter((movimentacao) => movimentacao.tipo === "entrada")
+    .reduce((total, movimentacao) => total + Number(movimentacao.valor || 0), 0);
+
+  resumoMovimentacoes.textContent = movimentacoesFiltradas.length;
+  resumoSaidas.textContent = totalSaidas;
+  resumoEntradas.textContent = totalEntradas;
+  resumoValorEntradas.textContent = formatarMoedaHistorico(valorEntradas);
 
   historicoTabela.innerHTML = movimentacoesFiltradas.map((movimentacao) => {
     const material = buscarMaterial(movimentacao.materialId);
     const tipoTexto = movimentacao.tipo === "entrada" ? "Entrada" : "Saída";
+    const tipoClasse = movimentacao.tipo === "entrada" ? "history-badge-in" : "history-badge-out";
 
     return `
-      <tr>
-        <td>${formatarData(movimentacao.data)}</td>
-        <td><span class="status">${tipoTexto}</span></td>
-        <td>${material?.nome || "-"}</td>
-        <td>${movimentacao.quantidade} ${material?.unidade || ""}</td>
+      <tr class="history-row history-row-${movimentacao.tipo}">
+        <td><strong>${formatarData(movimentacao.data)}</strong></td>
+        <td><span class="status ${tipoClasse}">${tipoTexto}</span></td>
+        <td><strong>${material?.nome || "-"}</strong></td>
+        <td><span class="history-quantity">${movimentacao.quantidade} ${material?.unidade || ""}</span></td>
         <td>${movimentacao.setor}</td>
         <td>${movimentacao.responsavel}</td>
         <td>${formatarMoedaHistorico(movimentacao.valor)}</td>

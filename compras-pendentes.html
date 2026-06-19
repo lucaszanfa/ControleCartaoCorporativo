@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compras pendentes | Controle de Materiais</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <main class="main-content pending-page">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Conclusão de cadastro</span>
+          <h1>Compras pendentes</h1>
+        </div>
+        <span class="user-chip">Usuário</span>
+      </header>
+
+      <section class="card report-hero-card pending-hero-card">
+        <div class="support-strip report-hero pending-hero">
+          <img src="img/smamateriais1.png" alt="SM&A materiais">
+          <div>
+            <strong>Fila de compras para completar</strong>
+            <span>Revise compras que ainda precisam de responsável, categoria, motivo, comprovante ou conferência.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="cards-grid report-summary-grid pending-summary-grid">
+        <article class="card metric-card pending-metric pending-metric-total">
+          <span>Pendentes</span>
+          <strong id="resumoPendentes">0</strong>
+        </article>
+        <article class="card metric-card pending-metric pending-metric-proof">
+          <span>Sem comprovante</span>
+          <strong id="resumoSemComprovante">0</strong>
+        </article>
+        <article class="card metric-card pending-metric pending-metric-review">
+          <span>Em conferência</span>
+          <strong id="resumoConferencia">0</strong>
+        </article>
+        <article class="card metric-card pending-metric pending-metric-risk">
+          <span>Divergentes</span>
+          <strong id="resumoDivergentes">0</strong>
+        </article>
+      </section>
+
+      <section class="card report-filter-card pending-filter-card">
+        <div id="pendentesMensagem" class="alert-success hidden"></div>
+        <div class="filters-row filters-three">
+          <label>Status
+            <select id="filtroStatus">
+              <option value="">Todos</option>
+              <option value="sem_registro">Sem registro</option>
+              <option value="sem_comprovante">Sem comprovante</option>
+              <option value="aguardando_conferencia">Aguardando conferência</option>
+              <option value="divergente">Divergente</option>
+            </select>
+          </label>
+          <label>Cartão
+            <select id="filtroCartao">
+              <option value="">Todos os cartões</option>
+            </select>
+          </label>
+          <label>Fornecedor
+            <input id="filtroFornecedor" type="search" placeholder="Fornecedor">
+          </label>
+        </div>
+      </section>
+
+      <section class="card report-workspace-card pending-table-card">
+        <div class="section-header">
+          <div>
+            <h2>Compras aguardando conclusão</h2>
+            <p>Use o botão concluir para abrir a compra e preencher o que está faltando.</p>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Cartão</th>
+                <th>Fornecedor</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Falta resolver</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="comprasPendentesTabela"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cartoes-utils.js"></script>
+  <script src="js/compras-pendentes.js"></script>
+</body>
+</html>

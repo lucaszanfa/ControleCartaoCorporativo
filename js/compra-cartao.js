@@ -51,11 +51,11 @@ async function carregarComprasCartao() {
   const compras = await (await fetch("/api/compras-cartao")).json();
   const podeVerDetalhes = typeof ehAdminOuGerente === "function" ? ehAdminOuGerente() : false;
   document.getElementById("comprasCartaoTabela").innerHTML = compras.map((compra) => `
-    <tr>
-      <td>${formatarData(compra.dataCompra)}</td>
-      <td>${compra.cartao}</td>
+    <tr class="report-data-row">
+      <td><strong>${formatarData(compra.dataCompra)}</strong></td>
+      <td><strong>${compra.cartao}</strong></td>
       <td>${compra.fornecedor}</td>
-      <td>${moeda(compra.valor)}</td>
+      <td><span class="report-money-pill">${moeda(compra.valor)}</span></td>
       <td>${compra.categoria}</td>
       <td><span class="${classeStatus(compra.status)}">${compra.status}</span></td>
       <td>

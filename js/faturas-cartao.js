@@ -140,7 +140,13 @@ function renderResultadoConciliacao(data) {
 async function carregarFaturas() {
   const faturas = await (await fetch("/api/faturas-cartao")).json();
   document.getElementById("faturasTabela").innerHTML = faturas.map((fatura) => `
-    <tr><td>${fatura.cartao}</td><td>${fatura.mes_referencia}/${fatura.ano_referencia}</td><td>${fatura.arquivo_nome || "-"}</td><td><span class="${classeStatus(fatura.status)}">${fatura.status}</span></td><td><button class="btn btn-primary" onclick="rodarConciliacao(${fatura.id})">Rodar conciliação</button></td></tr>
+    <tr class="report-data-row">
+      <td><strong>${fatura.cartao}</strong></td>
+      <td><span class="report-number-pill">${fatura.mes_referencia}/${fatura.ano_referencia}</span></td>
+      <td>${fatura.arquivo_nome || "-"}</td>
+      <td><span class="${classeStatus(fatura.status)}">${fatura.status}</span></td>
+      <td><button class="btn btn-primary" onclick="rodarConciliacao(${fatura.id})">Rodar conciliação</button></td>
+    </tr>
   `).join("");
 }
 

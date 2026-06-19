@@ -12,8 +12,8 @@ async function carregarDashboardCartoes() {
     ["Sem comprovante", dados.compras_sem_comprovante],
     ["Divergências abertas", dados.divergencias_abertas]
   ];
-  document.getElementById("cartoesDashboardCards").innerHTML = cards.map(([label, value]) => `
-    <article class="card metric-card"><span>${label}</span><strong>${value}</strong></article>
+  document.getElementById("cartoesDashboardCards").innerHTML = cards.map(([label, value], index) => `
+    <article class="card metric-card dashboard-card-${index + 1}"><span>${label}</span><strong>${value}</strong></article>
   `).join("");
 }
 

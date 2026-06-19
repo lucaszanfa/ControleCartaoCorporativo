@@ -41,10 +41,11 @@ class PdfReport {
   }
 
   header() {
-    this.rect(0, 0, this.width, 72, [11, 63, 85]);
+    this.rect(0, 0, this.width, 68, [15, 23, 42]);
+    this.rect(0, 68, this.width, 4, [20, 184, 166]);
     this.text(this.title, this.margin, 30, { size: 18, bold: true, color: [255, 255, 255] });
     if (this.subtitle) {
-      this.text(this.subtitle, this.margin, 52, { size: 9, color: [219, 234, 254] });
+      this.text(this.subtitle, this.margin, 52, { size: 9, color: [203, 213, 225] });
     }
     this.y = 94;
   }
@@ -95,7 +96,8 @@ class PdfReport {
 
   section(title) {
     this.ensureSpace(30);
-    this.text(title, this.margin, this.y, { size: 13, bold: true, color: [11, 63, 85] });
+    this.text(title, this.margin, this.y, { size: 13, bold: true, color: [15, 23, 42] });
+    this.line(this.margin, this.y + 18, this.width - this.margin, this.y + 18, [226, 232, 240]);
     this.y += 22;
   }
 
@@ -107,8 +109,8 @@ class PdfReport {
       const row = Math.floor(index / 3);
       const x = this.margin + col * (colW + 8);
       const y = this.y + row * 28;
-      this.rect(x, y, colW, 22, [247, 252, 255]);
-      this.text(item.label, x + 7, y + 6, { size: 7, bold: true, color: [75, 85, 99] });
+      this.rect(x, y, colW, 22, [248, 250, 252]);
+      this.text(item.label, x + 7, y + 6, { size: 7, bold: true, color: [71, 85, 105] });
       this.text(item.value, x + 7, y + 16, { size: 8, color: [17, 24, 39] });
     });
     this.y += Math.ceil(items.length / 3) * 28 + 8;
@@ -119,7 +121,7 @@ class PdfReport {
     const tableWidth = widths.reduce((sum, width) => sum + width, 0);
     const drawHeader = () => {
       this.ensureSpace(32);
-      this.rect(x0, this.y, tableWidth, 24, [11, 95, 135]);
+      this.rect(x0, this.y, tableWidth, 24, [30, 41, 59]);
       let x = x0;
       headers.forEach((header, index) => {
         this.text(header, x + 6, this.y + 9, { size: 8, bold: true, color: [255, 255, 255] });
@@ -136,7 +138,7 @@ class PdfReport {
         this.addPage();
         drawHeader();
       }
-      this.rect(x0, this.y, tableWidth, rowHeight, rowIndex % 2 ? [239, 250, 255] : [255, 255, 255]);
+      this.rect(x0, this.y, tableWidth, rowHeight, rowIndex % 2 ? [248, 250, 252] : [255, 255, 255]);
       let x = x0;
       lineSets.forEach((lines, index) => {
         lines.slice(0, 3).forEach((line, lineIndex) => {

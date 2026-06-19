@@ -5,15 +5,15 @@ async function carregarAlertas() {
 
   const rows = await (await fetch(`/api/alertas-cartao?${qs}`)).json();
   document.getElementById("alertasTabela").innerHTML = rows.length ? rows.map((row) => `
-    <tr class="${row.status !== "resolvido" ? "row-inactive" : ""}">
-      <td>${row.criado_em?.slice(0, 10) || "-"}</td>
+    <tr class="report-data-row ${row.status !== "resolvido" ? "row-inactive" : ""}">
+      <td><strong>${row.criado_em?.slice(0, 10) || "-"}</strong></td>
       <td>${row.departamento}</td>
-      <td>${row.cartao} final ${row.ultimos_4_digitos}</td>
+      <td><strong>${row.cartao}</strong> final ${row.ultimos_4_digitos}</td>
       <td>${row.tipo_alerta}</td>
       <td>${row.estabelecimento || "-"}</td>
-      <td>${moeda(row.valor)}</td>
+      <td><span class="report-money-pill">${moeda(row.valor)}</span></td>
       <td><span class="${classeStatus(row.status)}">${row.status}</span></td>
-      <td>${row.enviado_teams ? "Sim" : "Não"}</td>
+      <td><span class="report-number-pill">${row.enviado_teams ? "Sim" : "Não"}</span></td>
       <td>
         <div class="actions">
           <button class="btn btn-secondary" onclick="enviarTeams(${row.id})">Teams</button>

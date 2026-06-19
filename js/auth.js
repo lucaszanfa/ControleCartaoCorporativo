@@ -57,12 +57,13 @@ function aplicarMenuPrincipal() {
 
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra" },
+    { href: "compra-automatica.html", label: "Compra automatica" },
+    { href: "compras-pendentes.html", label: "Compras pendentes" },
     ...(podeVerCartoesGerenciais ? [
       { href: "dashboard-cartoes.html", label: "Resumo dos cartoes" },
       { href: "cartoes.html", label: "Cartoes cadastrados" },
       { href: "faturas-cartao.html", label: "Faturas" },
       { href: "conciliacao-cartao.html", label: "Conciliacao" },
-      { href: "alertas-cartao.html", label: "Alertas" },
       { href: "relatorios-cartao.html", label: "Relatorios de cartao" }
     ] : [])
   ];
@@ -99,6 +100,8 @@ function aplicarContextoVisual() {
     "dashboard-cartoes.html",
     "cartoes.html",
     "compra-cartao.html",
+    "compra-automatica.html",
+    "compras-pendentes.html",
     "faturas-cartao.html",
     "conciliacao-cartao.html",
     "alertas-cartao.html",

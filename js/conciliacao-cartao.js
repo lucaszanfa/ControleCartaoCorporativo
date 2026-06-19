@@ -10,8 +10,8 @@ async function carregarConciliacoes() {
   if (document.getElementById("filtroCartao").value) qs.set("cartaoId", document.getElementById("filtroCartao").value);
   const rows = await (await fetch(`/api/conciliacoes-cartao?${qs}`)).json();
   document.getElementById("conciliacoesTabela").innerHTML = rows.map((row) => `
-    <tr class="${row.status === "sem_registro" || row.status.includes("divergente") ? "row-inactive" : ""}">
-      <td>${formatarData(row.data_transacao)}</td><td>${row.estabelecimento}</td><td>${moeda(row.valor_fatura)}</td><td>${row.cartao}</td>
+    <tr class="report-data-row ${row.status === "sem_registro" || row.status.includes("divergente") ? "row-inactive" : ""}">
+      <td><strong>${formatarData(row.data_transacao)}</strong></td><td><strong>${row.estabelecimento}</strong></td><td><span class="report-money-pill">${moeda(row.valor_fatura)}</span></td><td>${row.cartao}</td>
       <td>${row.compra_fornecedor || "-"}</td><td>${row.responsavel || "-"}</td><td><span class="${classeStatus(row.status)}">${row.status}</span></td>
       <td><a class="btn btn-secondary" href="${linkResolverConciliacao(row)}">Resolver</a></td>
     </tr>

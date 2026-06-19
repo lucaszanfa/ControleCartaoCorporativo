@@ -250,7 +250,7 @@ function compraJoinSql() {
           FROM compras_cartao cc
           JOIN cartoes_corporativos c ON c.id = cc.cartao_id
           JOIN setores s ON s.id = cc.departamento_id
-          JOIN usuarios u ON u.id = cc.responsavel_compra_id`;
+          LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id`;
 }
 
 function daysDiff(a, b) {
@@ -845,6 +845,128 @@ app.get("/api/compras-cartao", async (request, response) => {
   response.json((await all(sql, params)).map(mapCompraCartao));
 });
 
+function pendenciasCadastroCompra(compra) {
+  const pendencias = [];
+  if (!compra.responsavelCompraId) pendencias.push("Responsavel");
+  if (!String(compra.categoria || "").trim()) pendencias.push("Categoria");
+  if (!String(compra.motivo || "").trim()) pendencias.push("Motivo");
+  if (!String(compra.comprovanteUrl || "").trim()) pendencias.push("Comprovante");
+  if (compra.status === "aguardando_conferencia") pendencias.push("Conferencia");
+  if (compra.status === "divergente") pendencias.push("Divergencia");
+  return [...new Set(pendencias)];
+}
+
+app.get("/api/compras-cartao/pendentes", async (request, response) => {
+  try {
+    const where = [
+      `(cc.status IN ('aguardando_conferencia', 'divergente', 'sem_comprovante')
+          OR ifnull(trim(cc.comprovante_url), '') = ''
+          OR ifnull(trim(cc.motivo), '') = ''
+          OR ifnull(trim(cc.categoria), '') = ''
+          OR cc.responsavel_compra_id IS NULL)`
+    ];
+    const params = [];
+    if (request.query.cartaoId) {
+      where.push("cc.cartao_id = ?");
+      params.push(request.query.cartaoId);
+    }
+    if (request.query.status) {
+      where.push("cc.status = ?");
+      params.push(request.query.status);
+    }
+    if (request.query.fornecedor) {
+      where.push("lower(cc.fornecedor) LIKE lower(?)");
+      params.push(`%${request.query.fornecedor}%`);
+    }
+
+    const rows = await all(
+      `${compraJoinSql()}
+       WHERE ${where.join(" AND ")}
+       ORDER BY cc.data_compra DESC, cc.id DESC`,
+      params
+    );
+
+    const pendentes = rows.map((row) => {
+      const compra = mapCompraCartao(row);
+
+      return {
+        ...compra,
+        pendencias: pendenciasCadastroCompra(compra)
+      };
+    });
+
+    response.json(pendentes);
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao listar compras pendentes.", detalhe: error.message });
+  }
+});
+
+app.post("/api/compras-cartao/:id/enviar-pendencia-teams", async (request, response) => {
+  try {
+    const row = await get(
+      `SELECT cc.*,
+              c.nome_cartao AS cartao,
+              c.ultimos_4_digitos,
+              s.nome AS departamento,
+              u.nome AS responsavel,
+              u.email AS comprador_email,
+              g.nome AS gerente,
+              g.email AS gerente_email
+       FROM compras_cartao cc
+       JOIN cartoes_corporativos c ON c.id = cc.cartao_id
+       JOIN setores s ON s.id = cc.departamento_id
+       LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id
+       LEFT JOIN usuarios g ON g.id = c.gerente_id
+       WHERE cc.id = ?`,
+      [request.params.id]
+    );
+
+    if (!row) {
+      response.status(404).json({ erro: "Compra nao encontrada." });
+      return;
+    }
+
+    const compra = mapCompraCartao(row);
+    const pendencias = pendenciasCadastroCompra(compra);
+    const temResponsavel = Boolean(row.responsavel_compra_id && row.comprador_email);
+    const tipo = temResponsavel
+      ? pendencias.includes("Comprovante") ? "compra_sem_comprovante" : "compra_fora_padrao"
+      : "compra_sem_registro";
+    const baseUrl = process.env.APP_BASE_URL || `${request.protocol}://${request.get("host")}`;
+    const urlResolucao = `${baseUrl}/compra-cartao.html?compraId=${row.id}`;
+
+    const envio = await sendTeamsAlert({
+      id: `compra-${row.id}`,
+      tipo_alerta: tipo,
+      departamento: row.departamento,
+      cartao: row.cartao,
+      ultimos_4_digitos: row.ultimos_4_digitos,
+      data_compra: row.data_compra,
+      estabelecimento: row.fornecedor,
+      valor: row.valor,
+      comprador_nome: row.responsavel || "",
+      comprador_email: row.comprador_email || "",
+      gerente_nome: row.gerente || "",
+      gerente_email: row.gerente_email || "",
+      mensagem: `Compra pendente de conclusão. Falta resolver: ${pendencias.join(", ") || "Revisão"}.`,
+      url_resolucao: urlResolucao,
+      destinatarios_departamento: temResponsavel ? [] : await all(
+        "SELECT id, nome, email FROM usuarios WHERE status = 'ativo' AND lower(setor) = lower(?) AND email IS NOT NULL AND email != '' ORDER BY nome",
+        [row.departamento]
+      )
+    });
+
+    response.json({
+      mensagem: temResponsavel
+        ? "Mensagem enviada/simulada para o responsavel pela compra."
+        : "Mensagem enviada/simulada para o grupo do departamento.",
+      envio
+    });
+  } catch (error) {
+    response.status(502).json({ erro: "Erro ao chamar a automacao do Power Automate.", detalhe: error.message });
+  }
+});
+
 app.get("/api/compras-cartao/:id", async (request, response) => {
   const compra = await get(`${compraJoinSql()} WHERE cc.id = ?`, [request.params.id]);
   if (!compra) return response.status(404).json({ erro: "Compra nao encontrada." });
@@ -868,6 +990,121 @@ app.post("/api/compras-cartao/pendencias-compativeis", async (request, response)
     response.json(pendencias);
   } catch (error) {
     response.status(500).json({ erro: "Erro ao buscar pendencias compativeis.", detalhe: error.message });
+  }
+});
+
+function normalizarDataCompraAutomatica(valor) {
+  const texto = String(valor || "").trim();
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return texto;
+}
+
+function normalizarValorCompraAutomatica(valor) {
+  if (typeof valor === "number") return valor;
+  const texto = String(valor || "")
+    .replace("R$", "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  return Number(texto);
+}
+
+app.post("/api/compras-cartao/automatica", async (request, response) => {
+  try {
+    const {
+      dataCompra,
+      valor,
+      fornecedor,
+      ultimos4Digitos,
+      codigoAutorizacao,
+      emailOrigemId
+    } = request.body;
+    const dataNormalizada = normalizarDataCompraAutomatica(dataCompra);
+    const valorNumerico = normalizarValorCompraAutomatica(valor);
+    const finalCartao = String(ultimos4Digitos || "").replace(/\D/g, "").slice(-4);
+
+    if (!dataNormalizada || !valorNumerico || !fornecedor || !finalCartao) {
+      response.status(400).json({ erro: "Informe dataCompra, valor, fornecedor e ultimos4Digitos." });
+      return;
+    }
+
+    const cartao = await get(
+      `SELECT c.*, s.nome AS departamento
+       FROM cartoes_corporativos c
+       JOIN setores s ON s.id = c.departamento_id
+       WHERE c.ultimos_4_digitos = ?
+         AND c.status = 'ativo'`,
+      [finalCartao]
+    );
+
+    if (!cartao) {
+      response.status(404).json({ erro: "Nenhum cartão ativo encontrado com esses últimos 4 dígitos." });
+      return;
+    }
+
+    const existente = await get(
+      `SELECT id FROM compras_cartao
+       WHERE cartao_id = ?
+         AND data_compra = ?
+         AND valor = ?
+         AND lower(fornecedor) = lower(?)
+         AND status != 'cancelada'`,
+      [cartao.id, dataNormalizada, valorNumerico, fornecedor]
+    );
+
+    if (existente) {
+      response.status(409).json({ erro: "Esta compra automática já parece estar cadastrada.", compraId: existente.id });
+      return;
+    }
+
+    const observacao = [
+      "Compra cadastrada automaticamente a partir de e-mail.",
+      codigoAutorizacao ? `Autorização: ${codigoAutorizacao}` : "",
+      emailOrigemId ? `E-mail origem: ${emailOrigemId}` : ""
+    ].filter(Boolean).join(" ");
+
+    const result = await run(
+      `INSERT INTO compras_cartao (
+        cartao_id,
+        departamento_id,
+        responsavel_compra_id,
+        data_compra,
+        valor,
+        fornecedor,
+        categoria,
+        motivo,
+        comprovante_url,
+        observacao,
+        status
+      ) VALUES (?, ?, ?, ?, ?, ?, 'outros', 'Compra importada automaticamente por e-mail', '', ?, 'sem_comprovante')`,
+      [
+        cartao.id,
+        cartao.departamento_id,
+        cartao.responsavel_id,
+        dataNormalizada,
+        valorNumerico,
+        fornecedor,
+        observacao
+      ]
+    );
+
+    await criarAlertaCompraSemComprovante(result.id);
+
+    response.status(201).json({
+      mensagem: "Compra automática cadastrada.",
+      compraId: result.id,
+      cartaoId: cartao.id,
+      cartao: cartao.nome_cartao,
+      departamentoId: cartao.departamento_id,
+      departamento: cartao.departamento,
+      status: "sem_comprovante",
+      proximoPasso: "A compra está em Compras pendentes para anexar comprovante e revisar o cadastro."
+    });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao cadastrar compra automática.", detalhe: error.message });
   }
 });
 
@@ -1293,6 +1530,17 @@ function filtrosRelatorioComprasCartao(query) {
   if (query.categoria) {
     where.push("cc.categoria = ?");
     params.push(query.categoria);
+  }
+  if (query.status) {
+    const statusCompra = {
+      aguardando_comprovante: "sem_comprovante",
+      valor_divergente: "divergente",
+      data_divergente: "divergente",
+      resolvida: "resolvida",
+      conciliada: "conferida"
+    }[query.status] || query.status;
+    where.push("cc.status = ?");
+    params.push(statusCompra);
   }
   if (query.dataInicial) {
     where.push("cc.data_compra >= ?");

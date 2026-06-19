@@ -9,8 +9,8 @@ async function carregarUsuarios() {
     const permissoes = usuario.permissoes;
 
     return `
-      <tr data-id="${usuario.id}">
-        <td>${usuario.nome}</td>
+      <tr class="report-data-row" data-id="${usuario.id}">
+        <td><strong>${usuario.nome}</strong></td>
         <td>${usuario.email}</td>
         <td>${usuario.setor}</td>
         <td>

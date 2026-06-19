@@ -14,7 +14,10 @@ const meses = [
 ];
 
 const anos = ["2026", "2025"];
-const coresGrafico = ["#0787d8", "#32b96f", "#0b3f55", "#f51b87", "#7dd3fc", "#14b8a6", "#155e75", "#84cc16", "#0284c7", "#22c55e"];
+const coresGrafico = ["#2563eb", "#059669", "#0f766e", "#475569", "#0891b2", "#7c3aed", "#ca8a04", "#dc2626", "#4f46e5", "#16a34a"];
+const chartTextColor = "#334155";
+const chartMutedColor = "#64748b";
+const chartGridColor = "#e5eef5";
 
 const controles = {
   mesRelatorio: document.getElementById("mesRelatorio"),
@@ -133,14 +136,24 @@ function detalharDepartamentos(departamentos) {
 function renderizarRelatorioMensal() {
   const dados = dadosRelatorioMensal();
   const tbody = document.getElementById("relatorioMensalTabela");
+  const consumidos = dados.filter((material) => material.total > 0);
+  const totalItens = consumidos.reduce((total, material) => total + Number(material.total || 0), 0);
+  const maiorConsumo = consumidos.reduce((maior, material) => {
+    if (!maior || material.total > maior.total) return material;
+    return maior;
+  }, null);
+
+  document.getElementById("resumoMateriaisConsumidos").textContent = consumidos.length;
+  document.getElementById("resumoItensConsumidos").textContent = totalItens;
+  document.getElementById("resumoMaiorConsumo").textContent = maiorConsumo?.nome || "-";
 
   tbody.innerHTML = dados.map((material) => {
     return `
-      <tr>
-        <td>${material.nome}</td>
+      <tr class="report-data-row">
+        <td><strong>${material.nome}</strong></td>
         <td>${material.categoria}</td>
         <td>${material.unidade}</td>
-        <td>${material.total}</td>
+        <td><span class="report-number-pill">${material.total}</span></td>
         <td>${controles.setorRelatorio.value ? "-" : detalharDepartamentos(material.departamentos)}</td>
       </tr>
     `;
@@ -167,15 +180,76 @@ function renderizarVisualizacao() {
 function prepararCanvas(canvas) {
   const contexto = canvas.getContext("2d");
   contexto.clearRect(0, 0, canvas.width, canvas.height);
-  contexto.font = "14px Arial";
+  contexto.imageSmoothingEnabled = true;
+  contexto.font = "13px Arial";
   contexto.textBaseline = "middle";
   return contexto;
 }
 
 function desenharMensagemVazia(contexto, canvas) {
-  contexto.fillStyle = "#4b5563";
+  contexto.fillStyle = chartMutedColor;
   contexto.textAlign = "center";
   contexto.fillText("Nenhum consumo encontrado para os filtros selecionados.", canvas.width / 2, canvas.height / 2);
+}
+
+function textoCurto(texto, limite = 18) {
+  const valor = String(texto || "");
+  return valor.length > limite ? `${valor.slice(0, limite - 1)}…` : valor;
+}
+
+function caminhoRetanguloArredondado(contexto, x, y, largura, altura, raio = 6) {
+  const r = Math.min(raio, largura / 2, Math.abs(altura) / 2);
+  contexto.beginPath();
+  contexto.moveTo(x + r, y);
+  contexto.lineTo(x + largura - r, y);
+  contexto.quadraticCurveTo(x + largura, y, x + largura, y + r);
+  contexto.lineTo(x + largura, y + altura);
+  contexto.lineTo(x, y + altura);
+  contexto.lineTo(x, y + r);
+  contexto.quadraticCurveTo(x, y, x + r, y);
+  contexto.closePath();
+}
+
+function preencherBarra(contexto, x, y, largura, altura, cor) {
+  contexto.fillStyle = cor;
+  caminhoRetanguloArredondado(contexto, x, y, largura, altura, 7);
+  contexto.fill();
+}
+
+function desenharFrameGrafico(contexto, canvas, margem, alturaGrafico, maiorValor, formatador = (v) => v) {
+  const baseY = alturaGrafico + 34;
+  const passos = 4;
+  contexto.strokeStyle = chartGridColor;
+  contexto.lineWidth = 1;
+  contexto.fillStyle = chartMutedColor;
+  contexto.font = "12px Arial";
+  contexto.textAlign = "right";
+
+  for (let i = 0; i <= passos; i += 1) {
+    const valor = maiorValor * (i / passos);
+    const y = baseY - (alturaGrafico * i / passos);
+    contexto.beginPath();
+    contexto.moveTo(margem, y);
+    contexto.lineTo(canvas.width - margem, y);
+    contexto.stroke();
+    if (i > 0) contexto.fillText(formatador(valor), margem - 10, y);
+  }
+
+  contexto.strokeStyle = "#cbd5e1";
+  contexto.beginPath();
+  contexto.moveTo(margem, 34);
+  contexto.lineTo(margem, baseY);
+  contexto.lineTo(canvas.width - margem, baseY);
+  contexto.stroke();
+}
+
+function renderizarLegenda(legenda, itens) {
+  legenda.innerHTML = itens.map((item) => `
+    <span>
+      <i style="background:${item.cor}"></i>
+      ${item.nome}
+    </span>
+  `).join("");
 }
 
 function desenharGraficoBarras(dados) {
@@ -196,34 +270,31 @@ function desenharGraficoBarras(dados) {
     return;
   }
 
-  const margem = 54;
+  const margem = 86;
   const larguraGrafico = canvas.width - margem * 2;
-  const alturaGrafico = canvas.height - 100;
+  const alturaGrafico = canvas.height - 112;
   const maiorValor = Math.max(...dadosComConsumo.map((item) => item.total));
-  const larguraBarra = larguraGrafico / dadosComConsumo.length - 14;
-
-  contexto.strokeStyle = "#d9dee7";
-  contexto.beginPath();
-  contexto.moveTo(margem, 28);
-  contexto.lineTo(margem, alturaGrafico + 30);
-  contexto.lineTo(canvas.width - margem, alturaGrafico + 30);
-  contexto.stroke();
+  const larguraGrupo = larguraGrafico / dadosComConsumo.length;
+  const larguraBarra = Math.min(74, Math.max(28, larguraGrupo * 0.58));
+  desenharFrameGrafico(contexto, canvas, margem, alturaGrafico, maiorValor);
 
   dadosComConsumo.forEach((item, index) => {
     const alturaBarra = (item.total / maiorValor) * alturaGrafico;
-    const x = margem + index * (larguraBarra + 14) + 8;
-    const y = alturaGrafico + 30 - alturaBarra;
+    const x = margem + index * larguraGrupo + (larguraGrupo - larguraBarra) / 2;
+    const y = alturaGrafico + 34 - alturaBarra;
 
-    contexto.fillStyle = coresGrafico[index % coresGrafico.length];
-    contexto.fillRect(x, y, larguraBarra, alturaBarra);
+    preencherBarra(contexto, x, y, larguraBarra, alturaBarra, coresGrafico[index % coresGrafico.length]);
 
-    contexto.fillStyle = "#0b3f55";
+    contexto.fillStyle = chartTextColor;
     contexto.textAlign = "center";
+    contexto.font = "700 13px Arial";
     contexto.fillText(item.total, x + larguraBarra / 2, y - 12);
+    contexto.font = "12px Arial";
+    contexto.fillStyle = chartMutedColor;
     contexto.save();
-    contexto.translate(x + larguraBarra / 2, alturaGrafico + 54);
-    contexto.rotate(-0.45);
-    contexto.fillText(item.nome, 0, 0);
+    contexto.translate(x + larguraBarra / 2, alturaGrafico + 64);
+    contexto.rotate(-0.38);
+    contexto.fillText(textoCurto(item.nome, 16), 0, 0);
     contexto.restore();
   });
 }
@@ -237,22 +308,17 @@ function desenharGraficoBarrasDepartamentos(dados, canvas, contexto, legenda) {
   }
 
   const departamentos = [...new Set(dadosComConsumo.flatMap((item) => Object.keys(item.departamentos)))];
-  const margem = 54;
+  const margem = 86;
   const larguraGrafico = canvas.width - margem * 2;
-  const alturaGrafico = canvas.height - 100;
+  const alturaGrafico = canvas.height - 112;
   const maiorValor = Math.max(...dadosComConsumo.map((item) => item.total));
-  const larguraBarra = larguraGrafico / dadosComConsumo.length - 14;
-
-  contexto.strokeStyle = "#d9dee7";
-  contexto.beginPath();
-  contexto.moveTo(margem, 28);
-  contexto.lineTo(margem, alturaGrafico + 30);
-  contexto.lineTo(canvas.width - margem, alturaGrafico + 30);
-  contexto.stroke();
+  const larguraGrupo = larguraGrafico / dadosComConsumo.length;
+  const larguraBarra = Math.min(74, Math.max(28, larguraGrupo * 0.58));
+  desenharFrameGrafico(contexto, canvas, margem, alturaGrafico, maiorValor);
 
   dadosComConsumo.forEach((item, index) => {
-    const x = margem + index * (larguraBarra + 14) + 8;
-    let yAtual = alturaGrafico + 30;
+    const x = margem + index * larguraGrupo + (larguraGrupo - larguraBarra) / 2;
+    let yAtual = alturaGrafico + 34;
 
     departamentos.forEach((departamento, deptIndex) => {
       const quantidade = item.departamentos[departamento] || 0;
@@ -265,25 +331,23 @@ function desenharGraficoBarrasDepartamentos(dados, canvas, contexto, legenda) {
       }
     });
 
-    contexto.fillStyle = "#0b3f55";
+    contexto.fillStyle = chartTextColor;
     contexto.textAlign = "center";
+    contexto.font = "700 13px Arial";
     contexto.fillText(item.total, x + larguraBarra / 2, yAtual - 12);
+    contexto.font = "12px Arial";
+    contexto.fillStyle = chartMutedColor;
     contexto.save();
-    contexto.translate(x + larguraBarra / 2, alturaGrafico + 54);
-    contexto.rotate(-0.45);
-    contexto.fillText(item.nome, 0, 0);
+    contexto.translate(x + larguraBarra / 2, alturaGrafico + 64);
+    contexto.rotate(-0.38);
+    contexto.fillText(textoCurto(item.nome, 16), 0, 0);
     contexto.restore();
   });
 
-  legenda.innerHTML = departamentos.map((departamento, index) => {
-    const cor = coresGrafico[index % coresGrafico.length];
-    return `
-      <span>
-        <i style="background:${cor}"></i>
-        ${departamento}
-      </span>
-    `;
-  }).join("");
+  renderizarLegenda(legenda, departamentos.map((departamento, index) => ({
+    nome: departamento,
+    cor: coresGrafico[index % coresGrafico.length]
+  })));
 }
 
 function desenharGraficoPizza(dados) {
@@ -308,7 +372,7 @@ function desenharGraficoPizza(dados) {
   let anguloInicial = -Math.PI / 2;
   const centroX = canvas.width / 2;
   const centroY = 172;
-  const raio = 120;
+  const raio = 118;
 
   dadosComConsumo.forEach((item, index) => {
     const angulo = (item.total / totalGeral) * Math.PI * 2;
@@ -331,15 +395,19 @@ function desenharGraficoPizza(dados) {
     `;
   });
 
-  contexto.fillStyle = "#ffffff";
+  contexto.fillStyle = "#f8fafc";
   contexto.beginPath();
-  contexto.arc(centroX, centroY, 54, 0, Math.PI * 2);
+  contexto.arc(centroX, centroY, 64, 0, Math.PI * 2);
   contexto.fill();
-  contexto.fillStyle = "#0b3f55";
+  contexto.strokeStyle = "#e2e8f0";
+  contexto.lineWidth = 1;
+  contexto.stroke();
+  contexto.fillStyle = chartTextColor;
   contexto.textAlign = "center";
   contexto.font = "700 18px Arial";
   contexto.fillText(totalGeral, centroX, centroY - 8);
   contexto.font = "13px Arial";
+  contexto.fillStyle = chartMutedColor;
   contexto.fillText("itens", centroX, centroY + 14);
 }
 
@@ -365,7 +433,7 @@ function desenharGraficoPizzaDepartamentos(dados, canvas, contexto, legenda) {
   let anguloInicial = -Math.PI / 2;
   const centroX = canvas.width / 2;
   const centroY = 172;
-  const raio = 120;
+  const raio = 118;
 
   dadosPizza.forEach((item, index) => {
     const angulo = (item.total / totalGeral) * Math.PI * 2;
@@ -388,15 +456,19 @@ function desenharGraficoPizzaDepartamentos(dados, canvas, contexto, legenda) {
     `;
   });
 
-  contexto.fillStyle = "#ffffff";
+  contexto.fillStyle = "#f8fafc";
   contexto.beginPath();
-  contexto.arc(centroX, centroY, 54, 0, Math.PI * 2);
+  contexto.arc(centroX, centroY, 64, 0, Math.PI * 2);
   contexto.fill();
-  contexto.fillStyle = "#0b3f55";
+  contexto.strokeStyle = "#e2e8f0";
+  contexto.lineWidth = 1;
+  contexto.stroke();
+  contexto.fillStyle = chartTextColor;
   contexto.textAlign = "center";
   contexto.font = "700 18px Arial";
   contexto.fillText(totalGeral, centroX, centroY - 8);
   contexto.font = "13px Arial";
+  contexto.fillStyle = chartMutedColor;
   contexto.fillText("itens", centroX, centroY + 14);
 }
 
@@ -444,13 +516,18 @@ function renderizarComparativo() {
 
   tbody.innerHTML = dados.map((material) => {
     const sinal = material.variacao > 0 ? "+" : "";
+    const variacaoClasse = material.variacao > 0
+      ? "report-variation-up"
+      : material.variacao < 0
+        ? "report-variation-down"
+        : "report-variation-flat";
 
     return `
-      <tr>
-        <td>${material.nome}</td>
-        <td>${material.mes1}</td>
-        <td>${material.mes2}</td>
-        <td>${sinal}${material.variacao}</td>
+      <tr class="report-data-row">
+        <td><strong>${material.nome}</strong></td>
+        <td><span class="report-number-pill">${material.mes1}</span></td>
+        <td><span class="report-number-pill">${material.mes2}</span></td>
+        <td><span class="${variacaoClasse}">${sinal}${material.variacao}</span></td>
         <td>${interpretarVariacao(material.variacao)}</td>
       </tr>
     `;
@@ -484,52 +561,45 @@ function desenharGraficoComparativoBarras(dados) {
     return;
   }
 
-  const margem = 54;
+  const margem = 86;
   const larguraGrafico = canvas.width - margem * 2;
-  const alturaGrafico = canvas.height - 110;
+  const alturaGrafico = canvas.height - 118;
   const maiorValor = Math.max(...dadosComMovimento.map((item) => Math.max(item.mes1, item.mes2)));
   const larguraGrupo = larguraGrafico / dadosComMovimento.length;
-  const larguraBarra = Math.max(12, larguraGrupo / 3);
-
-  contexto.strokeStyle = "#d9dee7";
-  contexto.beginPath();
-  contexto.moveTo(margem, 28);
-  contexto.lineTo(margem, alturaGrafico + 30);
-  contexto.lineTo(canvas.width - margem, alturaGrafico + 30);
-  contexto.stroke();
+  const larguraBarra = Math.min(34, Math.max(12, larguraGrupo / 4));
+  desenharFrameGrafico(contexto, canvas, margem, alturaGrafico, maiorValor);
 
   dadosComMovimento.forEach((item, index) => {
     const baseX = margem + index * larguraGrupo + larguraGrupo / 2;
     const alturaMes1 = maiorValor ? (item.mes1 / maiorValor) * alturaGrafico : 0;
     const alturaMes2 = maiorValor ? (item.mes2 / maiorValor) * alturaGrafico : 0;
-    const yMes1 = alturaGrafico + 30 - alturaMes1;
-    const yMes2 = alturaGrafico + 30 - alturaMes2;
+    const yMes1 = alturaGrafico + 34 - alturaMes1;
+    const yMes2 = alturaGrafico + 34 - alturaMes2;
 
-    contexto.fillStyle = "#0787d8";
-    contexto.fillRect(baseX - larguraBarra - 2, yMes1, larguraBarra, alturaMes1);
-    contexto.fillStyle = "#32b96f";
-    contexto.fillRect(baseX + 2, yMes2, larguraBarra, alturaMes2);
+    preencherBarra(contexto, baseX - larguraBarra - 3, yMes1, larguraBarra, alturaMes1, "#2563eb");
+    preencherBarra(contexto, baseX + 3, yMes2, larguraBarra, alturaMes2, "#059669");
 
-    contexto.fillStyle = "#0b3f55";
+    contexto.fillStyle = chartTextColor;
     contexto.textAlign = "center";
     contexto.font = "12px Arial";
     contexto.fillText(item.mes1, baseX - larguraBarra / 2 - 2, yMes1 - 10);
     contexto.fillText(item.mes2, baseX + larguraBarra / 2 + 2, yMes2 - 10);
+    contexto.fillStyle = chartMutedColor;
     contexto.save();
-    contexto.translate(baseX, alturaGrafico + 58);
-    contexto.rotate(-0.45);
-    contexto.fillText(item.nome, 0, 0);
+    contexto.translate(baseX, alturaGrafico + 66);
+    contexto.rotate(-0.38);
+    contexto.fillText(textoCurto(item.nome, 16), 0, 0);
     contexto.restore();
   });
 
   contexto.textAlign = "left";
-  contexto.fillStyle = "#0787d8";
+  contexto.fillStyle = "#2563eb";
   contexto.fillRect(margem, canvas.height - 24, 12, 12);
-  contexto.fillStyle = "#0b3f55";
+  contexto.fillStyle = chartTextColor;
   contexto.fillText("Mês 1", margem + 18, canvas.height - 18);
-  contexto.fillStyle = "#32b96f";
+  contexto.fillStyle = "#059669";
   contexto.fillRect(margem + 82, canvas.height - 24, 12, 12);
-  contexto.fillStyle = "#0b3f55";
+  contexto.fillStyle = chartTextColor;
   contexto.fillText("Mês 2", margem + 100, canvas.height - 18);
 }
 
@@ -554,11 +624,11 @@ function desenharGraficoComparativoPizza(dados) {
   let anguloInicial = -Math.PI / 2;
   const centroX = canvas.width / 2;
   const centroY = 172;
-  const raio = 120;
+  const raio = 118;
 
   dadosComVariacao.forEach((item, index) => {
     const angulo = (item.variacaoAbs / totalVariacao) * Math.PI * 2;
-    const cor = item.variacao >= 0 ? coresGrafico[index % coresGrafico.length] : "#f43f5e";
+    const cor = item.variacao >= 0 ? coresGrafico[index % coresGrafico.length] : "#dc2626";
 
     contexto.beginPath();
     contexto.moveTo(centroX, centroY);
@@ -578,15 +648,19 @@ function desenharGraficoComparativoPizza(dados) {
     `;
   });
 
-  contexto.fillStyle = "#ffffff";
+  contexto.fillStyle = "#f8fafc";
   contexto.beginPath();
-  contexto.arc(centroX, centroY, 54, 0, Math.PI * 2);
+  contexto.arc(centroX, centroY, 64, 0, Math.PI * 2);
   contexto.fill();
-  contexto.fillStyle = "#0b3f55";
+  contexto.strokeStyle = "#e2e8f0";
+  contexto.lineWidth = 1;
+  contexto.stroke();
+  contexto.fillStyle = chartTextColor;
   contexto.textAlign = "center";
   contexto.font = "700 16px Arial";
   contexto.fillText(totalVariacao, centroX, centroY - 8);
   contexto.font = "13px Arial";
+  contexto.fillStyle = chartMutedColor;
   contexto.fillText("variação", centroX, centroY + 14);
 }
 
@@ -622,12 +696,12 @@ function renderizarGastosMensais() {
   controles.totalGastoMes.value = formatarMoeda(totalGeral);
   tbody.innerHTML = dados.map((material) => {
     return `
-      <tr>
-        <td>${material.nome}</td>
+      <tr class="report-data-row">
+        <td><strong>${material.nome}</strong></td>
         <td>${material.categoria}</td>
         <td>${material.unidade}</td>
-        <td>${material.quantidadeComprada}</td>
-        <td>${formatarMoeda(material.valorTotal)}</td>
+        <td><span class="report-number-pill">${material.quantidadeComprada}</span></td>
+        <td><span class="report-money-pill">${formatarMoeda(material.valorTotal)}</span></td>
       </tr>
     `;
   }).join("");
@@ -713,34 +787,31 @@ function desenharGraficoGastosBarras(dados) {
     return;
   }
 
-  const margem = 54;
+  const margem = 92;
   const larguraGrafico = canvas.width - margem * 2;
-  const alturaGrafico = canvas.height - 100;
+  const alturaGrafico = canvas.height - 112;
   const maiorValor = Math.max(...dadosComGasto.map((item) => item.valorTotal));
-  const larguraBarra = larguraGrafico / dadosComGasto.length - 14;
-
-  contexto.strokeStyle = "#d9dee7";
-  contexto.beginPath();
-  contexto.moveTo(margem, 28);
-  contexto.lineTo(margem, alturaGrafico + 30);
-  contexto.lineTo(canvas.width - margem, alturaGrafico + 30);
-  contexto.stroke();
+  const larguraGrupo = larguraGrafico / dadosComGasto.length;
+  const larguraBarra = Math.min(74, Math.max(28, larguraGrupo * 0.58));
+  desenharFrameGrafico(contexto, canvas, margem, alturaGrafico, maiorValor, (valor) => formatarMoeda(valor).replace("R$", "").trim());
 
   dadosComGasto.forEach((item, index) => {
     const alturaBarra = (item.valorTotal / maiorValor) * alturaGrafico;
-    const x = margem + index * (larguraBarra + 14) + 8;
-    const y = alturaGrafico + 30 - alturaBarra;
+    const x = margem + index * larguraGrupo + (larguraGrupo - larguraBarra) / 2;
+    const y = alturaGrafico + 34 - alturaBarra;
 
-    contexto.fillStyle = coresGrafico[index % coresGrafico.length];
-    contexto.fillRect(x, y, larguraBarra, alturaBarra);
+    preencherBarra(contexto, x, y, larguraBarra, alturaBarra, coresGrafico[index % coresGrafico.length]);
 
-    contexto.fillStyle = "#0b3f55";
+    contexto.fillStyle = chartTextColor;
     contexto.textAlign = "center";
+    contexto.font = "700 12px Arial";
     contexto.fillText(formatarMoeda(item.valorTotal), x + larguraBarra / 2, y - 12);
+    contexto.font = "12px Arial";
+    contexto.fillStyle = chartMutedColor;
     contexto.save();
-    contexto.translate(x + larguraBarra / 2, alturaGrafico + 54);
-    contexto.rotate(-0.45);
-    contexto.fillText(item.nome, 0, 0);
+    contexto.translate(x + larguraBarra / 2, alturaGrafico + 64);
+    contexto.rotate(-0.38);
+    contexto.fillText(textoCurto(item.nome, 16), 0, 0);
     contexto.restore();
   });
 }
@@ -764,7 +835,7 @@ function desenharGraficoGastosPizza(dados) {
   let anguloInicial = -Math.PI / 2;
   const centroX = canvas.width / 2;
   const centroY = 172;
-  const raio = 120;
+  const raio = 118;
 
   dadosComGasto.forEach((item, index) => {
     const angulo = (item.valorTotal / totalGeral) * Math.PI * 2;
@@ -787,15 +858,19 @@ function desenharGraficoGastosPizza(dados) {
     `;
   });
 
-  contexto.fillStyle = "#ffffff";
+  contexto.fillStyle = "#f8fafc";
   contexto.beginPath();
-  contexto.arc(centroX, centroY, 54, 0, Math.PI * 2);
+  contexto.arc(centroX, centroY, 64, 0, Math.PI * 2);
   contexto.fill();
-  contexto.fillStyle = "#0b3f55";
+  contexto.strokeStyle = "#e2e8f0";
+  contexto.lineWidth = 1;
+  contexto.stroke();
+  contexto.fillStyle = chartTextColor;
   contexto.textAlign = "center";
   contexto.font = "700 16px Arial";
   contexto.fillText(formatarMoeda(totalGeral), centroX, centroY - 8);
   contexto.font = "13px Arial";
+  contexto.fillStyle = chartMutedColor;
   contexto.fillText("gasto", centroX, centroY + 14);
 }
 

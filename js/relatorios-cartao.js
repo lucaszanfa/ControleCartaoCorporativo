@@ -10,7 +10,8 @@ const categoriasRelatorioCartao = [
 let ultimoRelatorioCartao = null;
 
 function linha(cells, options = {}) {
-  const classe = options.destaque ? ` class="${options.destaque}"` : "";
+  const classes = ["report-data-row", options.destaque].filter(Boolean).join(" ");
+  const classe = classes ? ` class="${classes}"` : "";
   return `<tr${classe}>${cells.map((cell) => `<td>${cell}</td>`).join("")}</tr>`;
 }
 
@@ -37,23 +38,7 @@ function qsRelatorio() {
 }
 
 function qsComprasPeriodo() {
-  const qs = new URLSearchParams();
-  const tipo = document.getElementById("filtroTipoCompras").value;
-  const cartaoId = document.getElementById("filtroComprasCartao").value;
-  const departamentoId = document.getElementById("filtroComprasDepartamento").value;
-  const categoria = document.getElementById("filtroCategoria").value;
-  const dataInicial = document.getElementById("filtroDataInicial").value;
-  const dataFinal = document.getElementById("filtroDataFinal").value;
-
-  if (tipo === "cartao" && !cartaoId) return { query: "", blocked: "Selecione um cartão para listar as compras." };
-  if (tipo === "departamento" && !departamentoId) return { query: "", blocked: "Selecione um departamento para listar as compras." };
-
-  if (tipo === "cartao") qs.set("cartaoId", cartaoId);
-  if (tipo === "departamento") qs.set("departamentoId", departamentoId);
-  if (categoria) qs.set("categoria", categoria);
-  if (dataInicial) qs.set("dataInicial", dataInicial);
-  if (dataFinal) qs.set("dataFinal", dataFinal);
-  return { query: qs.toString(), blocked: "" };
+  return { query: qsRelatorio(), blocked: "" };
 }
 
 async function carregarFiltros() {
@@ -64,8 +49,6 @@ async function carregarFiltros() {
 
   preencherSelect(document.getElementById("filtroDepartamento"), departamentos, "id", "nome", "Todos os departamentos");
   preencherSelect(document.getElementById("filtroCartao"), cartoes, "id", "nomeCartao", "Todos os cartões");
-  preencherSelect(document.getElementById("filtroComprasDepartamento"), departamentos, "id", "nome", "Selecione um departamento");
-  preencherSelect(document.getElementById("filtroComprasCartao"), cartoes, "id", "nomeCartao", "Selecione um cartão");
   document.getElementById("filtroCategoria").innerHTML = [
     '<option value="">Todas as categorias</option>',
     ...categoriasRelatorioCartao.map((categoria) => `<option value="${categoria}">${categoria.replaceAll("_", " ")}</option>`)
@@ -91,26 +74,26 @@ function renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, c
     ? porCartao.map((r) => linha([
         `<strong>${r.cartao}</strong>`,
         r.departamento,
-        moeda(r.total_gasto),
-        r.quantidade_compras,
-        moeda(r.media_compra)
+        `<span class="report-money-pill">${moeda(r.total_gasto)}</span>`,
+        `<span class="report-number-pill">${r.quantidade_compras}</span>`,
+        `<span class="report-money-pill">${moeda(r.media_compra)}</span>`
       ])).join("")
     : vazio(5);
 
   document.getElementById("gastosDepartamentoTabela").innerHTML = porDepartamento.length
     ? porDepartamento.map((r) => linha([
         `<strong>${r.departamento}</strong>`,
-        moeda(r.total_gasto),
-        r.quantidade_compras,
-        `${Number(r.percentual || 0).toFixed(1)}%`
+        `<span class="report-money-pill">${moeda(r.total_gasto)}</span>`,
+        `<span class="report-number-pill">${r.quantidade_compras}</span>`,
+        `<span class="report-number-pill">${Number(r.percentual || 0).toFixed(1)}%</span>`
       ])).join("")
     : vazio(4);
 
   document.getElementById("gastosCategoriaTabela").innerHTML = porCategoria.length
     ? porCategoria.map((r) => linha([
         String(r.categoria || "-").replaceAll("_", " "),
-        moeda(r.total_gasto),
-        r.quantidade_compras
+        `<span class="report-money-pill">${moeda(r.total_gasto)}</span>`,
+        `<span class="report-number-pill">${r.quantidade_compras}</span>`
       ])).join("")
     : vazio(3);
 
@@ -122,7 +105,7 @@ function renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, c
         r.responsavel,
         r.fornecedor,
         String(r.categoria || "-").replaceAll("_", " "),
-        moeda(r.valor),
+        `<span class="report-money-pill">${moeda(r.valor)}</span>`,
         `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`
       ])).join("")
     : vazio(8, "Nenhuma compra encontrada para o período selecionado.");
@@ -130,7 +113,7 @@ function renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, c
   document.getElementById("pendenciasTabela").innerHTML = pendencias.length
     ? pendencias.map((r) => linha([
         `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`,
-        r.total
+        `<span class="report-number-pill">${r.total}</span>`
       ], { destaque: r.status !== "conciliada" && r.status !== "resolvida" ? "row-inactive" : "" })).join("")
     : vazio(2, "Nenhuma pendência encontrada.");
 }
@@ -194,9 +177,7 @@ function baixarPdfRelatorioCartao() {
     { label: "Status da pendencia", value: textoSelecionadoCartao("filtroStatus") },
     { label: "Data inicial", value: document.getElementById("filtroDataInicial").value || "-" },
     { label: "Data final", value: document.getElementById("filtroDataFinal").value || "-" },
-    { label: "Tipo compras", value: textoSelecionadoCartao("filtroTipoCompras") },
-    { label: "Cartao compras", value: textoSelecionadoCartao("filtroComprasCartao") },
-    { label: "Departamento compras", value: textoSelecionadoCartao("filtroComprasDepartamento") }
+    { label: "Listagem de compras", value: "Mesmo filtro do relatório" }
   ]);
 
   pdf.section("Resumo executivo");
@@ -259,15 +240,14 @@ function baixarPdfRelatorioCartao() {
 }
 
 function configurarEventos() {
-  ["filtroDepartamento", "filtroCartao", "filtroCategoria", "filtroStatus", "filtroDataInicial", "filtroDataFinal", "filtroTipoCompras", "filtroComprasCartao", "filtroComprasDepartamento"].forEach((id) => {
+  ["filtroDepartamento", "filtroCartao", "filtroCategoria", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
     document.getElementById(id).addEventListener("change", carregarRelatoriosCartao);
   });
 
   document.getElementById("limparFiltros").addEventListener("click", () => {
-    ["filtroDepartamento", "filtroCartao", "filtroCategoria", "filtroStatus", "filtroDataInicial", "filtroDataFinal", "filtroTipoCompras", "filtroComprasCartao", "filtroComprasDepartamento"].forEach((id) => {
+    ["filtroDepartamento", "filtroCartao", "filtroCategoria", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
       document.getElementById(id).value = "";
     });
-    document.getElementById("filtroTipoCompras").value = "geral";
     carregarRelatoriosCartao();
   });
 

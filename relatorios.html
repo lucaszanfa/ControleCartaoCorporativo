@@ -34,8 +34,8 @@
         </div>
       </header>
 
-      <section class="card">
-        <div class="support-strip">
+      <section class="card report-hero-card">
+        <div class="support-strip report-hero">
           <img src="img/smamateriais.png" alt="Mascote SM&A com materiais">
           <div>
             <strong>Relatórios SM&A Materiais</strong>
@@ -44,7 +44,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card report-workspace-card">
         <div class="section-header">
           <h2>Relatório mensal de consumo</h2>
           <button class="btn btn-secondary" id="baixarPdfConsumo" type="button">Baixar PDF</button>
@@ -71,6 +71,20 @@
             </select>
           </label>
         </div>
+        <div class="report-kpi-row">
+          <article class="report-kpi">
+            <span>Materiais consumidos</span>
+            <strong id="resumoMateriaisConsumidos">0</strong>
+          </article>
+          <article class="report-kpi">
+            <span>Total de itens</span>
+            <strong id="resumoItensConsumidos">0</strong>
+          </article>
+          <article class="report-kpi">
+            <span>Maior consumo</span>
+            <strong id="resumoMaiorConsumo">-</strong>
+          </article>
+        </div>
         <div id="visualizacaoLista" class="table-wrapper">
           <table>
             <thead>
@@ -95,7 +109,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card report-workspace-card">
         <div class="section-header">
           <h2>Comparativo entre dois meses</h2>
         </div>
@@ -152,7 +166,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card report-workspace-card">
         <div class="section-header">
           <h2>Gastos mensais com compras</h2>
         </div>

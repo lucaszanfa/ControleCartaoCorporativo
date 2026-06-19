@@ -49,10 +49,10 @@ function renderizarMateriais() {
     const textoBotaoStatus = material.ativo ? "Desativar" : "Ativar";
 
     return `
-      <tr class="${material.ativo ? "" : "row-inactive"}">
-        <td>${material.nome}</td>
+      <tr class="report-data-row ${material.ativo ? "" : "row-inactive"}">
+        <td><strong>${material.nome}</strong></td>
         <td>${material.categoria}</td>
-        <td>${material.unidade}</td>
+        <td><span class="report-number-pill">${material.unidade}</span></td>
         <td><span class="status ${material.ativo ? "status-ok" : "status-pending"}">${textoStatus}</span></td>
         <td>
           ${podeGerenciarMateriais ? `

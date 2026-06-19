@@ -18,9 +18,9 @@ async function carregarCartoes() {
   if (document.getElementById("filtroStatus").value) qs.set("status", document.getElementById("filtroStatus").value);
   cartoes = await (await fetch(`/api/cartoes?${qs}`)).json();
   document.getElementById("cartoesTabela").innerHTML = cartoes.map((cartao) => `
-    <tr class="${cartao.status === "inativo" ? "row-inactive" : ""}">
-      <td>${cartao.nomeCartao}</td><td>${cartao.departamento}</td><td>${cartao.responsavel}</td><td>${cartao.gerente}</td>
-      <td>${cartao.ultimos4Digitos}</td><td>${moeda(cartao.limiteMensal)}</td><td><span class="${classeStatus(cartao.status)}">${cartao.status}</span></td>
+    <tr class="report-data-row ${cartao.status === "inativo" ? "row-inactive" : ""}">
+      <td><strong>${cartao.nomeCartao}</strong></td><td>${cartao.departamento}</td><td>${cartao.responsavel}</td><td>${cartao.gerente}</td>
+      <td><span class="report-number-pill">${cartao.ultimos4Digitos}</span></td><td><span class="report-money-pill">${moeda(cartao.limiteMensal)}</span></td><td><span class="${classeStatus(cartao.status)}">${cartao.status}</span></td>
       <td><div class="actions"><button class="btn btn-secondary" onclick="editarCartao(${cartao.id})">Editar</button><button class="btn btn-danger" onclick="alternarCartao(${cartao.id}, '${cartao.status}')">${cartao.status === "ativo" ? "Inativar" : "Ativar"}</button></div></td>
     </tr>
   `).join("");

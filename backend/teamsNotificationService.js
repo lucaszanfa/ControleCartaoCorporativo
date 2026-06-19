@@ -34,6 +34,8 @@ function buildTeamsMessageHtml(payload) {
     </ul>
     <p><strong>A\u00e7\u00e3o sugerida:</strong><br>
     Verificar com o respons\u00e1vel pelo cart\u00e3o e solicitar registro, justificativa ou comprovante.</p>
+    ${payload.mensagem ? `<p><strong>Detalhe:</strong><br>${escapeHtml(payload.mensagem)}</p>` : ""}
+    ${payload.url_resolucao ? `<p><a href="${escapeHtml(payload.url_resolucao)}">Abrir compra no sistema</a></p>` : ""}
   `.trim();
 }
 
@@ -51,7 +53,9 @@ function buildTeamsMessageText(payload) {
     `\u2022 Valor: ${money(payload.valor)}`,
     "",
     "A\u00e7\u00e3o sugerida:",
-    "Verificar com o respons\u00e1vel pelo cart\u00e3o e solicitar registro, justificativa ou comprovante."
+    "Verificar com o respons\u00e1vel pelo cart\u00e3o e solicitar registro, justificativa ou comprovante.",
+    ...(payload.mensagem ? ["", `Detalhe: ${payload.mensagem}`] : []),
+    ...(payload.url_resolucao ? ["", `Abrir compra no sistema: ${payload.url_resolucao}`] : [])
   ].join("\n");
 }
 
@@ -74,6 +78,7 @@ async function sendTeamsAlert(alerta) {
     estabelecimento: alerta.estabelecimento || alerta.fornecedor || "",
     valor: Number(alerta.valor || 0),
     mensagem: alerta.mensagem,
+    url_resolucao: alerta.url_resolucao || "",
     destinatarios_departamento: destinatariosDepartamento,
     destinatarios_departamento_emails: destinatariosDepartamento.map((usuario) => usuario.email).filter(Boolean).join(";"),
     notificar_departamento: alerta.tipo_alerta === "compra_sem_registro"
