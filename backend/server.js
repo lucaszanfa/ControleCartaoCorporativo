@@ -1005,12 +1005,34 @@ function normalizarDataCompraAutomatica(valor) {
 }
 
 function normalizarValorCompraAutomatica(valor) {
-  if (typeof valor === "number") return valor;
-  const texto = String(valor || "")
+  if (typeof valor === "number") {
+    return Number.isInteger(valor) && Math.abs(valor) >= 10000 ? valor / 100 : valor;
+  }
+
+  const textoOriginal = String(valor || "").trim();
+  const texto = textoOriginal
     .replace("R$", "")
     .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
+    .replace(/[^\d,.-]/g, "");
+
+  if (/^-?\d{5,}$/.test(texto)) {
+    return Number(texto) / 100;
+  }
+
+  if (texto.includes(",") && texto.includes(".")) {
+    const ultimoPonto = texto.lastIndexOf(".");
+    const ultimaVirgula = texto.lastIndexOf(",");
+    return Number(
+      ultimaVirgula > ultimoPonto
+        ? texto.replace(/\./g, "").replace(",", ".")
+        : texto.replace(/,/g, "")
+    );
+  }
+
+  if (texto.includes(",")) {
+    return Number(texto.replace(/\./g, "").replace(",", "."));
+  }
+
   return Number(texto);
 }
 
