@@ -94,6 +94,9 @@ async function ensureCartoesSeed() {
   if (row.total > 0) return;
 
   const admin = await get("SELECT id FROM usuarios WHERE email = ?", ["admin@sma.com"]);
+  await run("INSERT OR IGNORE INTO setores (nome) VALUES ('Administrativo')");
+  await run("INSERT OR IGNORE INTO setores (nome) VALUES ('Copa')");
+
   const ana = await get("SELECT id FROM usuarios WHERE email = ?", ["ana.pereira@sma.com"]);
   if (!ana) {
     await run(
@@ -108,7 +111,6 @@ async function ensureCartoesSeed() {
       ["Maria Souza", "maria.souza@sma.com", "123456", "Administrativo"]
     );
   }
-  await run("INSERT OR IGNORE INTO setores (nome) VALUES ('Copa')");
 
   const administrativo = await get("SELECT id FROM setores WHERE nome = ?", ["Administrativo"]);
   const copa = await get("SELECT id FROM setores WHERE nome = ?", ["Copa"]);
