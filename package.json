@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "backend/server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node backend/server.js",
     "seed": "node backend/seed.js"
