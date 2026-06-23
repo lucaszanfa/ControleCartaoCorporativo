@@ -1084,11 +1084,7 @@ app.post("/api/compras-cartao/automatica", async (request, response) => {
       return;
     }
 
-    const observacao = [
-      "Compra cadastrada automaticamente a partir de e-mail.",
-      codigoAutorizacao ? `Autorização: ${codigoAutorizacao}` : "",
-      emailOrigemId ? `E-mail origem: ${emailOrigemId}` : ""
-    ].filter(Boolean).join(" ");
+    const observacao = "Compra cadastrada automaticamente.";
 
     const result = await run(
       `INSERT INTO compras_cartao (
@@ -1103,11 +1099,11 @@ app.post("/api/compras-cartao/automatica", async (request, response) => {
         comprovante_url,
         observacao,
         status
-      ) VALUES (?, ?, ?, ?, ?, ?, 'outros', 'Compra importada automaticamente por e-mail', '', ?, 'sem_comprovante')`,
+      ) VALUES (?, ?, ?, ?, ?, ?, '', '', '', ?, 'sem_comprovante')`,
       [
         cartao.id,
         cartao.departamento_id,
-        cartao.responsavel_id,
+        null,
         dataNormalizada,
         valorNumerico,
         fornecedor,
