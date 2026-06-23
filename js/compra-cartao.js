@@ -3,6 +3,24 @@ const compraEdicaoId = compraParams.get("compraId");
 const alertaResolucaoId = compraParams.get("alertaId");
 const transacaoResolucaoId = compraParams.get("transacaoId");
 let cartoesAtivosCache = [];
+const camposProtegidosCompraAutomatica = ["cartaoId", "departamentoId", "dataCompra", "valor", "fornecedor", "observacao"];
+
+function compraCadastradaAutomaticamente(compra) {
+  return Boolean(compra?.automatica) || String(compra?.observacao || "").includes("Compra cadastrada automaticamente");
+}
+
+function definirCamposProtegidosCompraAutomatica(bloquear) {
+  camposProtegidosCompraAutomatica.forEach((id) => {
+    const campo = document.getElementById(id);
+    if (!campo) return;
+    if (campo.tagName === "SELECT") {
+      campo.disabled = bloquear;
+    } else {
+      campo.readOnly = bloquear;
+    }
+    campo.title = bloquear ? "Campo cadastrado automaticamente e bloqueado para edicao." : "";
+  });
+}
 
 async function initCompraCartao() {
   const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
@@ -236,6 +254,7 @@ async function carregarCompraParaEdicao(id) {
   const res = await fetch(`/api/compras-cartao/${id}`);
   const compra = await res.json();
   const mensagem = document.getElementById("compraMensagem");
+  definirCamposProtegidosCompraAutomatica(false);
 
   if (!res.ok) {
     mensagem.textContent = compra.erro || "Não foi possível carregar a compra.";
@@ -268,6 +287,11 @@ async function carregarCompraParaEdicao(id) {
   document.getElementById("comprovanteUrl").value = comprovanteUrlValido(compra.comprovanteUrl) ? compra.comprovanteUrl : "";
   document.getElementById("comprovanteAtual").innerHTML = linkComprovanteAtual(compra.comprovanteUrl);
   document.getElementById("observacao").value = compra.observacao || "";
+
+  if (compraCadastradaAutomaticamente(compra)) {
+    definirCamposProtegidosCompraAutomatica(true);
+    mensagem.textContent = "Esta compra foi cadastrada automaticamente. Complete apenas os campos faltantes: responsavel, categoria, motivo e comprovante.";
+  }
 }
 
 async function buscarPendenciasCompativeis(payload) {
@@ -392,6 +416,7 @@ document.getElementById("compraCartaoForm").addEventListener("submit", async (ev
 
   if (res.ok) {
     event.target.reset();
+    definirCamposProtegidosCompraAutomatica(false);
     document.getElementById("comprovanteUrl").value = "";
     document.getElementById("comprovanteAtual").textContent = "Nenhum comprovante anexado.";
     document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);

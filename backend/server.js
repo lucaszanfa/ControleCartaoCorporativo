@@ -218,6 +218,10 @@ function mapCartao(row) {
   };
 }
 
+function compraCartaoAutomatica(row) {
+  return String(row?.observacao || "").includes("Compra cadastrada automaticamente");
+}
+
 function mapCompraCartao(row) {
   return {
     id: row.id,
@@ -235,7 +239,8 @@ function mapCompraCartao(row) {
     motivo: row.motivo,
     comprovanteUrl: row.comprovante_url || "",
     observacao: row.observacao || "",
-    status: row.status
+    status: row.status,
+    automatica: compraCartaoAutomatica(row)
   };
 }
 
@@ -1181,9 +1186,40 @@ app.post("/api/compras-cartao", async (request, response) => {
 
 app.put("/api/compras-cartao/:id", async (request, response) => {
   const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, status, vincularPendencia, transacaoFaturaId, alertaId } = request.body;
+  const compraAtual = await get("SELECT * FROM compras_cartao WHERE id = ?", [request.params.id]);
+  if (!compraAtual) {
+    response.status(404).json({ erro: "Compra não encontrada." });
+    return;
+  }
+
+  const automatica = compraCartaoAutomatica(compraAtual);
+  const dadosProtegidos = automatica
+    ? {
+      cartaoId: compraAtual.cartao_id,
+      departamentoId: compraAtual.departamento_id,
+      dataCompra: compraAtual.data_compra,
+      valor: compraAtual.valor,
+      fornecedor: compraAtual.fornecedor,
+      observacao: compraAtual.observacao || "Compra cadastrada automaticamente."
+    }
+    : { cartaoId, departamentoId, dataCompra, valor, fornecedor, observacao: observacao || "" };
+
   await run(
     "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
-    [cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", status || "registrada", request.params.id]
+    [
+      dadosProtegidos.cartaoId,
+      dadosProtegidos.departamentoId,
+      responsavelCompraId || null,
+      dadosProtegidos.dataCompra,
+      dadosProtegidos.valor,
+      dadosProtegidos.fornecedor,
+      categoria || "",
+      motivo || "",
+      comprovanteUrl || "",
+      dadosProtegidos.observacao,
+      status || "registrada",
+      request.params.id
+    ]
   );
   const pendencia = vincularPendencia ? await tentarAtualizarPendenciaPorCompra(request.params.id, transacaoFaturaId) : { atualizada: false };
   const alerta = await resolverAlertaAposAtualizarCompra(request.params.id, alertaId);
