@@ -1112,6 +1112,34 @@ app.post("/api/compras-cartao/automatica", async (request, response) => {
     );
 
     await criarAlertaCompraSemComprovante(result.id);
+    let envioTeams = null;
+    try {
+      const baseUrl = process.env.APP_BASE_URL || `${request.protocol}://${request.get("host")}`;
+      const urlResolucao = `${baseUrl}/compra-cartao.html?compraId=${result.id}`;
+      const destinatariosDepartamento = await all(
+        "SELECT id, nome, email FROM usuarios WHERE status = 'ativo' AND lower(setor) = lower(?) AND email IS NOT NULL AND email != '' ORDER BY nome",
+        [cartao.departamento]
+      );
+
+      envioTeams = await sendTeamsAlert({
+        id: `compra-auto-${result.id}`,
+        compra_id: result.id,
+        cartao_id: cartao.id,
+        departamento_id: cartao.departamento_id,
+        tipo_alerta: "compra_automatica_cadastrada",
+        departamento: cartao.departamento,
+        cartao: cartao.nome_cartao,
+        data_compra: dataNormalizada,
+        estabelecimento: fornecedor,
+        valor: valorNumerico,
+        mensagem: "Compra cadastrada automaticamente. Conclua o cadastro no sistema.",
+        url_resolucao: urlResolucao,
+        destinatarios_departamento: destinatariosDepartamento
+      });
+    } catch (teamsError) {
+      console.warn("Compra automática cadastrada, mas não foi possível enviar aviso ao Teams:", teamsError.message);
+      envioTeams = { enviado: false, erro: teamsError.message };
+    }
 
     response.status(201).json({
       mensagem: "Compra automática cadastrada.",
@@ -1121,6 +1149,7 @@ app.post("/api/compras-cartao/automatica", async (request, response) => {
       departamentoId: cartao.departamento_id,
       departamento: cartao.departamento,
       status: "sem_comprovante",
+      teams: envioTeams,
       proximoPasso: "A compra está em Compras pendentes para anexar comprovante e revisar o cadastro."
     });
   } catch (error) {
