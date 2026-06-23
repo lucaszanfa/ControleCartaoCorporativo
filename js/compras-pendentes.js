@@ -123,7 +123,7 @@ function renderizarPendentes() {
   tabelaPendentes.innerHTML = lista.map((compra) => `
     <tr class="report-data-row ${["divergente", "sem_comprovante", "sem_registro"].includes(compra.status) ? "row-inactive" : ""}">
       <td><strong>${formatarData(compra.dataCompra)}</strong></td>
-      <td><strong>${compra.cartao}</strong> final ${compra.ultimos4Digitos || "-"}</td>
+      <td><strong>${compra.cartao || "-"}</strong></td>
       <td>${compra.fornecedor || "-"}</td>
       <td><span class="report-money-pill">${moeda(compra.valor)}</span></td>
       <td><span class="${classeStatus(compra.status)}">${textoStatus(compra.status)}</span></td>

@@ -127,7 +127,7 @@ function renderResultadoConciliacao(data) {
           <div>
             <span class="${classeStatus(pendencia.status)}">${escapeHtml(rotuloPendencia(pendencia.status))}</span>
             <strong>${escapeHtml(pendencia.estabelecimento || "-")} - ${moeda(pendencia.valor)}</strong>
-            <p>${formatarData(pendencia.dataTransacao)} - ${escapeHtml(pendencia.cartao || "-")} final ${escapeHtml(pendencia.ultimos4Digitos || "-")} - ${escapeHtml(pendencia.departamento || "-")}</p>
+            <p>${formatarData(pendencia.dataTransacao)} - ${escapeHtml(pendencia.cartao || "-")} - ${escapeHtml(pendencia.departamento || "-")}</p>
             <p>${escapeHtml(detalheCompraEncontrada(pendencia))}</p>
           </div>
           <a class="btn btn-primary" href="${linkResolucaoPendencia(pendencia)}">Resolver</a>

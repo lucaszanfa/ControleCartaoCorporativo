@@ -8,7 +8,7 @@ async function carregarAlertas() {
     <tr class="report-data-row ${row.status !== "resolvido" ? "row-inactive" : ""}">
       <td><strong>${row.criado_em?.slice(0, 10) || "-"}</strong></td>
       <td>${row.departamento}</td>
-      <td><strong>${row.cartao}</strong> final ${row.ultimos_4_digitos}</td>
+      <td><strong>${row.cartao || "-"}</strong></td>
       <td>${row.tipo_alerta}</td>
       <td>${row.estabelecimento || "-"}</td>
       <td><span class="report-money-pill">${moeda(row.valor)}</span></td>

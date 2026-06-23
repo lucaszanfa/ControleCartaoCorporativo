@@ -160,7 +160,7 @@ async function abrirDetalheCompra(id) {
   conteudo.innerHTML = `
     ${detalheItem("Data da compra", formatarData(compra.dataCompra))}
     ${detalheItem("Status", compra.status)}
-    ${detalheItem("Cartao", compra.ultimos4Digitos ? `${compra.cartao} final ${compra.ultimos4Digitos}` : compra.cartao)}
+    ${detalheItem("Cartao", compra.cartao)}
     ${detalheItem("Departamento", compra.departamento)}
     ${detalheItem("Responsavel", compra.responsavelCompra || compra.responsavel)}
     ${detalheItem("Categoria", compra.categoria)}

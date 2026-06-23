@@ -62,6 +62,7 @@ async function initDb() {
   const schema = fs.readFileSync(schemaPath, "utf8");
   await exec(schema);
   await ensureUsuarioColumns();
+  await ensureComprasCartaoNullableFields();
 }
 
 async function ensureUsuarioColumns() {
@@ -83,6 +84,55 @@ async function ensureUsuarioColumns() {
       await run(`ALTER TABLE usuarios ADD COLUMN ${name} ${definition}`);
     }
   }
+}
+
+async function ensureComprasCartaoNullableFields() {
+  const columns = await all("PRAGMA table_info(compras_cartao)");
+  const responsavel = columns.find((column) => column.name === "responsavel_compra_id");
+  const categoria = columns.find((column) => column.name === "categoria");
+  const motivo = columns.find((column) => column.name === "motivo");
+
+  if (!responsavel || (responsavel.notnull === 0 && categoria?.notnull === 0 && motivo?.notnull === 0)) {
+    return;
+  }
+
+  await exec(`
+    PRAGMA foreign_keys = OFF;
+
+    CREATE TABLE IF NOT EXISTS compras_cartao_migracao (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cartao_id INTEGER NOT NULL,
+      departamento_id INTEGER NOT NULL,
+      responsavel_compra_id INTEGER,
+      data_compra TEXT NOT NULL,
+      valor REAL NOT NULL CHECK (valor > 0),
+      fornecedor TEXT NOT NULL,
+      categoria TEXT CHECK (categoria IS NULL OR categoria = '' OR categoria IN ('material_administrativo', 'copa', 'limpeza', 'manutencao', 'transporte', 'servicos', 'outros')),
+      motivo TEXT,
+      comprovante_url TEXT,
+      observacao TEXT,
+      status TEXT NOT NULL DEFAULT 'registrada' CHECK (status IN ('registrada', 'aguardando_conferencia', 'conferida', 'divergente', 'sem_comprovante', 'resolvida', 'cancelada')),
+      criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
+      FOREIGN KEY (departamento_id) REFERENCES setores(id),
+      FOREIGN KEY (responsavel_compra_id) REFERENCES usuarios(id)
+    );
+
+    INSERT INTO compras_cartao_migracao (
+      id, cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor,
+      categoria, motivo, comprovante_url, observacao, status, criado_em, atualizado_em
+    )
+    SELECT
+      id, cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor,
+      categoria, motivo, comprovante_url, observacao, status, criado_em, atualizado_em
+    FROM compras_cartao;
+
+    DROP TABLE compras_cartao;
+    ALTER TABLE compras_cartao_migracao RENAME TO compras_cartao;
+
+    PRAGMA foreign_keys = ON;
+  `);
 }
 
 module.exports = {
