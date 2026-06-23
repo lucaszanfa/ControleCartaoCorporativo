@@ -29,17 +29,15 @@ function cardLabel(payload) {
 function buildTeamsMessageHtml(payload) {
   if (payload.tipo_alerta === "compra_automatica_cadastrada") {
     return `
-      <h2>Compra automática cadastrada</h2>
-      <p>Uma compra foi cadastrada automaticamente no sistema e precisa ser concluída.</p>
+      <h2>Compra registrada automaticamente no sistema</h2>
       <ul>
-        <li><strong>Departamento:</strong> ${escapeHtml(payload.departamento)}</li>
         <li><strong>Cartão:</strong> ${escapeHtml(cardLabel(payload))}</li>
         <li><strong>Data da compra:</strong> ${escapeHtml(payload.data_compra)}</li>
-        <li><strong>Estabelecimento:</strong> ${escapeHtml(payload.estabelecimento)}</li>
+        <li><strong>Fornecedor:</strong> ${escapeHtml(payload.estabelecimento)}</li>
         <li><strong>Valor:</strong> ${escapeHtml(money(payload.valor))}</li>
       </ul>
-      <p><strong>Ação necessária:</strong><br>Concluir responsável, categoria, motivo e comprovante.</p>
-      ${payload.url_resolucao ? `<p><a href="${escapeHtml(payload.url_resolucao)}">Abrir compra no sistema</a></p>` : ""}
+      <p>Para concluir o registro, acesse o link abaixo caso essa compra tenha sido feita por você.</p>
+      ${payload.url_resolucao ? `<p><a href="${escapeHtml(payload.url_resolucao)}">Concluir registro da compra</a></p>` : ""}
     `.trim();
   }
 
@@ -64,19 +62,15 @@ function buildTeamsMessageHtml(payload) {
 function buildTeamsMessageText(payload) {
   if (payload.tipo_alerta === "compra_automatica_cadastrada") {
     return [
-      "Compra automática cadastrada",
+      "Compra registrada automaticamente no sistema:",
       "",
-      "Uma compra foi cadastrada automaticamente no sistema e precisa ser concluída.",
+      `Cartão: ${cardLabel(payload)}`,
+      `Data da compra: ${payload.data_compra}`,
+      `Fornecedor: ${payload.estabelecimento}`,
+      `Valor: ${money(payload.valor)}`,
       "",
-      `• Departamento: ${payload.departamento}`,
-      `• Cartão: ${cardLabel(payload)}`,
-      `• Data da compra: ${payload.data_compra}`,
-      `• Estabelecimento: ${payload.estabelecimento}`,
-      `• Valor: ${money(payload.valor)}`,
-      "",
-      "Ação necessária:",
-      "Concluir responsável, categoria, motivo e comprovante.",
-      ...(payload.url_resolucao ? ["", `Abrir compra no sistema: ${payload.url_resolucao}`] : [])
+      "Para concluir o registro, entre no link abaixo caso essa compra tenha sido feita por você.",
+      ...(payload.url_resolucao ? ["", payload.url_resolucao] : [])
     ].join("\n");
   }
 
