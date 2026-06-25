@@ -485,7 +485,7 @@ async function resolverAlertaAposAtualizarCompra(compraId, alertaId) {
 }
 
 async function bootstrap() {
-  const materiais = await all("SELECT id, nome, categoria, unidade, ativo FROM materiais ORDER BY nome");
+  const materiais = await all("SELECT id, nome, categoria, unidade, unidades_por_caixa AS unidadesPorCaixa, ativo FROM materiais ORDER BY nome");
   const setoresRows = await all("SELECT nome FROM setores ORDER BY nome");
   const usuarios = await all("SELECT * FROM usuarios ORDER BY nome");
   const saidasRows = await all("SELECT * FROM saidas ORDER BY data DESC, id DESC");
@@ -605,16 +605,21 @@ app.get("/api/materiais", async (_request, response) => {
 
 app.post("/api/materiais", async (request, response) => {
   try {
-    const { nome, categoria, unidade } = request.body;
+    const { nome, categoria, unidade, unidadesPorCaixa } = request.body;
+    const fatorCaixa = Number(unidadesPorCaixa) || 1;
 
     if (!nome || !categoria || !unidade) {
       response.status(400).json({ erro: "Preencha nome, categoria e unidade." });
       return;
     }
+    if (!Number.isInteger(fatorCaixa) || fatorCaixa < 1) {
+      response.status(400).json({ erro: "Unidades por caixa deve ser um número inteiro maior ou igual a 1." });
+      return;
+    }
 
     const result = await run(
-      "INSERT INTO materiais (nome, categoria, unidade, ativo) VALUES (?, ?, ?, 1)",
-      [nome, categoria, unidade]
+      "INSERT INTO materiais (nome, categoria, unidade, unidades_por_caixa, ativo) VALUES (?, ?, ?, ?, 1)",
+      [nome, categoria, unidade, fatorCaixa]
     );
 
     response.status(201).json({ id: result.id });
@@ -625,16 +630,21 @@ app.post("/api/materiais", async (request, response) => {
 
 app.put("/api/materiais/:id", async (request, response) => {
   try {
-    const { nome, categoria, unidade } = request.body;
+    const { nome, categoria, unidade, unidadesPorCaixa } = request.body;
+    const fatorCaixa = Number(unidadesPorCaixa) || 1;
 
     if (!nome || !categoria || !unidade) {
       response.status(400).json({ erro: "Preencha nome, categoria e unidade." });
       return;
     }
+    if (!Number.isInteger(fatorCaixa) || fatorCaixa < 1) {
+      response.status(400).json({ erro: "Unidades por caixa deve ser um número inteiro maior ou igual a 1." });
+      return;
+    }
 
     await run(
-      "UPDATE materiais SET nome = ?, categoria = ?, unidade = ? WHERE id = ?",
-      [nome, categoria, unidade, request.params.id]
+      "UPDATE materiais SET nome = ?, categoria = ?, unidade = ?, unidades_por_caixa = ? WHERE id = ?",
+      [nome, categoria, unidade, fatorCaixa, request.params.id]
     );
 
     response.json({ mensagem: "Material atualizado." });

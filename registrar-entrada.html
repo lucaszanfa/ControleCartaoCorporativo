@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -16,6 +16,7 @@
       <nav class="sidebar-nav">
         <a href="dashboard.html">Dashboard</a>
         <a href="materiais.html">Materiais</a>
+        <a href="estoque.html">Estoque</a>
         <a href="registrar-saida.html">Registrar saída</a>
         <a class="active" href="registrar-entrada.html">Registrar entrada</a>
         <a href="historico.html">Histórico</a>
@@ -51,8 +52,23 @@
             <select id="materialEntrada" required></select>
           </label>
           <label>
-            Quantidade comprada
+            Registrar em
+            <select id="tipoQuantidadeEntrada" required>
+              <option value="unidades">Unidades</option>
+              <option value="caixas">Caixas</option>
+            </select>
+          </label>
+          <label id="quantidadeEntradaLabel">
+            Quantidade
             <input id="quantidadeEntrada" type="number" min="1" value="1" required>
+          </label>
+          <label id="unidadesPorCaixaEntradaLabel" class="hidden">
+            Unidades por caixa desta entrada
+            <input id="unidadesPorCaixaEntrada" type="number" min="1" step="1" value="1" required>
+          </label>
+          <label id="totalUnidadesEntradaLabel" class="hidden">
+            Total em unidades
+            <input id="totalUnidadesEntrada" type="number" min="1" value="1" readonly>
           </label>
           <label>
             Valor total pago
@@ -79,3 +95,5 @@
   <script src="js/entradas.js"></script>
 </body>
 </html>
+
+

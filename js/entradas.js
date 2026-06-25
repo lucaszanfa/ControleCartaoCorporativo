@@ -2,6 +2,32 @@ const materialEntradaSelect = document.getElementById("materialEntrada");
 const dataEntradaInput = document.getElementById("dataEntrada");
 const entradaForm = document.getElementById("entradaForm");
 const mensagemEntradaSucesso = document.getElementById("mensagemEntradaSucesso");
+const tipoQuantidadeEntradaSelect = document.getElementById("tipoQuantidadeEntrada");
+const quantidadeEntradaInput = document.getElementById("quantidadeEntrada");
+const unidadesPorCaixaEntradaInput = document.getElementById("unidadesPorCaixaEntrada");
+const totalUnidadesEntradaInput = document.getElementById("totalUnidadesEntrada");
+const quantidadeEntradaLabel = document.getElementById("quantidadeEntradaLabel");
+const unidadesPorCaixaEntradaLabel = document.getElementById("unidadesPorCaixaEntradaLabel");
+
+function materialEntradaSelecionado() {
+  return materiais.find((material) => material.id === Number(materialEntradaSelect.value));
+}
+
+function atualizarUnidadesPorCaixaEntrada() {
+  const material = materialEntradaSelecionado();
+  unidadesPorCaixaEntradaInput.value = material?.unidadesPorCaixa || 1;
+  calcularTotalUnidadesEntrada();
+}
+
+function calcularTotalUnidadesEntrada() {
+  const quantidade = Number(quantidadeEntradaInput.value) || 0;
+  const unidadesPorCaixa = Number(unidadesPorCaixaEntradaInput.value) || 1;
+  const registrarCaixas = tipoQuantidadeEntradaSelect.value === "caixas";
+  const total = registrarCaixas ? quantidade * unidadesPorCaixa : quantidade;
+  totalUnidadesEntradaInput.value = Math.max(1, total);
+  quantidadeEntradaLabel.childNodes[0].textContent = registrarCaixas ? "Caixas" : "Unidades";
+  unidadesPorCaixaEntradaLabel.classList.toggle("hidden", !registrarCaixas);
+}
 
 function preencherMateriaisEntrada() {
   materialEntradaSelect.innerHTML = materiais
@@ -10,6 +36,7 @@ function preencherMateriaisEntrada() {
     .join("");
 
   dataEntradaInput.value = new Date().toISOString().slice(0, 10);
+  atualizarUnidadesPorCaixaEntrada();
 }
 
 entradaForm.addEventListener("submit", async function (event) {
@@ -17,7 +44,7 @@ entradaForm.addEventListener("submit", async function (event) {
 
   const novaEntrada = {
     materialId: Number(materialEntradaSelect.value),
-    quantidade: Number(document.getElementById("quantidadeEntrada").value),
+    quantidade: Number(totalUnidadesEntradaInput.value),
     valorTotal: Number(document.getElementById("valorEntrada").value),
     data: dataEntradaInput.value,
     observacao: document.getElementById("observacaoEntrada").value
@@ -48,4 +75,8 @@ entradaForm.addEventListener("submit", async function (event) {
   }
 });
 
+materialEntradaSelect.addEventListener("change", atualizarUnidadesPorCaixaEntrada);
+tipoQuantidadeEntradaSelect.addEventListener("change", calcularTotalUnidadesEntrada);
+quantidadeEntradaInput.addEventListener("input", calcularTotalUnidadesEntrada);
+unidadesPorCaixaEntradaInput.addEventListener("input", calcularTotalUnidadesEntrada);
 preencherMateriaisEntrada();

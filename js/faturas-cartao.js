@@ -1,3 +1,5 @@
+let csvFaturaSelecionada = "";
+
 async function initFaturas() {
   const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
   preencherSelect(document.getElementById("cartaoId"), cartoes, "id", "nomeCartao");
@@ -20,10 +22,10 @@ async function carregarArquivoFatura(event) {
   const mensagem = document.getElementById("faturaMensagem");
   const arquivoAtual = document.getElementById("arquivoFaturaAtual");
   const arquivoNome = document.getElementById("arquivoNome");
-  const csvTransacoes = document.getElementById("csvTransacoes");
 
   if (!file) {
     arquivoNome.value = "";
+    csvFaturaSelecionada = "";
     arquivoAtual.textContent = "Nenhum arquivo selecionado.";
     return;
   }
@@ -31,6 +33,7 @@ async function carregarArquivoFatura(event) {
   if (!file.name.toLowerCase().endsWith(".csv")) {
     event.target.value = "";
     arquivoNome.value = "";
+    csvFaturaSelecionada = "";
     arquivoAtual.textContent = "Nenhum arquivo selecionado.";
     mensagem.textContent = "Anexe um arquivo CSV.";
     mensagem.classList.remove("hidden");
@@ -38,10 +41,11 @@ async function carregarArquivoFatura(event) {
   }
 
   const texto = await file.text();
+  const transacoes = parseCsv(texto);
   arquivoNome.value = file.name;
-  arquivoAtual.textContent = `Arquivo selecionado: ${file.name}`;
-  csvTransacoes.value = texto.trim();
-  mensagem.textContent = "Arquivo CSV carregado. Confira a prévia antes de importar.";
+  csvFaturaSelecionada = texto.trim();
+  arquivoAtual.textContent = `Arquivo selecionado: ${file.name} (${transacoes.length} transação(ões))`;
+  mensagem.textContent = "Arquivo CSV carregado. Ao importar, o sistema fará a conciliação automaticamente.";
   mensagem.classList.remove("hidden");
 }
 
@@ -106,7 +110,7 @@ function renderResultadoConciliacao(data) {
       <div class="section-header">
         <div>
           <h2>Conciliação concluída</h2>
-          <p>${data.processadas || 0} transações processadas. Nenhuma pendência encontrada.</p>
+          <p>${data.processadas || 0} transação(ões) processada(s). Nenhuma pendência encontrada.</p>
         </div>
       </div>
     `;
@@ -145,7 +149,7 @@ async function carregarFaturas() {
       <td><span class="report-number-pill">${fatura.mes_referencia}/${fatura.ano_referencia}</span></td>
       <td>${fatura.arquivo_nome || "-"}</td>
       <td><span class="${classeStatus(fatura.status)}">${fatura.status}</span></td>
-      <td><button class="btn btn-primary" onclick="rodarConciliacao(${fatura.id})">Rodar conciliação</button></td>
+      <td><button class="btn btn-primary" onclick="rodarConciliacao(${fatura.id})">Rodar novamente</button></td>
     </tr>
   `).join("");
 }
@@ -155,22 +159,26 @@ async function rodarConciliacao(id) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const mensagem = document.getElementById("faturaMensagem");
-    mensagem.textContent = data.erro || "Nao foi possivel rodar a conciliacao.";
+    mensagem.textContent = data.erro || "Não foi possível rodar a conciliação.";
     mensagem.classList.remove("hidden");
-    return;
+    return null;
   }
   await carregarFaturas();
   renderResultadoConciliacao(data);
+  return data;
 }
 
 document.getElementById("faturaForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const transacoes = parseCsv(document.getElementById("csvTransacoes").value);
+  const mensagem = document.getElementById("faturaMensagem");
+  const transacoes = parseCsv(csvFaturaSelecionada);
+
   if (!transacoes.length) {
-    document.getElementById("faturaMensagem").textContent = "Anexe ou preencha um CSV com pelo menos uma transação.";
-    document.getElementById("faturaMensagem").classList.remove("hidden");
+    mensagem.textContent = "Anexe um arquivo CSV com pelo menos uma transação.";
+    mensagem.classList.remove("hidden");
     return;
   }
+
   const payload = {
     cartaoId: document.getElementById("cartaoId").value,
     mesReferencia: document.getElementById("mesReferencia").value,
@@ -180,15 +188,25 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
     observacao: document.getElementById("observacao").value,
     transacoes
   };
+
   const res = await fetch("/api/faturas-cartao/importar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   const data = await res.json();
-  document.getElementById("faturaMensagem").textContent = data.erro || "Fatura importada.";
-  document.getElementById("faturaMensagem").classList.remove("hidden");
+  mensagem.textContent = data.erro || "Fatura importada. Rodando conciliação automática...";
+  mensagem.classList.remove("hidden");
+
   if (res.ok) {
+    const resultado = await rodarConciliacao(data.id);
+    if (resultado) {
+      mensagem.textContent = resultado.pendencias?.length
+        ? `Fatura importada e conciliada. ${resultado.pendencias.length} pendência(s) encontrada(s).`
+        : `Fatura importada e conciliada. ${resultado.processadas || 0} transação(ões) processada(s), sem pendências.`;
+    }
     event.target.reset();
+    csvFaturaSelecionada = "";
     document.getElementById("arquivoNome").value = "";
     document.getElementById("arquivoFaturaAtual").textContent = "Nenhum arquivo selecionado.";
-    await initFaturas();
+    document.getElementById("mesReferencia").value = new Date().getMonth() + 1;
+    await carregarFaturas();
   }
 });
 

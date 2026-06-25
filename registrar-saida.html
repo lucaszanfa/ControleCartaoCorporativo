@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -16,6 +16,7 @@
       <nav class="sidebar-nav">
         <a href="dashboard.html">Dashboard</a>
         <a href="materiais.html">Materiais</a>
+        <a href="estoque.html">Estoque</a>
         <a class="active" href="registrar-saida.html">Registrar saída</a>
         <a href="registrar-entrada.html">Registrar entrada</a>
         <a href="historico.html">Histórico</a>
@@ -51,8 +52,23 @@
             <select id="material" required></select>
           </label>
           <label>
+            Registrar em
+            <select id="tipoQuantidade" required>
+              <option value="unidades">Unidades</option>
+              <option value="caixas">Caixas</option>
+            </select>
+          </label>
+          <label id="quantidadeLabel">
             Quantidade
             <input id="quantidade" type="number" min="1" value="1" required>
+          </label>
+          <label id="unidadesPorCaixaLabel" class="hidden">
+            Unidades por caixa desta saída
+            <input id="unidadesPorCaixa" type="number" min="1" step="1" value="1" required>
+          </label>
+          <label id="totalUnidadesLabel" class="hidden">
+            Total em unidades
+            <input id="totalUnidades" type="number" min="1" value="1" readonly>
           </label>
           <label>
             Data
@@ -91,3 +107,5 @@
   <script src="js/saidas.js"></script>
 </body>
 </html>
+
+

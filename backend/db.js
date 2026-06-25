@@ -61,8 +61,18 @@ function exec(sql) {
 async function initDb() {
   const schema = fs.readFileSync(schemaPath, "utf8");
   await exec(schema);
+  await ensureMateriaisColumns();
   await ensureUsuarioColumns();
   await ensureComprasCartaoNullableFields();
+}
+
+async function ensureMateriaisColumns() {
+  const columns = await all("PRAGMA table_info(materiais)");
+  const names = columns.map((column) => column.name);
+
+  if (!names.includes("unidades_por_caixa")) {
+    await run("ALTER TABLE materiais ADD COLUMN unidades_por_caixa INTEGER NOT NULL DEFAULT 1");
+  }
 }
 
 async function ensureUsuarioColumns() {

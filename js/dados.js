@@ -1,14 +1,14 @@
 let materiais = [
-  { id: 1, nome: "Caneta", categoria: "Escritório", unidade: "unidade", ativo: true },
-  { id: 2, nome: "Papel", categoria: "Escritório", unidade: "resma", ativo: true },
-  { id: 3, nome: "Corretivo", categoria: "Escritório", unidade: "unidade", ativo: true },
-  { id: 4, nome: "Marca-texto", categoria: "Escritório", unidade: "unidade", ativo: true },
-  { id: 5, nome: "Café", categoria: "Copa", unidade: "pacote", ativo: true },
-  { id: 6, nome: "Papel toalha", categoria: "Limpeza", unidade: "pacote", ativo: true },
-  { id: 7, nome: "Detergente", categoria: "Limpeza", unidade: "unidade", ativo: true },
-  { id: 8, nome: "Bucha", categoria: "Limpeza", unidade: "unidade", ativo: true },
-  { id: 9, nome: "Papel higiênico", categoria: "Limpeza", unidade: "pacote", ativo: true },
-  { id: 10, nome: "Bom ar", categoria: "Limpeza", unidade: "unidade", ativo: true }
+  { id: 1, nome: "Caneta", categoria: "Escritório", unidade: "unidade", unidadesPorCaixa: 50, ativo: true },
+  { id: 2, nome: "Papel", categoria: "Escritório", unidade: "resma", unidadesPorCaixa: 10, ativo: true },
+  { id: 3, nome: "Corretivo", categoria: "Escritório", unidade: "unidade", unidadesPorCaixa: 12, ativo: true },
+  { id: 4, nome: "Marca-texto", categoria: "Escritório", unidade: "unidade", unidadesPorCaixa: 12, ativo: true },
+  { id: 5, nome: "Café", categoria: "Copa", unidade: "pacote", unidadesPorCaixa: 20, ativo: true },
+  { id: 6, nome: "Papel toalha", categoria: "Limpeza", unidade: "pacote", unidadesPorCaixa: 12, ativo: true },
+  { id: 7, nome: "Detergente", categoria: "Limpeza", unidade: "unidade", unidadesPorCaixa: 24, ativo: true },
+  { id: 8, nome: "Bucha", categoria: "Limpeza", unidade: "unidade", unidadesPorCaixa: 12, ativo: true },
+  { id: 9, nome: "Papel higiênico", categoria: "Limpeza", unidade: "pacote", unidadesPorCaixa: 16, ativo: true },
+  { id: 10, nome: "Bom ar", categoria: "Limpeza", unidade: "unidade", unidadesPorCaixa: 12, ativo: true }
 ];
 
 let setores = [

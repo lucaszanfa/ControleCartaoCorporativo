@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -16,6 +16,7 @@
       <nav class="sidebar-nav">
         <a href="dashboard.html">Dashboard</a>
         <a class="active" href="materiais.html">Materiais</a>
+        <a href="estoque.html">Estoque</a>
         <a href="registrar-saida.html">Registrar saída</a>
         <a href="registrar-entrada.html">Registrar entrada</a>
         <a href="historico.html">Histórico</a>
@@ -51,8 +52,14 @@
             <input id="materialCategoria" type="text" placeholder="Ex.: Escritório" required>
           </label>
           <label>
-            Unidade
-            <input id="materialUnidade" type="text" placeholder="Ex.: unidade, pacote, resma" required>
+            Unidade de estoque
+            <input id="materialUnidade" type="text" placeholder="Ex.: unidade, pacote, resma, rolo" required>
+            <small class="field-hint">É a unidade que será usada para calcular o estoque.</small>
+          </label>
+          <label>
+            Itens por caixa padrão
+            <input id="materialUnidadesPorCaixa" type="number" min="1" step="1" value="1" required>
+            <small class="field-hint">Use 1 se não houver caixa padrão. Na entrada/saída esse valor pode ser ajustado.</small>
           </label>
           <div class="form-actions full-width">
             <button class="btn btn-secondary" id="cancelarMaterialBtn" type="button">Cancelar</button>
@@ -97,6 +104,7 @@
                 <th>Material</th>
                 <th>Categoria</th>
                 <th>Unidade</th>
+                <th>Caixa</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
@@ -113,3 +121,5 @@
   <script src="js/materiais.js"></script>
 </body>
 </html>
+
+

@@ -24,6 +24,7 @@ function abrirFormulario(material = null) {
   document.getElementById("materialNome").value = material?.nome || "";
   document.getElementById("materialCategoria").value = material?.categoria || "";
   document.getElementById("materialUnidade").value = material?.unidade || "";
+  document.getElementById("materialUnidadesPorCaixa").value = material?.unidadesPorCaixa || 1;
   materialFormTitulo.textContent = material ? "Editar material" : "Novo material";
   materialFormCard.classList.remove("hidden");
   materialMensagem.classList.add("hidden");
@@ -53,6 +54,7 @@ function renderizarMateriais() {
         <td><strong>${material.nome}</strong></td>
         <td>${material.categoria}</td>
         <td><span class="report-number-pill">${material.unidade}</span></td>
+        <td>${Number(material.unidadesPorCaixa || 1) > 1 ? `${material.unidadesPorCaixa} ${material.unidade}` : "Não configurado"}</td>
         <td><span class="status ${material.ativo ? "status-ok" : "status-pending"}">${textoStatus}</span></td>
         <td>
           ${podeGerenciarMateriais ? `
@@ -67,7 +69,7 @@ function renderizarMateriais() {
   }).join("");
 
   if (!materiaisFiltrados.length) {
-    materiaisTabela.innerHTML = `<tr><td class="empty-state" colspan="5">Nenhum material encontrado.</td></tr>`;
+    materiaisTabela.innerHTML = `<tr><td class="empty-state" colspan="6">Nenhum material encontrado.</td></tr>`;
   }
 
   document.querySelectorAll(".editar-material").forEach((botao) => {
@@ -89,7 +91,8 @@ async function salvarMaterial(event) {
   const material = {
     nome: document.getElementById("materialNome").value,
     categoria: document.getElementById("materialCategoria").value,
-    unidade: document.getElementById("materialUnidade").value
+    unidade: document.getElementById("materialUnidade").value,
+    unidadesPorCaixa: Number(document.getElementById("materialUnidadesPorCaixa").value) || 1
   };
   const url = id ? `/api/materiais/${id}` : "/api/materiais";
   const method = id ? "PUT" : "POST";

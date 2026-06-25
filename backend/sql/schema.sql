@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS materiais (
   nome TEXT NOT NULL,
   categoria TEXT NOT NULL,
   unidade TEXT NOT NULL,
+  unidades_por_caixa INTEGER NOT NULL DEFAULT 1 CHECK (unidades_por_caixa >= 1),
   ativo INTEGER NOT NULL DEFAULT 1
 );
 

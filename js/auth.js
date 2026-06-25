@@ -49,6 +49,7 @@ function aplicarMenuPrincipal() {
   const materiais = [
     { href: "dashboard.html", label: "Visao geral" },
     { href: "materiais.html", label: "Cadastro de materiais" },
+    { href: "estoque.html", label: "Estoque" },
     { href: "registrar-saida.html", label: "Registrar saida", permissao: "registrarSaida" },
     { href: "registrar-entrada.html", label: "Registrar entrada", permissao: "registrarEntrada" },
     { href: "historico.html", label: "Historico" },

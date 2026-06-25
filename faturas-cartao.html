@@ -5,7 +5,7 @@
   <div class="app-shell">
     <aside class="sidebar"><div class="sidebar-brand"><img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A"><strong>Cartões Corporativos</strong></div><nav class="sidebar-nav"><a href="dashboard.html">Dashboard materiais</a><a href="dashboard-cartoes.html">Dashboard cartões</a><a href="cartoes.html">Cartões</a><a href="compra-cartao.html">Registrar compra</a><a class="active" href="faturas-cartao.html">Faturas</a><a href="conciliacao-cartao.html">Conciliação</a><a href="alertas-cartao.html">Alertas</a><a href="relatorios-cartao.html">Relatórios cartão</a><a href="login.html">Sair</a></nav></aside>
     <main class="main-content">
-      <header class="topbar"><div><span class="eyebrow">Importação manual/CSV</span><h1>Faturas do cartão</h1></div><span class="user-chip">Usuário</span></header>
+      <header class="topbar"><div><span class="eyebrow">Importação por arquivo CSV</span><h1>Faturas do cartão</h1></div><span class="user-chip">Usuário</span></header>
       <section class="card">
         <div id="faturaMensagem" class="alert-success hidden"></div>
         <div id="resultadoConciliacao" class="conciliation-result hidden"></div>
@@ -14,13 +14,12 @@
           <label>Mês <select id="mesReferencia" required></select></label>
           <label>Ano <input id="anoReferencia" type="number" value="2026" required></label>
           <label>Arquivo CSV
-            <input id="arquivoFatura" type="file" accept=".csv,text/csv">
+            <input id="arquivoFatura" type="file" accept=".csv,text/csv" required>
             <input id="arquivoNome" type="hidden">
             <small id="arquivoFaturaAtual" class="field-hint">Nenhum arquivo selecionado.</small>
           </label>
-          <label class="full-width">Transações CSV <textarea id="csvTransacoes" rows="6" placeholder="data_transacao;estabelecimento;valor;ultimos_4_digitos;codigo_autorizacao;categoria"></textarea></label>
           <label class="full-width">Observação <textarea id="observacao" rows="2"></textarea></label>
-          <div class="form-actions full-width"><button class="btn btn-primary" type="submit">Importar fatura</button></div>
+          <div class="form-actions full-width"><button class="btn btn-primary" type="submit">Importar e conciliar fatura</button></div>
         </form>
       </section>
       <section class="card"><div class="table-wrapper"><table><thead><tr><th>Cartão</th><th>Mês/Ano</th><th>Arquivo</th><th>Status</th><th>Ação</th></tr></thead><tbody id="faturasTabela"></tbody></table></div></section>
