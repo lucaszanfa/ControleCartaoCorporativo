@@ -61,6 +61,11 @@
             <input id="materialUnidadesPorCaixa" type="number" min="1" step="1" value="1" required>
             <small class="field-hint">Use 1 se não houver caixa padrão. Na entrada/saída esse valor pode ser ajustado.</small>
           </label>
+          <label>
+            Estoque mínimo
+            <input id="materialEstoqueMinimo" type="number" min="0" step="1" value="0" required>
+            <small class="field-hint">Quando o saldo chegar nesse número, o sistema poderá avisar o responsável pela compra.</small>
+          </label>
           <div class="form-actions full-width">
             <button class="btn btn-secondary" id="cancelarMaterialBtn" type="button">Cancelar</button>
             <button class="btn btn-primary" type="submit">Salvar material</button>
@@ -105,6 +110,7 @@
                 <th>Categoria</th>
                 <th>Unidade</th>
                 <th>Caixa</th>
+                <th>Estoque mínimo</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>

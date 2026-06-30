@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -8,49 +8,40 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
-        <strong>Controle de Saída</strong>
-      </div>
-      <nav class="sidebar-nav">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="materiais.html">Materiais</a>
-        <a href="estoque.html">Estoque</a>
-        <a href="registrar-saida.html">Registrar saída</a>
-        <a href="registrar-entrada.html">Registrar entrada</a>
-        <a href="historico.html">Histórico</a>
-        <a class="active" href="relatorios.html">Relatórios</a>
-        <a href="dashboard-cartoes.html">Cartões corporativos</a>
-        <a class="admin-only" href="usuarios.html">Usuários</a>
-        <a href="login.html">Sair</a>
-      </nav>
-    </aside>
+    <aside class="sidebar"></aside>
 
-    <main class="main-content">
+    <main class="main-content reports-modern-page">
       <header class="topbar">
         <div>
           <span class="eyebrow">Análise de consumo</span>
           <h1>Relatórios</h1>
         </div>
+        <span class="user-chip">Usuário</span>
       </header>
 
-      <section class="card report-hero-card">
-        <div class="support-strip report-hero">
-          <img src="img/smamateriais.png" alt="Mascote SM&A com materiais">
-          <div>
-            <strong>Relatórios SM&A Materiais</strong>
-            <span>Compare meses e acompanhe tendências de consumo dos itens administrativos.</span>
-          </div>
+      <section class="reports-hero">
+        <img src="img/smamateriais.png" alt="Mascote SM&A com materiais">
+        <div>
+          <h2>Relatórios SM&A Materiais</h2>
+          <p>Compare meses, acompanhe tendências de consumo e tome decisões com dados mais claros.</p>
+        </div>
+        <div class="reports-hero-art" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
       </section>
 
-      <section class="card report-workspace-card">
-        <div class="section-header">
-          <h2>Relatório mensal de consumo</h2>
-          <button class="btn btn-secondary" id="baixarPdfConsumo" type="button">Baixar PDF</button>
+      <section class="reports-panel">
+        <div class="reports-panel-header">
+          <div>
+            <span class="eyebrow">Relatório mensal</span>
+            <h2>Relatório mensal de consumo</h2>
+          </div>
+          <button class="btn btn-primary" id="baixarPdfConsumo" type="button">Baixar PDF</button>
         </div>
-        <div class="filters-row filters-four">
+
+        <div class="reports-filter-grid">
           <label>
             Mês
             <select id="mesRelatorio"></select>
@@ -72,148 +63,155 @@
             </select>
           </label>
         </div>
-        <div class="report-kpi-row">
-          <article class="report-kpi">
+
+        <div class="reports-kpi-grid">
+          <article>
             <span>Materiais consumidos</span>
             <strong id="resumoMateriaisConsumidos">0</strong>
+            <small>Tipos de materiais</small>
           </article>
-          <article class="report-kpi">
+          <article>
             <span>Total de itens</span>
             <strong id="resumoItensConsumidos">0</strong>
+            <small>Itens consumidos</small>
           </article>
-          <article class="report-kpi">
+          <article>
             <span>Maior consumo</span>
             <strong id="resumoMaiorConsumo">-</strong>
+            <small>Material com maior consumo</small>
           </article>
         </div>
-        <div id="visualizacaoLista" class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Categoria</th>
-                <th>Unidade</th>
-                <th>Total consumido</th>
-                <th>Por departamento</th>
-              </tr>
-            </thead>
-            <tbody id="relatorioMensalTabela"></tbody>
-          </table>
-        </div>
-        <div id="visualizacaoBarras" class="chart-card hidden">
-          <canvas id="graficoBarras" width="900" height="360"></canvas>
-          <div id="legendaBarras" class="chart-legend"></div>
-        </div>
-        <div id="visualizacaoPizza" class="chart-card hidden">
-          <canvas id="graficoPizza" width="900" height="360"></canvas>
-          <div id="legendaPizza" class="chart-legend"></div>
+
+        <div class="reports-content-grid">
+          <div id="visualizacaoLista" class="reports-table-block">
+            <div class="reports-block-header">
+              <h3>Materiais consumidos</h3>
+              <span id="relatorioListaResumo">Itens do período</span>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Material</th>
+                    <th>Categoria</th>
+                    <th>Unidade</th>
+                    <th>Total consumido</th>
+                    <th>Por departamento</th>
+                  </tr>
+                </thead>
+                <tbody id="relatorioMensalTabela"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="visualizacaoBarras" class="reports-chart-block hidden">
+            <div class="reports-block-header">
+              <h3>Tendência de consumo</h3>
+              <span>Visualização por barras</span>
+            </div>
+            <canvas id="graficoBarras" width="900" height="360"></canvas>
+            <div id="legendaBarras" class="chart-legend"></div>
+          </div>
+
+          <div id="visualizacaoPizza" class="reports-chart-block hidden">
+            <div class="reports-block-header">
+              <h3>Consumo por categoria</h3>
+              <span>Distribuição do período</span>
+            </div>
+            <canvas id="graficoPizza" width="900" height="360"></canvas>
+            <div id="legendaPizza" class="chart-legend"></div>
+          </div>
         </div>
       </section>
 
-      <section class="card report-workspace-card">
-        <div class="section-header">
-          <h2>Comparativo entre dois meses</h2>
-        </div>
-        <div class="filters-row filters-six">
-          <label>
-            Mês 1
-            <select id="mesComparativo1"></select>
-          </label>
-          <label>
-            Ano 1
-            <select id="anoComparativo1"></select>
-          </label>
-          <label>
-            Mês 2
-            <select id="mesComparativo2"></select>
-          </label>
-          <label>
-            Ano 2
-            <select id="anoComparativo2"></select>
-          </label>
-          <label>
-            Departamento
-            <select id="setorComparativo"></select>
-          </label>
-          <label>
-            Visualização
-            <select id="tipoVisualizacaoComparativo">
-              <option value="lista">Lista</option>
-              <option value="barras">Gráfico padrão</option>
-              <option value="pizza">Gráfico de pizza</option>
-            </select>
-          </label>
-        </div>
-        <div id="visualizacaoComparativoLista" class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Mês 1</th>
-                <th>Mês 2</th>
-                <th>Variação</th>
-                <th>Interpretação</th>
-              </tr>
-            </thead>
-            <tbody id="comparativoTabela"></tbody>
-          </table>
-        </div>
-        <div id="visualizacaoComparativoBarras" class="chart-card hidden">
-          <canvas id="graficoComparativoBarras" width="900" height="360"></canvas>
-        </div>
-        <div id="visualizacaoComparativoPizza" class="chart-card hidden">
-          <canvas id="graficoComparativoPizza" width="900" height="360"></canvas>
-          <div id="legendaComparativoPizza" class="chart-legend"></div>
-        </div>
-      </section>
+      <section class="reports-secondary-grid">
+        <section class="reports-panel">
+          <div class="reports-panel-header">
+            <div>
+              <span class="eyebrow">Comparativo</span>
+              <h2>Comparativo entre dois meses</h2>
+            </div>
+          </div>
+          <div class="reports-filter-grid reports-filter-grid-six">
+            <label>Mês 1 <select id="mesComparativo1"></select></label>
+            <label>Ano 1 <select id="anoComparativo1"></select></label>
+            <label>Mês 2 <select id="mesComparativo2"></select></label>
+            <label>Ano 2 <select id="anoComparativo2"></select></label>
+            <label>Departamento <select id="setorComparativo"></select></label>
+            <label>
+              Visualização
+              <select id="tipoVisualizacaoComparativo">
+                <option value="lista">Lista</option>
+                <option value="barras">Gráfico padrão</option>
+                <option value="pizza">Gráfico de pizza</option>
+              </select>
+            </label>
+          </div>
+          <div id="visualizacaoComparativoLista" class="table-wrapper reports-compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Mês 1</th>
+                  <th>Mês 2</th>
+                  <th>Variação</th>
+                  <th>Interpretação</th>
+                </tr>
+              </thead>
+              <tbody id="comparativoTabela"></tbody>
+            </table>
+          </div>
+          <div id="visualizacaoComparativoBarras" class="reports-chart-block hidden">
+            <canvas id="graficoComparativoBarras" width="900" height="360"></canvas>
+          </div>
+          <div id="visualizacaoComparativoPizza" class="reports-chart-block hidden">
+            <canvas id="graficoComparativoPizza" width="900" height="360"></canvas>
+            <div id="legendaComparativoPizza" class="chart-legend"></div>
+          </div>
+        </section>
 
-      <section class="card report-workspace-card">
-        <div class="section-header">
-          <h2>Gastos mensais com compras</h2>
-        </div>
-        <div class="filters-row filters-four">
-          <label>
-            Mês
-            <select id="mesGastos"></select>
-          </label>
-          <label>
-            Ano
-            <select id="anoGastos"></select>
-          </label>
-          <label>
-            Visualização
-            <select id="tipoVisualizacaoGastos">
-              <option value="lista">Lista</option>
-              <option value="barras">Gráfico padrão</option>
-              <option value="pizza">Gráfico de pizza</option>
-            </select>
-          </label>
-          <label>
-            Total gasto
-            <input id="totalGastoMes" type="text" readonly>
-          </label>
-        </div>
-        <div id="visualizacaoGastosLista" class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Material</th>
-                <th>Categoria</th>
-                <th>Unidade</th>
-                <th>Quantidade comprada</th>
-                <th>Valor total</th>
-              </tr>
-            </thead>
-            <tbody id="gastosTabela"></tbody>
-          </table>
-        </div>
-        <div id="visualizacaoGastosBarras" class="chart-card hidden">
-          <canvas id="graficoGastosBarras" width="900" height="360"></canvas>
-        </div>
-        <div id="visualizacaoGastosPizza" class="chart-card hidden">
-          <canvas id="graficoGastosPizza" width="900" height="360"></canvas>
-          <div id="legendaGastosPizza" class="chart-legend"></div>
-        </div>
+        <section class="reports-panel">
+          <div class="reports-panel-header">
+            <div>
+              <span class="eyebrow">Compras</span>
+              <h2>Gastos mensais com compras</h2>
+            </div>
+          </div>
+          <div class="reports-filter-grid reports-filter-grid-four">
+            <label>Mês <select id="mesGastos"></select></label>
+            <label>Ano <select id="anoGastos"></select></label>
+            <label>
+              Visualização
+              <select id="tipoVisualizacaoGastos">
+                <option value="lista">Lista</option>
+                <option value="barras">Gráfico padrão</option>
+                <option value="pizza">Gráfico de pizza</option>
+              </select>
+            </label>
+            <label>Total gasto <input id="totalGastoMes" type="text" readonly></label>
+          </div>
+          <div id="visualizacaoGastosLista" class="table-wrapper reports-compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Categoria</th>
+                  <th>Unidade</th>
+                  <th>Quantidade comprada</th>
+                  <th>Valor total</th>
+                </tr>
+              </thead>
+              <tbody id="gastosTabela"></tbody>
+            </table>
+          </div>
+          <div id="visualizacaoGastosBarras" class="reports-chart-block hidden">
+            <canvas id="graficoGastosBarras" width="900" height="360"></canvas>
+          </div>
+          <div id="visualizacaoGastosPizza" class="reports-chart-block hidden">
+            <canvas id="graficoGastosPizza" width="900" height="360"></canvas>
+            <div id="legendaGastosPizza" class="chart-legend"></div>
+          </div>
+        </section>
       </section>
     </main>
   </div>
@@ -224,5 +222,3 @@
   <script src="js/relatorios.js"></script>
 </body>
 </html>
-
-

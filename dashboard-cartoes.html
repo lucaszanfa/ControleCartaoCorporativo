@@ -3,29 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Cartões | Controle de Materiais</title>
+  <title>Dashboard de cartões | Controle de Materiais</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
-        <strong>Cartões Corporativos</strong>
-      </div>
-      <nav class="sidebar-nav">
-        <a href="dashboard.html">Dashboard materiais</a>
-        <a class="active" href="dashboard-cartoes.html">Dashboard cartões</a>
-        <a href="cartoes.html">Cartões</a>
-        <a href="compra-cartao.html">Registrar compra</a>
-        <a href="faturas-cartao.html">Faturas</a>
-        <a href="conciliacao-cartao.html">Conciliação</a>
-        <a href="alertas-cartao.html">Alertas</a>
-        <a href="relatorios-cartao.html">Relatórios cartão</a>
-        <a href="login.html">Sair</a>
-      </nav>
-    </aside>
-    <main class="main-content">
+    <aside class="sidebar"></aside>
+
+    <main class="main-content cards-dashboard-page">
       <header class="topbar">
         <div>
           <span class="eyebrow">Cartões corporativos</span>
@@ -33,9 +18,99 @@
         </div>
         <span class="user-chip">Usuário</span>
       </header>
-      <section class="cards-grid" id="cartoesDashboardCards"></section>
+
+      <section class="cards-dashboard-heading">
+        <div>
+          <h2>Dashboard de cartões</h2>
+          <p>Visão executiva dos cartões corporativos, faturas, pendências e compras recentes.</p>
+        </div>
+        <a class="btn btn-primary" href="compra-cartao.html">Registrar compra</a>
+      </section>
+
+      <section class="cards-dashboard-kpis" id="cartoesDashboardCards"></section>
+
+      <section class="cards-dashboard-grid">
+        <article class="cards-dashboard-panel cards-chart-wide">
+          <div class="cards-panel-header">
+            <div>
+              <h3>Evolução dos gastos no mês</h3>
+              <span id="cartoesEvolucaoTotal">Valor registrado</span>
+            </div>
+            <select id="cartoesPeriodoGrafico">
+              <option value="mes">Este mês</option>
+            </select>
+          </div>
+          <canvas id="graficoEvolucaoCartoes" width="900" height="330"></canvas>
+          <div class="chart-legend">
+            <span><i style="background:#22d3ee"></i>Gasto registrado</span>
+          </div>
+        </article>
+
+        <article class="cards-dashboard-panel cards-donut-panel">
+          <div class="cards-panel-header">
+            <div>
+              <h3>Gastos por departamento</h3>
+              <span>Distribuição no período</span>
+            </div>
+          </div>
+          <div class="cards-donut-layout">
+            <canvas id="graficoDepartamentosCartoes" width="360" height="300"></canvas>
+            <div id="legendaDepartamentosCartoes" class="cards-donut-legend"></div>
+          </div>
+        </article>
+
+        <aside class="cards-dashboard-side">
+          <article class="cards-side-card">
+            <span>Departamento com maior gasto</span>
+            <strong id="cardDepartamentoMaior">-</strong>
+            <small id="cardDepartamentoMaiorValor">R$ 0,00</small>
+          </article>
+          <article class="cards-side-card">
+            <span>Cartão com maior gasto</span>
+            <strong id="cardCartaoMaior">-</strong>
+            <small id="cardCartaoMaiorValor">R$ 0,00</small>
+          </article>
+          <article class="cards-side-card cards-limit-card">
+            <span>Limite utilizado</span>
+            <strong id="cardLimitePercentual">0%</strong>
+            <div class="cards-limit-track"><i id="cardLimiteBarra"></i></div>
+            <small id="cardLimiteTexto">R$ 0,00 de R$ 0,00</small>
+          </article>
+          <article class="cards-side-card">
+            <span>Alertas</span>
+            <strong id="cardAlertas">0</strong>
+            <a href="compras-pendentes.html">Ver pendências</a>
+          </article>
+        </aside>
+      </section>
+
+      <section class="cards-dashboard-panel cards-transactions-panel">
+        <div class="cards-panel-header">
+          <div>
+            <h3>Últimas transações</h3>
+            <span>Compras registradas recentemente</span>
+          </div>
+          <a href="relatorios-cartao.html">Ver todas</a>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Cartão</th>
+                <th>Departamento</th>
+                <th>Valor</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="ultimasTransacoesCartoes"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
+
   <script src="js/dados.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/cartoes-utils.js"></script>

@@ -8,6 +8,7 @@ const resumoMovimentacoes = document.getElementById("resumoMovimentacoes");
 const resumoSaidas = document.getElementById("resumoSaidas");
 const resumoEntradas = document.getElementById("resumoEntradas");
 const resumoValorEntradas = document.getElementById("resumoValorEntradas");
+const historyTypeTabs = document.querySelectorAll(".history-type-tabs button");
 
 function preencherFiltrosHistorico() {
   filtroMaterial.innerHTML += materiais.map((material) => {
@@ -20,9 +21,7 @@ function preencherFiltrosHistorico() {
 }
 
 function formatarMoedaHistorico(valor) {
-  if (!valor) {
-    return "-";
-  }
+  if (!valor) return "-";
 
   return valor.toLocaleString("pt-BR", {
     style: "currency",
@@ -57,21 +56,7 @@ function montarMovimentacoes() {
     .sort((a, b) => b.data.localeCompare(a.data));
 }
 
-function renderizarHistorico() {
-  const tipo = filtroTipo.value;
-  const data = filtroData.value;
-  const materialId = filtroMaterial.value;
-  const setor = filtroSetor.value;
-  const responsavel = filtroResponsavel.value.toLowerCase();
-
-  const movimentacoesFiltradas = montarMovimentacoes().filter((movimentacao) => {
-    const correspondeTipo = !tipo || movimentacao.tipo === tipo;
-    const correspondeData = !data || movimentacao.data === data;
-    const correspondeMaterial = !materialId || movimentacao.materialId === Number(materialId);
-    const correspondeSetor = !setor || movimentacao.setor === setor;
-    const correspondeResponsavel = movimentacao.responsavel.toLowerCase().includes(responsavel);
-    return correspondeTipo && correspondeData && correspondeMaterial && correspondeSetor && correspondeResponsavel;
-  });
+function atualizarResumo(movimentacoesFiltradas) {
   const totalSaidas = movimentacoesFiltradas.filter((movimentacao) => movimentacao.tipo === "saida").length;
   const totalEntradas = movimentacoesFiltradas.filter((movimentacao) => movimentacao.tipo === "entrada").length;
   const valorEntradas = movimentacoesFiltradas
@@ -82,34 +67,87 @@ function renderizarHistorico() {
   resumoSaidas.textContent = totalSaidas;
   resumoEntradas.textContent = totalEntradas;
   resumoValorEntradas.textContent = formatarMoedaHistorico(valorEntradas);
+}
 
-  historicoTabela.innerHTML = movimentacoesFiltradas.map((movimentacao) => {
+function movimentacoesFiltradas() {
+  const tipo = filtroTipo.value;
+  const data = filtroData.value;
+  const materialId = filtroMaterial.value;
+  const setor = filtroSetor.value;
+  const responsavel = filtroResponsavel.value.toLowerCase();
+
+  return montarMovimentacoes().filter((movimentacao) => {
+    const correspondeTipo = !tipo || movimentacao.tipo === tipo;
+    const correspondeData = !data || movimentacao.data === data;
+    const correspondeMaterial = !materialId || movimentacao.materialId === Number(materialId);
+    const correspondeSetor = !setor || movimentacao.setor === setor;
+    const correspondeResponsavel = movimentacao.responsavel.toLowerCase().includes(responsavel);
+    return correspondeTipo && correspondeData && correspondeMaterial && correspondeSetor && correspondeResponsavel;
+  });
+}
+
+function renderizarTabsTipo() {
+  historyTypeTabs.forEach((botao) => {
+    botao.classList.toggle("active", botao.dataset.tipo === filtroTipo.value);
+  });
+}
+
+function renderizarHistorico() {
+  const lista = movimentacoesFiltradas();
+
+  atualizarResumo(lista);
+  renderizarTabsTipo();
+
+  if (!lista.length) {
+    historicoTabela.innerHTML = `<tr><td class="empty-state" colspan="8">Nenhuma movimentacao encontrada.</td></tr>`;
+    return;
+  }
+
+  historicoTabela.innerHTML = lista.map((movimentacao) => {
     const material = buscarMaterial(movimentacao.materialId);
-    const tipoTexto = movimentacao.tipo === "entrada" ? "Entrada" : "Saída";
-    const tipoClasse = movimentacao.tipo === "entrada" ? "history-badge-in" : "history-badge-out";
+    const entrada = movimentacao.tipo === "entrada";
+    const tipoTexto = entrada ? "Entrada" : "Saida";
+    const tipoClasse = entrada ? "history-badge-in" : "history-badge-out";
+    const tipoIcone = entrada ? "↓" : "↗";
+    const detalhePrincipal = entrada ? "Reposicao de estoque" : movimentacao.setor;
+    const detalheSecundario = entrada ? movimentacao.detalhes : `${movimentacao.responsavel} | ${movimentacao.detalhes}`;
 
     return `
       <tr class="history-row history-row-${movimentacao.tipo}">
-        <td><strong>${formatarData(movimentacao.data)}</strong></td>
-        <td><span class="status ${tipoClasse}">${tipoTexto}</span></td>
-        <td><strong>${material?.nome || "-"}</strong></td>
+        <td>
+          <div class="history-date">
+            <strong>${formatarData(movimentacao.data)}</strong>
+            <span>${tipoTexto}</span>
+          </div>
+        </td>
+        <td><span class="status ${tipoClasse}"><em>${tipoIcone}</em>${tipoTexto}</span></td>
+        <td>
+          <div class="history-material-cell">
+            <strong>${material?.nome || "-"}</strong>
+            <span>${detalhePrincipal}</span>
+          </div>
+        </td>
         <td><span class="history-quantity">${movimentacao.quantidade} ${material?.unidade || ""}</span></td>
         <td>${movimentacao.setor}</td>
         <td>${movimentacao.responsavel}</td>
         <td>${formatarMoedaHistorico(movimentacao.valor)}</td>
-        <td>${movimentacao.detalhes}</td>
+        <td>${detalheSecundario}</td>
       </tr>
     `;
   }).join("");
-
-  if (!movimentacoesFiltradas.length) {
-    historicoTabela.innerHTML = `<tr><td class="empty-state" colspan="8">Nenhuma movimentação encontrada.</td></tr>`;
-  }
 }
 
 preencherFiltrosHistorico();
 renderizarHistorico();
+
 [filtroTipo, filtroData, filtroMaterial, filtroSetor, filtroResponsavel].forEach((campo) => {
   campo.addEventListener("input", renderizarHistorico);
   campo.addEventListener("change", renderizarHistorico);
+});
+
+historyTypeTabs.forEach((botao) => {
+  botao.addEventListener("click", () => {
+    filtroTipo.value = botao.dataset.tipo;
+    renderizarHistorico();
+  });
 });

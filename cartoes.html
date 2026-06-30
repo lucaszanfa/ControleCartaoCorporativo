@@ -8,32 +8,55 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
-        <strong>Cartões Corporativos</strong>
-      </div>
-      <nav class="sidebar-nav">
-        <a href="dashboard.html">Dashboard materiais</a>
-        <a href="dashboard-cartoes.html">Dashboard cartões</a>
-        <a class="active" href="cartoes.html">Cartões</a>
-        <a href="compra-cartao.html">Registrar compra</a>
-        <a href="faturas-cartao.html">Faturas</a>
-        <a href="conciliacao-cartao.html">Conciliação</a>
-        <a href="alertas-cartao.html">Alertas</a>
-        <a href="relatorios-cartao.html">Relatórios cartão</a>
-        <a href="login.html">Sair</a>
-      </nav>
-    </aside>
-    <main class="main-content">
+    <aside class="sidebar"></aside>
+
+    <main class="main-content corporate-cards-page">
       <header class="topbar">
         <div>
           <span class="eyebrow">Segurança: apenas últimos 4 dígitos</span>
           <h1>Cartões corporativos</h1>
         </div>
-        <button id="novoCartaoBtn" class="btn btn-primary" type="button">Novo cartão</button>
+        <span class="user-chip">Usuário</span>
       </header>
-      <section id="cartaoFormCard" class="card hidden">
+
+      <section class="corporate-cards-heading">
+        <div>
+          <h2>Cartões corporativos</h2>
+          <p>Segurança: apenas últimos 4 dígitos são exibidos no sistema.</p>
+        </div>
+        <button id="novoCartaoBtn" class="btn btn-primary" type="button">+ Novo cartão</button>
+      </section>
+
+      <section class="corporate-summary-grid">
+        <article>
+          <span>Total de cartões</span>
+          <strong id="cartoesResumoTotal">0</strong>
+          <small>Todos os cartões</small>
+        </article>
+        <article>
+          <span>Cartões ativos</span>
+          <strong id="cartoesResumoAtivos">0</strong>
+          <small id="cartoesResumoAtivosPercentual">0% do total</small>
+        </article>
+        <article>
+          <span>Limite total</span>
+          <strong id="cartoesResumoLimite">R$ 0,00</strong>
+          <small>Limite disponível</small>
+        </article>
+        <article>
+          <span>Departamentos atendidos</span>
+          <strong id="cartoesResumoDepartamentos">0</strong>
+          <small>Departamentos</small>
+        </article>
+      </section>
+
+      <section id="cartaoFormCard" class="corporate-form-card hidden">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Cadastro seguro</span>
+            <h2>Novo cartão</h2>
+          </div>
+        </div>
         <div id="cartaoMensagem" class="alert-success hidden"></div>
         <form id="cartaoForm" class="form-grid form-grid-two">
           <input id="cartaoId" type="hidden">
@@ -43,30 +66,64 @@
           <label>Gerente <select id="gerenteId" required></select></label>
           <label>Últimos 4 dígitos <input id="ultimos4Digitos" maxlength="4" pattern="[0-9]{4}" required></label>
           <label>Limite mensal <input id="limiteMensal" type="number" min="0" step="0.01"></label>
-          <label>Status <select id="status"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></label>
+          <label>Status
+            <select id="status">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </label>
           <label class="full-width">Observação <textarea id="observacao" rows="3"></textarea></label>
           <div class="form-actions full-width">
             <button id="cancelarCartaoBtn" class="btn btn-secondary" type="button">Cancelar</button>
-            <button class="btn btn-primary" type="submit">Salvar</button>
+            <button class="btn btn-primary" type="submit">Salvar cartão</button>
           </div>
         </form>
       </section>
-      <section class="card">
+
+      <section class="corporate-filter-card">
         <div class="filters-row">
           <label>Departamento <select id="filtroDepartamento"><option value="">Todos</option></select></label>
-          <label>Status <select id="filtroStatus"><option value="">Todos</option><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></label>
+          <label>Status
+            <select id="filtroStatus">
+              <option value="">Todos</option>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </label>
+          <button id="limparFiltrosCartoes" class="btn btn-secondary" type="button">Limpar filtros</button>
         </div>
       </section>
-      <section class="card">
+
+      <section class="corporate-table-card">
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Cartão</th><th>Departamento</th><th>Responsável</th><th>Gerente</th><th>Final</th><th>Limite</th><th>Status</th><th>Ações</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Cartão</th>
+                <th>Departamento</th>
+                <th>Responsável</th>
+                <th>Gerente</th>
+                <th>Final</th>
+                <th>Limite</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
             <tbody id="cartoesTabela"></tbody>
           </table>
+        </div>
+        <div class="corporate-table-footer">
+          <span id="cartoesTabelaResumo">Exibindo 0 cartões</span>
+          <div>
+            <button class="btn btn-secondary" type="button" disabled>&lt;</button>
+            <button class="btn btn-primary" type="button">1</button>
+            <button class="btn btn-secondary" type="button" disabled>&gt;</button>
+          </div>
         </div>
       </section>
     </main>
   </div>
+
   <script src="js/dados.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/cartoes-utils.js"></script>

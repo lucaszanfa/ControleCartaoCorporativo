@@ -62,6 +62,7 @@ async function initDb() {
   const schema = fs.readFileSync(schemaPath, "utf8");
   await exec(schema);
   await ensureMateriaisColumns();
+  await ensureAlertasEstoqueTable();
   await ensureUsuarioColumns();
   await ensureComprasCartaoNullableFields();
 }
@@ -73,6 +74,27 @@ async function ensureMateriaisColumns() {
   if (!names.includes("unidades_por_caixa")) {
     await run("ALTER TABLE materiais ADD COLUMN unidades_por_caixa INTEGER NOT NULL DEFAULT 1");
   }
+  if (!names.includes("estoque_minimo")) {
+    await run("ALTER TABLE materiais ADD COLUMN estoque_minimo INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
+async function ensureAlertasEstoqueTable() {
+  await exec(`
+    CREATE TABLE IF NOT EXISTS alertas_estoque (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      material_id INTEGER NOT NULL,
+      quantidade_atual INTEGER NOT NULL DEFAULT 0,
+      estoque_minimo INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'aberto' CHECK (status IN ('aberto', 'resolvido')),
+      enviado_power_automate INTEGER NOT NULL DEFAULT 0,
+      data_envio TEXT,
+      resolvido_em TEXT,
+      criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (material_id) REFERENCES materiais(id)
+    );
+  `);
 }
 
 async function ensureUsuarioColumns() {

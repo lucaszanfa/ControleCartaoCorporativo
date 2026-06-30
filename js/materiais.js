@@ -25,6 +25,7 @@ function abrirFormulario(material = null) {
   document.getElementById("materialCategoria").value = material?.categoria || "";
   document.getElementById("materialUnidade").value = material?.unidade || "";
   document.getElementById("materialUnidadesPorCaixa").value = material?.unidadesPorCaixa || 1;
+  document.getElementById("materialEstoqueMinimo").value = material?.estoqueMinimo || 0;
   materialFormTitulo.textContent = material ? "Editar material" : "Novo material";
   materialFormCard.classList.remove("hidden");
   materialMensagem.classList.add("hidden");
@@ -55,6 +56,7 @@ function renderizarMateriais() {
         <td>${material.categoria}</td>
         <td><span class="report-number-pill">${material.unidade}</span></td>
         <td>${Number(material.unidadesPorCaixa || 1) > 1 ? `${material.unidadesPorCaixa} ${material.unidade}` : "Não configurado"}</td>
+        <td><span class="report-number-pill">${Number(material.estoqueMinimo || 0)} ${material.unidade}</span></td>
         <td><span class="status ${material.ativo ? "status-ok" : "status-pending"}">${textoStatus}</span></td>
         <td>
           ${podeGerenciarMateriais ? `
@@ -69,7 +71,7 @@ function renderizarMateriais() {
   }).join("");
 
   if (!materiaisFiltrados.length) {
-    materiaisTabela.innerHTML = `<tr><td class="empty-state" colspan="6">Nenhum material encontrado.</td></tr>`;
+    materiaisTabela.innerHTML = `<tr><td class="empty-state" colspan="7">Nenhum material encontrado.</td></tr>`;
   }
 
   document.querySelectorAll(".editar-material").forEach((botao) => {
@@ -92,7 +94,8 @@ async function salvarMaterial(event) {
     nome: document.getElementById("materialNome").value,
     categoria: document.getElementById("materialCategoria").value,
     unidade: document.getElementById("materialUnidade").value,
-    unidadesPorCaixa: Number(document.getElementById("materialUnidadesPorCaixa").value) || 1
+    unidadesPorCaixa: Number(document.getElementById("materialUnidadesPorCaixa").value) || 1,
+    estoqueMinimo: Number(document.getElementById("materialEstoqueMinimo").value) || 0
   };
   const url = id ? `/api/materiais/${id}` : "/api/materiais";
   const method = id ? "PUT" : "POST";

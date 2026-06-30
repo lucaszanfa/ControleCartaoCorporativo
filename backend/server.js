@@ -42,6 +42,138 @@ function mapEntrada(row) {
   };
 }
 
+async function calcularEstoqueDisponivel(materialId) {
+  const entrada = await get("SELECT ifnull(SUM(quantidade), 0) AS total FROM entradas WHERE material_id = ?", [materialId]);
+  const saida = await get("SELECT ifnull(SUM(quantidade), 0) AS total FROM saidas WHERE material_id = ?", [materialId]);
+  return Number(entrada?.total || 0) - Number(saida?.total || 0);
+}
+
+function mensagemEstoqueMinimoTexto(payload) {
+  return [
+    "Alerta de estoque mínimo",
+    "",
+    `Material: ${payload.material}`,
+    `Categoria: ${payload.categoria}`,
+    `Estoque atual: ${payload.quantidade_atual} ${payload.unidade}`,
+    `Estoque mínimo: ${payload.estoque_minimo} ${payload.unidade}`,
+    `Quantidade sugerida para reposição: ${payload.quantidade_reposicao} ${payload.unidade}`,
+    "",
+    "Verifique a necessidade de compra/reposição desse material."
+  ].join("\n");
+}
+
+function mensagemEstoqueMinimoHtml(payload) {
+  return `
+    <strong>Alerta de estoque mínimo</strong><br><br>
+    Um material chegou ao limite mínimo definido no sistema.<br><br>
+    <strong>Material:</strong> ${payload.material}<br>
+    <strong>Categoria:</strong> ${payload.categoria}<br>
+    <strong>Estoque atual:</strong> ${payload.quantidade_atual} ${payload.unidade}<br>
+    <strong>Estoque mínimo:</strong> ${payload.estoque_minimo} ${payload.unidade}<br>
+    <strong>Reposição sugerida:</strong> ${payload.quantidade_reposicao} ${payload.unidade}<br><br>
+    Verifique a necessidade de compra/reposição desse material.
+  `.trim();
+}
+
+async function enviarAlertaEstoqueMinimo(alerta) {
+  const payload = {
+    alerta_id: alerta.id,
+    tipo_alerta: "estoque_minimo",
+    material_id: alerta.material_id,
+    material: alerta.nome,
+    categoria: alerta.categoria,
+    unidade: alerta.unidade,
+    quantidade_atual: Number(alerta.quantidade_atual || 0),
+    estoque_minimo: Number(alerta.estoque_minimo || 0),
+    quantidade_reposicao: Math.max(Number(alerta.estoque_minimo || 0) - Number(alerta.quantidade_atual || 0), 0),
+    url_estoque: `${process.env.PUBLIC_APP_URL || ""}/estoque.html`
+  };
+
+  payload.mensagem_texto = mensagemEstoqueMinimoTexto(payload);
+  payload.mensagem_html = mensagemEstoqueMinimoHtml(payload);
+  payload.mensagem = payload.mensagem_html;
+
+  const powerAutomateUrl = process.env.POWER_AUTOMATE_ESTOQUE_MINIMO_URL;
+
+  if (!powerAutomateUrl) {
+    console.log("[Power Automate mock] Alerta de estoque mínimo:", payload);
+    return { simulated: true, provider: "mock" };
+  }
+
+  const response = await fetch(powerAutomateUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Falha ao enviar alerta de estoque mínimo. Status ${response.status}. ${body}`);
+  }
+
+  return { simulated: false, provider: "power_automate" };
+}
+
+async function verificarAlertaEstoqueMinimo(materialId) {
+  const material = await get(
+    "SELECT id, nome, categoria, unidade, estoque_minimo AS estoqueMinimo, ativo FROM materiais WHERE id = ?",
+    [materialId]
+  );
+  if (!material || !material.ativo || Number(material.estoqueMinimo || 0) <= 0) return { alerta: false };
+
+  const quantidadeAtual = await calcularEstoqueDisponivel(materialId);
+  const estoqueMinimo = Number(material.estoqueMinimo || 0);
+  const alertaAberto = await get(
+    "SELECT * FROM alertas_estoque WHERE material_id = ? AND status = 'aberto' ORDER BY id DESC LIMIT 1",
+    [materialId]
+  );
+
+  if (quantidadeAtual > estoqueMinimo) {
+    if (alertaAberto) {
+      await run(
+        "UPDATE alertas_estoque SET status = 'resolvido', quantidade_atual = ?, resolvido_em = CURRENT_TIMESTAMP, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+        [quantidadeAtual, alertaAberto.id]
+      );
+    }
+    return { alerta: false, resolvido: Boolean(alertaAberto) };
+  }
+
+  if (alertaAberto) {
+    await run(
+      "UPDATE alertas_estoque SET quantidade_atual = ?, estoque_minimo = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+      [quantidadeAtual, estoqueMinimo, alertaAberto.id]
+    );
+    return { alerta: true, enviado: false, motivo: "alerta_ja_aberto" };
+  }
+
+  const result = await run(
+    "INSERT INTO alertas_estoque (material_id, quantidade_atual, estoque_minimo, status) VALUES (?, ?, ?, 'aberto')",
+    [materialId, quantidadeAtual, estoqueMinimo]
+  );
+  const alerta = {
+    id: result.id,
+    material_id: material.id,
+    nome: material.nome,
+    categoria: material.categoria,
+    unidade: material.unidade,
+    quantidade_atual: quantidadeAtual,
+    estoque_minimo: estoqueMinimo
+  };
+
+  try {
+    const envio = await enviarAlertaEstoqueMinimo(alerta);
+    await run(
+      "UPDATE alertas_estoque SET enviado_power_automate = 1, data_envio = CURRENT_TIMESTAMP, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+      [result.id]
+    );
+    return { alerta: true, enviado: true, envio };
+  } catch (error) {
+    await run("UPDATE alertas_estoque SET atualizado_em = CURRENT_TIMESTAMP WHERE id = ?", [result.id]);
+    console.error("Erro ao enviar alerta de estoque minimo:", error);
+    return { alerta: true, enviado: false, erroEnvio: error.message };
+  }
+}
+
 function mapUsuario(row) {
   return {
     id: row.id,
@@ -485,7 +617,7 @@ async function resolverAlertaAposAtualizarCompra(compraId, alertaId) {
 }
 
 async function bootstrap() {
-  const materiais = await all("SELECT id, nome, categoria, unidade, unidades_por_caixa AS unidadesPorCaixa, ativo FROM materiais ORDER BY nome");
+  const materiais = await all("SELECT id, nome, categoria, unidade, unidades_por_caixa AS unidadesPorCaixa, estoque_minimo AS estoqueMinimo, ativo FROM materiais ORDER BY nome");
   const setoresRows = await all("SELECT nome FROM setores ORDER BY nome");
   const usuarios = await all("SELECT * FROM usuarios ORDER BY nome");
   const saidasRows = await all("SELECT * FROM saidas ORDER BY data DESC, id DESC");
@@ -605,8 +737,9 @@ app.get("/api/materiais", async (_request, response) => {
 
 app.post("/api/materiais", async (request, response) => {
   try {
-    const { nome, categoria, unidade, unidadesPorCaixa } = request.body;
+    const { nome, categoria, unidade, unidadesPorCaixa, estoqueMinimo } = request.body;
     const fatorCaixa = Number(unidadesPorCaixa) || 1;
+    const minimo = Number(estoqueMinimo) || 0;
 
     if (!nome || !categoria || !unidade) {
       response.status(400).json({ erro: "Preencha nome, categoria e unidade." });
@@ -617,9 +750,14 @@ app.post("/api/materiais", async (request, response) => {
       return;
     }
 
+    if (!Number.isInteger(minimo) || minimo < 0) {
+      response.status(400).json({ erro: "Estoque minimo deve ser um numero inteiro maior ou igual a zero." });
+      return;
+    }
+
     const result = await run(
-      "INSERT INTO materiais (nome, categoria, unidade, unidades_por_caixa, ativo) VALUES (?, ?, ?, ?, 1)",
-      [nome, categoria, unidade, fatorCaixa]
+      "INSERT INTO materiais (nome, categoria, unidade, unidades_por_caixa, estoque_minimo, ativo) VALUES (?, ?, ?, ?, ?, 1)",
+      [nome, categoria, unidade, fatorCaixa, minimo]
     );
 
     response.status(201).json({ id: result.id });
@@ -630,8 +768,9 @@ app.post("/api/materiais", async (request, response) => {
 
 app.put("/api/materiais/:id", async (request, response) => {
   try {
-    const { nome, categoria, unidade, unidadesPorCaixa } = request.body;
+    const { nome, categoria, unidade, unidadesPorCaixa, estoqueMinimo } = request.body;
     const fatorCaixa = Number(unidadesPorCaixa) || 1;
+    const minimo = Number(estoqueMinimo) || 0;
 
     if (!nome || !categoria || !unidade) {
       response.status(400).json({ erro: "Preencha nome, categoria e unidade." });
@@ -642,10 +781,16 @@ app.put("/api/materiais/:id", async (request, response) => {
       return;
     }
 
+    if (!Number.isInteger(minimo) || minimo < 0) {
+      response.status(400).json({ erro: "Estoque minimo deve ser um numero inteiro maior ou igual a zero." });
+      return;
+    }
+
     await run(
-      "UPDATE materiais SET nome = ?, categoria = ?, unidade = ?, unidades_por_caixa = ? WHERE id = ?",
-      [nome, categoria, unidade, fatorCaixa, request.params.id]
+      "UPDATE materiais SET nome = ?, categoria = ?, unidade = ?, unidades_por_caixa = ?, estoque_minimo = ? WHERE id = ?",
+      [nome, categoria, unidade, fatorCaixa, minimo, request.params.id]
     );
+    await verificarAlertaEstoqueMinimo(request.params.id);
 
     response.json({ mensagem: "Material atualizado." });
   } catch (error) {
@@ -669,6 +814,36 @@ app.get("/api/setores", async (_request, response) => {
 
 app.get("/api/setores-detalhados", async (_request, response) => {
   response.json(await all("SELECT id, nome FROM setores ORDER BY nome"));
+});
+
+app.get("/api/alertas-estoque", async (_request, response) => {
+  try {
+    const rows = await all(
+      `SELECT a.*,
+              m.nome AS material,
+              m.categoria,
+              m.unidade
+       FROM alertas_estoque a
+       JOIN materiais m ON m.id = a.material_id
+       ORDER BY a.status, a.criado_em DESC`
+    );
+    response.json(rows);
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao listar alertas de estoque.", detalhe: error.message });
+  }
+});
+
+app.post("/api/alertas-estoque/verificar", async (_request, response) => {
+  try {
+    const materiaisAtivos = await all("SELECT id FROM materiais WHERE ativo = 1");
+    const resultados = [];
+    for (const material of materiaisAtivos) {
+      resultados.push({ materialId: material.id, ...(await verificarAlertaEstoqueMinimo(material.id)) });
+    }
+    response.json({ mensagem: "Verificacao de estoque concluida.", resultados });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao verificar estoque minimo.", detalhe: error.message });
+  }
 });
 
 app.post("/api/uploads/comprovante", async (request, response) => {
@@ -727,18 +902,32 @@ app.get("/api/saidas", async (_request, response) => {
 app.post("/api/saidas", async (request, response) => {
   try {
     const { materialId, quantidade, data, setor, responsavel, localUso, motivo, observacao } = request.body;
+    const quantidadeSaida = Number(quantidade);
 
-    if (!materialId || !quantidade || !data || !setor || !responsavel) {
+    if (!materialId || !quantidadeSaida || !data || !setor || !responsavel) {
       response.status(400).json({ erro: "Campos obrigatórios ausentes." });
+      return;
+    }
+    if (quantidadeSaida <= 0) {
+      response.status(400).json({ erro: "A quantidade da saída deve ser maior que zero." });
+      return;
+    }
+
+    const estoqueDisponivel = await calcularEstoqueDisponivel(materialId);
+    if (quantidadeSaida > estoqueDisponivel) {
+      response.status(400).json({
+        erro: `Saída rejeitada. Estoque disponível: ${estoqueDisponivel}. Quantidade solicitada: ${quantidadeSaida}.`
+      });
       return;
     }
 
     const result = await run(
       "INSERT INTO saidas (material_id, quantidade, data, setor, responsavel, local_uso, motivo, observacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [materialId, quantidade, data, setor, responsavel, localUso || "", motivo || "", observacao || ""]
+      [materialId, quantidadeSaida, data, setor, responsavel, localUso || "", motivo || "", observacao || ""]
     );
+    const alertaEstoque = await verificarAlertaEstoqueMinimo(materialId);
 
-    response.status(201).json({ id: result.id });
+    response.status(201).json({ id: result.id, alertaEstoque });
   } catch (error) {
     response.status(500).json({ erro: "Erro ao registrar saída.", detalhe: error.message });
   }
@@ -761,8 +950,9 @@ app.post("/api/entradas", async (request, response) => {
       "INSERT INTO entradas (material_id, quantidade, valor_total, data, observacao) VALUES (?, ?, ?, ?, ?)",
       [materialId, quantidade, valorTotal, data, observacao || ""]
     );
+    const alertaEstoque = await verificarAlertaEstoqueMinimo(materialId);
 
-    response.status(201).json({ id: result.id });
+    response.status(201).json({ id: result.id, alertaEstoque });
   } catch (error) {
     response.status(500).json({ erro: "Erro ao registrar entrada.", detalhe: error.message });
   }

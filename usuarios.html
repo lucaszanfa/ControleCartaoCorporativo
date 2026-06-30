@@ -3,58 +3,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Usuários | Controle de Materiais</title>
+  <title>Usuários | Controle Administrativo</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
-        <strong>Controle de Saída</strong>
-      </div>
-      <nav class="sidebar-nav">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="materiais.html">Materiais</a>
-        <a href="registrar-saida.html">Registrar saída</a>
-        <a href="registrar-entrada.html">Registrar entrada</a>
-        <a href="historico.html">Histórico</a>
-        <a href="relatorios.html">Relatórios</a>
-        <a href="dashboard-cartoes.html">Cartões corporativos</a>
-        <a class="active admin-only" href="usuarios.html">Usuários</a>
-        <a href="login.html">Sair</a>
-      </nav>
-    </aside>
+    <aside class="sidebar"></aside>
 
-    <main class="main-content">
-      <header class="topbar">
+    <main class="main-content users-page">
+      <header class="topbar users-topbar">
         <div>
           <span class="eyebrow">Administração</span>
           <h1>Usuários e permissões</h1>
+          <p class="topbar-subtitle">Gerencie usuários, setores e permissões de acesso ao sistema.</p>
         </div>
         <span class="user-chip">Administrador</span>
       </header>
 
-      <section class="card">
+      <section class="users-summary-grid" aria-label="Resumo de usuários">
+        <article class="users-summary-card users-summary-blue">
+          <span class="users-summary-icon" aria-hidden="true">👥</span>
+          <div>
+            <span>Usuários ativos</span>
+            <strong id="usuariosAtivosResumo">0</strong>
+            <small id="usuariosTotalResumo">de 0 usuários</small>
+          </div>
+        </article>
+        <article class="users-summary-card users-summary-green">
+          <span class="users-summary-icon" aria-hidden="true">✓</span>
+          <div>
+            <span>Administradores</span>
+            <strong id="usuariosAdminsResumo">0</strong>
+            <small>com acesso administrativo</small>
+          </div>
+        </article>
+        <article class="users-summary-card users-summary-purple">
+          <span class="users-summary-icon" aria-hidden="true">▦</span>
+          <div>
+            <span>Setores</span>
+            <strong id="usuariosSetoresResumo">0</strong>
+            <small>cadastrados</small>
+          </div>
+        </article>
+        <article class="users-summary-card users-summary-orange">
+          <span class="users-summary-icon" aria-hidden="true">☷</span>
+          <div>
+            <span>Permissões personalizadas</span>
+            <strong id="usuariosPermissoesResumo">0</strong>
+            <small>configuradas</small>
+          </div>
+        </article>
+      </section>
+
+      <section class="users-panel">
         <div id="usuariosMensagem" class="alert-success hidden"></div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>E-mail</th>
-                <th>Setor</th>
-                <th>Status</th>
-                <th>Cadastrar material</th>
-                <th>Saída</th>
-                <th>Entrada</th>
-                <th>Relatórios</th>
-                <th>Admin</th>
-                <th>Ação</th>
-              </tr>
-            </thead>
-            <tbody id="usuariosTabela"></tbody>
-          </table>
+
+        <div class="users-toolbar">
+          <label class="users-search">
+            <span class="hidden">Buscar usuário</span>
+            <input id="usuariosBusca" type="search" placeholder="Buscar usuário por nome ou e-mail">
+          </label>
+          <label>
+            <span class="hidden">Setor</span>
+            <select id="usuariosSetorFiltro">
+              <option value="">Todos os setores</option>
+            </select>
+          </label>
+          <label>
+            <span class="hidden">Status</span>
+            <select id="usuariosStatusFiltro">
+              <option value="">Todos os status</option>
+              <option value="ativo">Ativo</option>
+              <option value="pendente">Pendente</option>
+              <option value="bloqueado">Bloqueado</option>
+            </select>
+          </label>
+          <button id="usuariosLimparFiltros" class="btn btn-secondary" type="button">Limpar filtros</button>
+          <a class="btn btn-primary users-new-button" href="cadastro-usuario.html">+ Novo usuário</a>
+        </div>
+
+        <div class="users-table-shell">
+          <div class="table-wrapper users-table-wrapper">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th rowspan="2">Usuário</th>
+                  <th rowspan="2">E-mail</th>
+                  <th rowspan="2">Setor</th>
+                  <th rowspan="2">Status</th>
+                  <th colspan="5" class="users-permissions-head">Permissões</th>
+                  <th rowspan="2">Ações</th>
+                </tr>
+                <tr>
+                  <th>Cadastrar material</th>
+                  <th>Saída</th>
+                  <th>Entrada</th>
+                  <th>Relatórios</th>
+                  <th>Admin</th>
+                </tr>
+              </thead>
+              <tbody id="usuariosTabela"></tbody>
+            </table>
+          </div>
+          <div class="users-table-footer">
+            <span id="usuariosContagem">Mostrando 0 usuários</span>
+          </div>
         </div>
       </section>
     </main>

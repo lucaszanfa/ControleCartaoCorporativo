@@ -1,0 +1,7 @@
+data_transacao;estabelecimento;valor;ultimos_4_digitos;codigo_autorizacao;categoria
+2026-06-15;Mercado Livre;1000,00;4821;AUT-ML-001;material_administrativo
+2026-06-15;Pichau;8000,00;4821;AUT-PCH-001;material_administrativo
+2026-06-15;Kalunga;45,00;4821;AUT-KLG-001;material_administrativo
+2026-06-16;Verdemar;15,50;4821;AUT-VDM-001;manutencao
+2026-06-17;Mercado Livre;654,32;4821;AUT-ML-002;material_administrativo
+2026-06-19;Amazon;250,00;4821;AUT-AMZ-001;material_administrativo

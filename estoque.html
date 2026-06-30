@@ -56,7 +56,20 @@
             <span>Itens zerados</span>
             <strong id="totalMateriaisZerados">0</strong>
           </div>
+          <div class="metric-card">
+            <span>Baixo estoque</span>
+            <strong id="totalMateriaisBaixoEstoque">0</strong>
+          </div>
         </div>
+      </section>
+
+      <section class="stock-alert-panel">
+        <div>
+          <span class="eyebrow">Atenção de reposição</span>
+          <h2>Materiais que precisam de acompanhamento</h2>
+          <p>Itens zerados ou abaixo do estoque mínimo aparecem aqui automaticamente.</p>
+        </div>
+        <div id="estoqueCriticoLista" class="stock-alert-list"></div>
       </section>
 
       <section class="card">
@@ -69,6 +82,15 @@
             Categoria
             <select id="filtroEstoqueCategoria">
               <option value="">Todas</option>
+            </select>
+          </label>
+          <label>
+            Situação
+            <select id="filtroEstoqueSituacao">
+              <option value="">Todas</option>
+              <option value="ok">OK</option>
+              <option value="baixo">Baixo estoque</option>
+              <option value="zerado">Zerado</option>
             </select>
           </label>
         </div>
@@ -87,6 +109,8 @@
                 <th>Entrada</th>
                 <th>Saída</th>
                 <th>Disponível</th>
+                <th>Mínimo</th>
+                <th>Situação</th>
                 <th>Caixas equivalentes</th>
               </tr>
             </thead>

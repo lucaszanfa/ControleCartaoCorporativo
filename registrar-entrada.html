@@ -27,7 +27,7 @@
       </nav>
     </aside>
 
-    <main class="main-content">
+    <main class="main-content withdraw-page entry-page">
       <header class="topbar">
         <div>
           <span class="eyebrow">Compras da empresa</span>
@@ -35,57 +35,117 @@
         </div>
       </header>
 
-      <section class="card">
-        <div class="support-strip compact">
-          <img src="img/smamateriais1.png" alt="Mascote SM&A com materiais">
-          <div>
-            <strong>Entrada de materiais comprados</strong>
-            <span>Registre material, quantidade, data e valor total pago para acompanhar o gasto mensal.</span>
-          </div>
+      <nav class="page-breadcrumb" aria-label="Caminho da página">
+        <a href="dashboard.html">Início</a>
+        <span>Entradas</span>
+        <strong>Registro de entrada</strong>
+      </nav>
+
+      <section class="withdraw-hero entry-hero">
+        <img src="img/smamateriais1.png" alt="Mascote SM&A com materiais">
+        <div>
+          <strong>Entrada de materiais comprados</strong>
+          <span>Registre material, quantidade, data e valor total pago para acompanhar o gasto mensal.</span>
         </div>
+      </section>
 
-        <div id="mensagemEntradaSucesso" class="alert-success hidden">Entrada registrada com sucesso.</div>
+      <div id="mensagemEntradaSucesso" class="alert-success hidden">Entrada registrada com sucesso.</div>
 
-        <form id="entradaForm" class="form-grid form-grid-two">
-          <label>
-            Material
-            <select id="materialEntrada" required></select>
-          </label>
-          <label>
-            Registrar em
-            <select id="tipoQuantidadeEntrada" required>
-              <option value="unidades">Unidades</option>
-              <option value="caixas">Caixas</option>
-            </select>
-          </label>
-          <label id="quantidadeEntradaLabel">
-            Quantidade
-            <input id="quantidadeEntrada" type="number" min="1" value="1" required>
-          </label>
-          <label id="unidadesPorCaixaEntradaLabel" class="hidden">
-            Unidades por caixa desta entrada
-            <input id="unidadesPorCaixaEntrada" type="number" min="1" step="1" value="1" required>
-          </label>
-          <label id="totalUnidadesEntradaLabel" class="hidden">
-            Total em unidades
-            <input id="totalUnidadesEntrada" type="number" min="1" value="1" readonly>
-          </label>
-          <label>
-            Valor total pago
-            <input id="valorEntrada" type="number" min="0.01" step="0.01" placeholder="Ex.: 249.90" required>
-          </label>
-          <label>
-            Data da compra
-            <input id="dataEntrada" type="date" required>
-          </label>
-          <label class="full-width">
-            Observação
-            <textarea id="observacaoEntrada" rows="4" placeholder="Ex.: compra mensal, fornecedor, número da nota"></textarea>
-          </label>
-          <div class="form-actions full-width">
-            <button class="btn btn-primary" type="submit">Salvar entrada</button>
+      <section class="withdraw-layout">
+        <form id="entradaForm" class="withdraw-form-card">
+          <div class="withdraw-form-grid">
+            <label>
+              Material <em>*</em>
+              <select id="materialEntrada" required></select>
+            </label>
+            <label>
+              Registrar em <em>*</em>
+              <select id="tipoQuantidadeEntrada" required>
+                <option value="unidades">Unidades</option>
+                <option value="caixas">Caixas</option>
+              </select>
+            </label>
+            <label id="quantidadeEntradaLabel">
+              Quantidade <em>*</em>
+              <input id="quantidadeEntrada" type="number" min="1" value="1" required>
+            </label>
+            <label id="unidadesPorCaixaEntradaLabel" class="hidden">
+              Unidades por caixa
+              <input id="unidadesPorCaixaEntrada" type="number" min="1" step="1" value="1" required>
+            </label>
+            <label id="totalUnidadesEntradaLabel" class="hidden">
+              Total em unidades
+              <input id="totalUnidadesEntrada" type="number" min="1" value="1" readonly>
+            </label>
+            <label>
+              Valor total pago <em>*</em>
+              <input id="valorEntrada" type="number" min="0.01" step="0.01" placeholder="Ex.: 249.90" required>
+            </label>
+            <label>
+              Data da compra <em>*</em>
+              <input id="dataEntrada" type="date" required>
+            </label>
+            <label class="full-width">
+              Observação
+              <textarea id="observacaoEntrada" rows="4" maxlength="500" placeholder="Ex.: compra mensal, fornecedor, número da nota"></textarea>
+              <small>0/500</small>
+            </label>
+          </div>
+
+          <div class="withdraw-actions">
+            <button class="btn btn-secondary" type="reset">Limpar</button>
+            <a class="btn btn-secondary" href="dashboard.html">Cancelar</a>
+            <button class="btn btn-primary" type="submit">Registrar entrada</button>
           </div>
         </form>
+
+        <aside class="withdraw-side">
+          <section class="withdraw-side-card">
+            <div class="withdraw-side-header">
+              <strong>Estoque do material</strong>
+              <span>...</span>
+            </div>
+            <p id="entradaMaterialNomeResumo">Selecione um material para ver o impacto no estoque.</p>
+            <div class="withdraw-stock-list">
+              <div>
+                <span>Estoque atual</span>
+                <strong id="entradaEstoqueAtual">-</strong>
+              </div>
+              <div>
+                <span>Entrada informada</span>
+                <strong id="entradaQuantidadeResumo">-</strong>
+              </div>
+              <div>
+                <span>Saldo após entrada</span>
+                <strong id="entradaEstoqueFinal">-</strong>
+              </div>
+            </div>
+            <a class="btn btn-secondary btn-full" href="estoque.html">Ver estoque completo</a>
+          </section>
+
+          <section class="withdraw-side-card">
+            <div class="withdraw-side-header">
+              <strong>Resumo do mês</strong>
+              <span>...</span>
+            </div>
+            <div class="withdraw-period">Período: <strong id="entradaResumoPeriodo">Mês atual</strong></div>
+            <div class="withdraw-summary-list">
+              <div>
+                <span>Total de entradas</span>
+                <strong id="entradaResumoEntradas">0</strong>
+              </div>
+              <div>
+                <span>Total de itens</span>
+                <strong id="entradaResumoItens">0</strong>
+              </div>
+              <div>
+                <span>Valor comprado</span>
+                <strong id="entradaResumoValor">R$ 0,00</strong>
+              </div>
+            </div>
+            <a class="btn btn-secondary btn-full" href="relatorios.html">Ver relatório completo</a>
+          </section>
+        </aside>
       </section>
     </main>
   </div>

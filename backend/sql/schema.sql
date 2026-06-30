@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS materiais (
   categoria TEXT NOT NULL,
   unidade TEXT NOT NULL,
   unidades_por_caixa INTEGER NOT NULL DEFAULT 1 CHECK (unidades_por_caixa >= 1),
+  estoque_minimo INTEGER NOT NULL DEFAULT 0 CHECK (estoque_minimo >= 0),
   ativo INTEGER NOT NULL DEFAULT 1
 );
 
@@ -49,6 +50,20 @@ CREATE TABLE IF NOT EXISTS entradas (
   valor_total REAL NOT NULL,
   data TEXT NOT NULL,
   observacao TEXT,
+  FOREIGN KEY (material_id) REFERENCES materiais(id)
+);
+
+CREATE TABLE IF NOT EXISTS alertas_estoque (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  material_id INTEGER NOT NULL,
+  quantidade_atual INTEGER NOT NULL DEFAULT 0,
+  estoque_minimo INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'aberto' CHECK (status IN ('aberto', 'resolvido')),
+  enviado_power_automate INTEGER NOT NULL DEFAULT 0,
+  data_envio TEXT,
+  resolvido_em TEXT,
+  criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (material_id) REFERENCES materiais(id)
 );
 

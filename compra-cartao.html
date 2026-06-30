@@ -9,7 +9,7 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar"></aside>
-    <main class="main-content">
+    <main class="main-content card-purchase-page">
       <header class="topbar">
         <div>
           <span class="eyebrow">Compra corporativa</span>
@@ -18,30 +18,97 @@
         <span class="user-chip">Usuário</span>
       </header>
 
-      <section class="card">
-        <div id="compraMensagem" class="alert-success hidden"></div>
-        <form id="compraCartaoForm" class="form-grid form-grid-two">
-          <label>Cartão <select id="cartaoId" required></select></label>
-          <label>Departamento <select id="departamentoId" required></select></label>
-          <label>Responsável <select id="responsavelCompraId" required></select></label>
-          <label>Data <input id="dataCompra" type="date" required></label>
-          <label>Valor <input id="valor" type="number" min="0.01" step="0.01" required></label>
-          <label>Fornecedor <input id="fornecedor" required></label>
-          <label>Categoria <select id="categoria" required></select></label>
-          <label>Comprovante
-            <input id="comprovanteArquivo" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">
-            <input id="comprovanteUrl" type="hidden">
-            <small id="comprovanteAtual" class="field-hint">Nenhum comprovante anexado.</small>
-          </label>
-          <label class="full-width">Motivo <input id="motivo" required></label>
-          <label class="full-width">Observação <textarea id="observacao" rows="3"></textarea></label>
-          <div class="form-actions full-width"><button class="btn btn-primary" type="submit">Salvar compra</button></div>
-        </form>
+      <nav class="page-breadcrumb" aria-label="Caminho da página">
+        <a href="dashboard-cartoes.html">Compras</a>
+        <strong>Registrar compra</strong>
+      </nav>
+
+      <section class="purchase-page-header">
+        <div>
+          <h2>Registrar compra no cartão</h2>
+          <p>Preencha os dados da compra realizada com o cartão corporativo.</p>
+        </div>
+        <span>Campos obrigatórios *</span>
       </section>
 
-      <section class="card">
+      <div id="compraMensagem" class="alert-success hidden"></div>
+
+      <section class="purchase-layout">
+        <form id="compraCartaoForm" class="purchase-form-card">
+          <div class="purchase-form-grid">
+            <label>Cartão <em>*</em><select id="cartaoId" required></select></label>
+            <label>Departamento <em>*</em><select id="departamentoId" required></select></label>
+            <label>Responsável <em>*</em><select id="responsavelCompraId" required></select></label>
+            <label>Data da compra <em>*</em><input id="dataCompra" type="date" required></label>
+            <label>Valor <em>*</em><input id="valor" type="number" min="0.01" step="0.01" placeholder="0,00" required></label>
+            <label>Fornecedor <input id="fornecedor" placeholder="Digite o nome do fornecedor" required></label>
+            <label>Categoria <em>*</em><select id="categoria" required></select></label>
+            <label class="purchase-upload-label">Comprovante
+              <input id="comprovanteArquivo" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">
+              <input id="comprovanteUrl" type="hidden">
+              <span class="purchase-upload-box">
+                <strong>Arraste e solte o arquivo aqui</strong>
+                <small>ou clique para selecionar</small>
+              </span>
+              <small id="comprovanteAtual" class="field-hint">Formatos aceitos: PDF, JPG, PNG. Máx. 10MB.</small>
+            </label>
+            <label class="full-width">Motivo <em>*</em><input id="motivo" placeholder="Informe o motivo da compra" required></label>
+            <label class="full-width">Observação
+              <textarea id="observacao" rows="3" maxlength="500" placeholder="Adicione informações complementares (opcional)"></textarea>
+              <small class="purchase-counter" id="observacaoCompraContador">0/500</small>
+            </label>
+          </div>
+
+          <div class="purchase-actions">
+            <button class="btn btn-primary" type="submit">Salvar compra</button>
+          </div>
+        </form>
+
+        <aside class="purchase-summary-card">
+          <div class="purchase-side-title">
+            <strong>Resumo do cartão</strong>
+            <span id="resumoCartaoStatus">Ativo</span>
+          </div>
+          <div class="purchase-card-mini">
+            <strong id="resumoCartaoNome">Selecione um cartão</strong>
+            <small id="resumoCartaoFinal">.... .... .... ----</small>
+          </div>
+          <div class="purchase-summary-list">
+            <div>
+              <span>Titular</span>
+              <strong id="resumoCartaoTitular">-</strong>
+            </div>
+            <div>
+              <span>Departamento</span>
+              <strong id="resumoCartaoDepartamento">-</strong>
+            </div>
+            <div>
+              <span>Limite disponível</span>
+              <strong id="resumoCartaoDisponivel">R$ 0,00</strong>
+            </div>
+            <div class="purchase-limit-bar"><span id="resumoCartaoBarra"></span></div>
+            <div>
+              <span>Compras no mês</span>
+              <strong id="resumoCartaoMes">R$ 0,00</strong>
+            </div>
+            <div>
+              <span>Próxima fatura</span>
+              <strong id="resumoCartaoFatura">-</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="purchase-table-card">
         <div class="section-header">
-          <h2>Compras registradas</h2>
+          <div>
+            <h2>Compras registradas</h2>
+            <p>Acompanhe os lançamentos recentes do cartão corporativo.</p>
+          </div>
+          <div class="purchase-table-tools">
+            <button class="btn btn-secondary" type="button">Filtros</button>
+            <input id="comprasCartaoBusca" type="search" placeholder="Buscar compras...">
+          </div>
         </div>
         <div class="table-wrapper">
           <table>
@@ -64,15 +131,13 @@
   </div>
 
   <div id="detalheCompraModal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="section-header">
-        <div>
+    <div class="modal-card purchase-detail-modal">
+      <div id="detalheCompraConteudo" class="purchase-detail-shell">
+        <div class="purchase-detail-loading">
           <span class="eyebrow">Detalhes da compra</span>
-          <h2 id="detalheCompraTitulo">Compra</h2>
+          <h2 id="detalheCompraTitulo">Carregando compra...</h2>
         </div>
-        <button class="btn btn-secondary" type="button" onclick="fecharDetalheCompra()">Fechar</button>
       </div>
-      <div id="detalheCompraConteudo" class="detail-grid"></div>
     </div>
   </div>
 

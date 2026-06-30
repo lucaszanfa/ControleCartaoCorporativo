@@ -144,10 +144,14 @@ function renderizarRelatorioMensal() {
   }, null);
 
   document.getElementById("resumoMateriaisConsumidos").textContent = consumidos.length;
-  document.getElementById("resumoItensConsumidos").textContent = totalItens;
+  document.getElementById("resumoItensConsumidos").textContent = totalItens.toLocaleString("pt-BR");
   document.getElementById("resumoMaiorConsumo").textContent = maiorConsumo?.nome || "-";
+  const listaResumo = document.getElementById("relatorioListaResumo");
+  if (listaResumo) {
+    listaResumo.textContent = `${consumidos.length} itens`;
+  }
 
-  tbody.innerHTML = dados.map((material) => {
+  tbody.innerHTML = consumidos.map((material) => {
     return `
       <tr class="report-data-row">
         <td><strong>${material.nome}</strong></td>
@@ -254,51 +258,174 @@ function renderizarLegenda(legenda, itens) {
   `).join("");
 }
 
-function desenharGraficoBarras(dados) {
-  const canvas = document.getElementById("graficoBarras");
-  const contexto = prepararCanvas(canvas);
-  const legenda = document.getElementById("legendaBarras");
-  legenda.innerHTML = "";
+function formatarEixoTendencia(valor) {
+  if (valor >= 1000) return `${Math.round(valor / 1000)}k`;
+  return String(Math.round(valor));
+}
 
-  if (!controles.setorRelatorio.value) {
-    desenharGraficoBarrasDepartamentos(dados, canvas, contexto, legenda);
-    return;
+function dadosTendenciaConsumo() {
+  const mesSelecionado = Number(controles.mesRelatorio.value);
+  const anoSelecionado = Number(controles.anoRelatorio.value);
+  const setor = controles.setorRelatorio.value;
+  const mesesTendencia = [];
+
+  for (let i = 5; i >= 0; i -= 1) {
+    const data = new Date(anoSelecionado, mesSelecionado - 1 - i, 1);
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
+    const ano = String(data.getFullYear());
+    const total = filtrarSaidas(mes, ano, setor).reduce((soma, saida) => soma + Number(saida.quantidade || 0), 0);
+
+    mesesTendencia.push({
+      mes,
+      ano,
+      total,
+      label: data.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "")
+    });
   }
 
-  const dadosComConsumo = dados.filter((item) => item.total > 0);
+  return mesesTendencia;
+}
 
-  if (!dadosComConsumo.length) {
+function desenharFundoTendencia(contexto, canvas, escuro) {
+  contexto.clearRect(0, 0, canvas.width, canvas.height);
+  const gradiente = contexto.createLinearGradient(0, 0, 0, canvas.height);
+  if (escuro) {
+    gradiente.addColorStop(0, "#071d33");
+    gradiente.addColorStop(1, "#071426");
+  } else {
+    gradiente.addColorStop(0, "#ffffff");
+    gradiente.addColorStop(1, "#f8fbff");
+  }
+  contexto.fillStyle = gradiente;
+  contexto.fillRect(0, 0, canvas.width, canvas.height);
+  contexto.imageSmoothingEnabled = true;
+}
+
+function desenharGradeTendencia(contexto, canvas, margem, alturaGrafico, maiorValor, escuro) {
+  const baseY = alturaGrafico + 42;
+  const passos = 4;
+  contexto.strokeStyle = escuro ? "rgba(148, 163, 184, 0.16)" : "#e7eef7";
+  contexto.lineWidth = 1;
+  contexto.fillStyle = escuro ? "#b8c7da" : "#64748b";
+  contexto.font = "12px Arial";
+  contexto.textAlign = "right";
+
+  for (let i = 0; i <= passos; i += 1) {
+    const valor = maiorValor * (i / passos);
+    const y = baseY - (alturaGrafico * i / passos);
+    contexto.beginPath();
+    contexto.moveTo(margem, y);
+    contexto.lineTo(canvas.width - margem, y);
+    contexto.stroke();
+    contexto.fillText(formatarEixoTendencia(valor), margem - 12, y);
+  }
+}
+
+function desenharTendenciaLinha(contexto, canvas, pontos, margem, alturaGrafico, maiorValor) {
+  const baseY = alturaGrafico + 42;
+  const larguraGrafico = canvas.width - margem * 2;
+  const passoX = pontos.length > 1 ? larguraGrafico / (pontos.length - 1) : larguraGrafico;
+  const coordenadas = pontos.map((item, index) => ({
+    x: margem + index * passoX,
+    y: baseY - ((item.total / maiorValor) * alturaGrafico),
+    ...item
+  }));
+
+  const area = contexto.createLinearGradient(0, 60, 0, baseY);
+  area.addColorStop(0, "rgba(37, 99, 235, 0.24)");
+  area.addColorStop(1, "rgba(37, 99, 235, 0.02)");
+
+  contexto.beginPath();
+  contexto.moveTo(coordenadas[0].x, baseY);
+  coordenadas.forEach((ponto) => contexto.lineTo(ponto.x, ponto.y));
+  contexto.lineTo(coordenadas[coordenadas.length - 1].x, baseY);
+  contexto.closePath();
+  contexto.fillStyle = area;
+  contexto.fill();
+
+  contexto.beginPath();
+  coordenadas.forEach((ponto, index) => {
+    if (index === 0) contexto.moveTo(ponto.x, ponto.y);
+    else contexto.lineTo(ponto.x, ponto.y);
+  });
+  contexto.strokeStyle = "#2563eb";
+  contexto.lineWidth = 3;
+  contexto.stroke();
+
+  coordenadas.forEach((ponto) => {
+    contexto.beginPath();
+    contexto.arc(ponto.x, ponto.y, 5, 0, Math.PI * 2);
+    contexto.fillStyle = "#ffffff";
+    contexto.fill();
+    contexto.strokeStyle = "#2563eb";
+    contexto.lineWidth = 3;
+    contexto.stroke();
+
+    contexto.fillStyle = "#334155";
+    contexto.font = "700 12px Arial";
+    contexto.textAlign = "center";
+    contexto.fillText(formatarEixoTendencia(ponto.total), ponto.x, ponto.y - 18);
+
+    contexto.fillStyle = "#475569";
+    contexto.font = "700 12px Arial";
+    contexto.fillText(ponto.label, ponto.x, baseY + 26);
+  });
+}
+
+function desenharTendenciaBarras(contexto, canvas, pontos, margem, alturaGrafico, maiorValor) {
+  const baseY = alturaGrafico + 42;
+  const larguraGrafico = canvas.width - margem * 2;
+  const larguraGrupo = larguraGrafico / pontos.length;
+  const larguraBarra = Math.min(58, Math.max(34, larguraGrupo * 0.48));
+  const gradienteBarra = contexto.createLinearGradient(0, 70, 0, baseY);
+  gradienteBarra.addColorStop(0, "#22d3ee");
+  gradienteBarra.addColorStop(1, "#2563eb");
+
+  pontos.forEach((item, index) => {
+    const alturaBarra = (item.total / maiorValor) * alturaGrafico;
+    const x = margem + index * larguraGrupo + (larguraGrupo - larguraBarra) / 2;
+    const y = baseY - alturaBarra;
+
+    preencherBarra(contexto, x, y, larguraBarra, alturaBarra, gradienteBarra);
+
+    contexto.fillStyle = "#dbeafe";
+    contexto.textAlign = "center";
+    contexto.font = "700 12px Arial";
+    contexto.fillText(formatarEixoTendencia(item.total), x + larguraBarra / 2, y - 16);
+    contexto.fillStyle = "#b8c7da";
+    contexto.font = "700 12px Arial";
+    contexto.fillText(item.label, x + larguraBarra / 2, baseY + 26);
+  });
+}
+
+function desenharGraficoBarras() {
+  const canvas = document.getElementById("graficoBarras");
+  const contexto = canvas.getContext("2d");
+  const legenda = document.getElementById("legendaBarras");
+  const pontos = dadosTendenciaConsumo();
+  const maiorPonto = Math.max(...pontos.map((item) => item.total));
+  const maiorValor = Math.max(1, Math.ceil(maiorPonto / 4) * 4);
+  const escuro = document.documentElement.dataset.theme === "dark";
+
+  desenharFundoTendencia(contexto, canvas, escuro);
+  legenda.innerHTML = "";
+
+  if (!maiorPonto) {
     desenharMensagemVazia(contexto, canvas);
     return;
   }
 
-  const margem = 86;
-  const larguraGrafico = canvas.width - margem * 2;
-  const alturaGrafico = canvas.height - 112;
-  const maiorValor = Math.max(...dadosComConsumo.map((item) => item.total));
-  const larguraGrupo = larguraGrafico / dadosComConsumo.length;
-  const larguraBarra = Math.min(74, Math.max(28, larguraGrupo * 0.58));
-  desenharFrameGrafico(contexto, canvas, margem, alturaGrafico, maiorValor);
+  const margem = 78;
+  const alturaGrafico = canvas.height - 104;
+  desenharGradeTendencia(contexto, canvas, margem, alturaGrafico, maiorValor, escuro);
 
-  dadosComConsumo.forEach((item, index) => {
-    const alturaBarra = (item.total / maiorValor) * alturaGrafico;
-    const x = margem + index * larguraGrupo + (larguraGrupo - larguraBarra) / 2;
-    const y = alturaGrafico + 34 - alturaBarra;
+  if (escuro) {
+    desenharTendenciaBarras(contexto, canvas, pontos, margem, alturaGrafico, maiorValor);
+  } else {
+    desenharTendenciaLinha(contexto, canvas, pontos, margem, alturaGrafico, maiorValor);
+  }
 
-    preencherBarra(contexto, x, y, larguraBarra, alturaBarra, coresGrafico[index % coresGrafico.length]);
-
-    contexto.fillStyle = chartTextColor;
-    contexto.textAlign = "center";
-    contexto.font = "700 13px Arial";
-    contexto.fillText(item.total, x + larguraBarra / 2, y - 12);
-    contexto.font = "12px Arial";
-    contexto.fillStyle = chartMutedColor;
-    contexto.save();
-    contexto.translate(x + larguraBarra / 2, alturaGrafico + 64);
-    contexto.rotate(-0.38);
-    contexto.fillText(textoCurto(item.nome, 16), 0, 0);
-    contexto.restore();
-  });
+  renderizarLegenda(legenda, [{ nome: "Unidades consumidas", cor: escuro ? "#22d3ee" : "#2563eb" }]);
 }
 
 function desenharGraficoBarrasDepartamentos(dados, canvas, contexto, legenda) {
@@ -974,3 +1101,8 @@ preencherSelects();
 atualizarRelatorios();
 Object.values(controles).forEach((select) => select.addEventListener("change", atualizarRelatorios));
 document.getElementById("baixarPdfConsumo").addEventListener("click", baixarPdfConsumoMensal);
+document.addEventListener("click", (event) => {
+  if (event.target.closest("#themeToggle")) {
+    window.setTimeout(atualizarRelatorios, 0);
+  }
+});

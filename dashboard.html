@@ -32,18 +32,40 @@
         <div>
           <span class="eyebrow">Setor administrativo</span>
           <h1>Dashboard</h1>
+          <p class="topbar-subtitle">Bem-vindo de volta ao controle de materiais e cartões.</p>
+        </div>
+        <div class="dashboard-search">
+          <label>
+            <span class="hidden">Buscar</span>
+            <input id="dashboardSearch" type="search" placeholder="Buscar materiais, saídas, relatórios...">
+          </label>
         </div>
         <span class="user-chip">Administrador</span>
       </header>
 
-      <section class="hero-panel">
-        <div>
-          <span class="eyebrow">SM&A Materiais</span>
-          <h2>Visão geral das retiradas administrativas</h2>
-          <p>Acompanhe saídas, consumo por setor e materiais mais utilizados no mês.</p>
-        </div>
-        <img src="img/smamateriais1.png" alt="Mascote SM&A com materiais">
-      </section>
+      <div class="dashboard-modern-grid">
+        <section class="hero-panel">
+          <div>
+            <span class="eyebrow">Visão geral</span>
+            <h2>Visão geral das retiradas administrativas</h2>
+            <p>Acompanhe saídas, consumo por setor e materiais mais utilizados no mês.</p>
+            <a class="btn btn-primary" href="historico.html">Ver detalhes</a>
+          </div>
+          <img src="img/smamateriais1.png" alt="Mascote SM&A com materiais">
+        </section>
+
+        <section class="card quick-actions-card">
+          <div class="section-header">
+            <h2>Ações rápidas</h2>
+          </div>
+          <div class="quick-actions-grid">
+            <a class="quick-action" href="registrar-saida.html"><span>↗</span><strong>Registrar saída</strong></a>
+            <a class="quick-action" href="registrar-entrada.html"><span>↓</span><strong>Registrar entrada</strong></a>
+            <a class="quick-action" href="materiais.html"><span>□</span><strong>Novo material</strong></a>
+            <a class="quick-action" href="relatorios.html"><span>▥</span><strong>Relatórios</strong></a>
+          </div>
+        </section>
+      </div>
 
       <section class="cards-grid">
         <article class="card metric-card">
@@ -64,25 +86,46 @@
         </article>
       </section>
 
-      <section class="card">
-        <div class="section-header">
-          <h2>?ltimas saídas</h2>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Material</th>
-                <th>Quantidade</th>
-                <th>Setor</th>
-                <th>Responsável</th>
-              </tr>
-            </thead>
-            <tbody id="ultimasSaidasTabela"></tbody>
-          </table>
-        </div>
-      </section>
+      <div class="dashboard-content-grid">
+        <section class="card">
+          <div class="section-header">
+            <div>
+              <span class="eyebrow">Consumo por setor</span>
+              <h2>Itens retirados</h2>
+            </div>
+          </div>
+          <div class="dashboard-donut">
+            <div class="donut-ring">
+              <div>
+                <strong id="dashboardDonutTotal">0</strong>
+                <span>Total de itens</span>
+              </div>
+            </div>
+            <div id="dashboardSetoresLegenda" class="dashboard-legend"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-header">
+            <h2>Últimas saídas</h2>
+            <a class="btn btn-secondary" href="historico.html">Ver todas</a>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Material</th>
+                  <th>Quantidade</th>
+                  <th>Setor</th>
+                  <th>Responsável</th>
+                </tr>
+              </thead>
+              <tbody id="ultimasSaidasTabela"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 

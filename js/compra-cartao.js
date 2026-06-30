@@ -3,6 +3,7 @@ const compraEdicaoId = compraParams.get("compraId");
 const alertaResolucaoId = compraParams.get("alertaId");
 const transacaoResolucaoId = compraParams.get("transacaoId");
 let cartoesAtivosCache = [];
+let comprasCartaoCache = [];
 const camposProtegidosCompraAutomatica = ["cartaoId", "departamentoId", "dataCompra", "valor", "fornecedor", "observacao"];
 
 function compraCadastradaAutomaticamente(compra) {
@@ -33,7 +34,11 @@ async function initCompraCartao() {
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
   document.getElementById("categoria").innerHTML = CARTAO_CATEGORIAS.map((c) => `<option value="${c}">${c}</option>`).join("");
   document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);
-  document.getElementById("cartaoId").addEventListener("change", preencherDepartamentoPorCartao);
+  document.getElementById("cartaoId").addEventListener("change", () => {
+    preencherDepartamentoPorCartao();
+    atualizarResumoCartao();
+  });
+  prepararInteracoesCompraCartao();
 
   if (compraEdicaoId) {
     await carregarCompraParaEdicao(compraEdicaoId);
@@ -42,6 +47,7 @@ async function initCompraCartao() {
   }
 
   await carregarComprasCartao();
+  atualizarResumoCartao();
 }
 
 function carregarTransacaoParaNovaCompra() {
@@ -67,22 +73,104 @@ function preencherDepartamentoPorCartao() {
 
 async function carregarComprasCartao() {
   const compras = await (await fetch("/api/compras-cartao")).json();
+  comprasCartaoCache = compras;
+  renderizarComprasCartao();
+  atualizarResumoCartao();
+}
+
+function renderizarComprasCartao() {
+  const termo = String(document.getElementById("comprasCartaoBusca")?.value || "").trim().toLowerCase();
+  const compras = comprasCartaoCache.filter((compra) => {
+    if (!termo) return true;
+    return [compra.cartao, compra.fornecedor, compra.categoria, compra.status, compra.responsavel]
+      .some((valor) => String(valor || "").toLowerCase().includes(termo));
+  });
   const podeVerDetalhes = typeof ehAdminOuGerente === "function" ? ehAdminOuGerente() : false;
   document.getElementById("comprasCartaoTabela").innerHTML = compras.map((compra) => `
-    <tr class="report-data-row">
+    <tr class="report-data-row purchase-row">
       <td><strong>${formatarData(compra.dataCompra)}</strong></td>
-      <td><strong>${compra.cartao}</strong></td>
+      <td>
+        <strong>${compra.cartao}</strong>
+        <small>final ${compra.ultimos4Digitos || "----"}</small>
+      </td>
       <td>${compra.fornecedor}</td>
       <td><span class="report-money-pill">${moeda(compra.valor)}</span></td>
       <td>${compra.categoria}</td>
       <td><span class="${classeStatus(compra.status)}">${compra.status}</span></td>
       <td>
         ${podeVerDetalhes
-          ? `<button class="btn btn-secondary" type="button" onclick="abrirDetalheCompra(${compra.id})">Ver detalhes</button>`
+          ? `<button class="btn btn-secondary btn-compact" type="button" onclick="abrirDetalheCompra(${compra.id})">Ver detalhes</button>`
           : "-"}
       </td>
     </tr>
   `).join("");
+}
+
+function comprasDoMesAtual() {
+  const hoje = new Date();
+  return comprasCartaoCache.filter((compra) => {
+    const data = new Date(`${compra.dataCompra}T00:00:00`);
+    return data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear();
+  });
+}
+
+function proximaFaturaLabel() {
+  const hoje = new Date();
+  const data = new Date(hoje.getFullYear(), hoje.getMonth(), 10);
+  if (hoje.getDate() > 10) data.setMonth(data.getMonth() + 1);
+  return data.toLocaleDateString("pt-BR");
+}
+
+function atualizarResumoCartao() {
+  const cartaoId = Number(document.getElementById("cartaoId")?.value || 0);
+  const cartao = cartoesAtivosCache.find((item) => item.id === cartaoId);
+  if (!cartao) return;
+
+  const comprasMesCartao = comprasDoMesAtual().filter((compra) => Number(compra.cartaoId) === cartaoId);
+  const totalMes = comprasMesCartao.reduce((total, compra) => total + Number(compra.valor || 0), 0);
+  const limite = Number(cartao.limiteMensal || 0);
+  const disponivel = Math.max(0, limite - totalMes);
+  const percentualUso = limite > 0 ? Math.min(100, (totalMes / limite) * 100) : 0;
+
+  document.getElementById("resumoCartaoNome").textContent = cartao.nomeCartao || "Cartão corporativo";
+  document.getElementById("resumoCartaoFinal").textContent = `.... .... .... ${cartao.ultimos4Digitos || "----"}`;
+  document.getElementById("resumoCartaoStatus").textContent = cartao.status || "ativo";
+  document.getElementById("resumoCartaoTitular").textContent = cartao.responsavel || "-";
+  document.getElementById("resumoCartaoDepartamento").textContent = cartao.departamento || "-";
+  document.getElementById("resumoCartaoDisponivel").textContent = limite ? moeda(disponivel) : "Sem limite";
+  document.getElementById("resumoCartaoMes").textContent = moeda(totalMes);
+  document.getElementById("resumoCartaoFatura").textContent = proximaFaturaLabel();
+  document.getElementById("resumoCartaoBarra").style.width = `${percentualUso}%`;
+}
+
+function atualizarContadorCompra() {
+  const observacao = document.getElementById("observacao");
+  const contador = document.getElementById("observacaoCompraContador");
+  if (observacao && contador) contador.textContent = `${observacao.value.length}/500`;
+}
+
+function atualizarComprovanteVisual() {
+  const input = document.getElementById("comprovanteArquivo");
+  const label = document.querySelector(".purchase-upload-box strong");
+  const hint = document.querySelector(".purchase-upload-box small");
+  const file = input?.files?.[0];
+  if (!label || !hint) return;
+  if (file) {
+    label.textContent = file.name;
+    hint.textContent = "Arquivo selecionado";
+  } else {
+    label.textContent = "Arraste e solte o arquivo aqui";
+    hint.textContent = "ou clique para selecionar";
+  }
+}
+
+function prepararInteracoesCompraCartao() {
+  document.getElementById("observacao")?.addEventListener("input", atualizarContadorCompra);
+  document.getElementById("valor")?.addEventListener("input", atualizarResumoCartao);
+  document.getElementById("comprasCartaoBusca")?.addEventListener("input", renderizarComprasCartao);
+  document.getElementById("comprovanteArquivo")?.addEventListener("change", atualizarComprovanteVisual);
+  atualizarContadorCompra();
+  atualizarComprovanteVisual();
 }
 
 function escapeHtml(valor) {
@@ -100,6 +188,18 @@ function detalheItem(rotulo, valor, extraClass = "") {
       <span>${rotulo}</span>
       <strong>${escapeHtml(valor || "-")}</strong>
     </div>
+  `;
+}
+
+function detalheCompraCampo(rotulo, valor, icone, extraClass = "") {
+  return `
+    <article class="purchase-detail-field ${extraClass}">
+      <span class="purchase-detail-field-icon" aria-hidden="true">${icone}</span>
+      <div>
+        <small>${escapeHtml(rotulo)}</small>
+        <strong>${escapeHtml(valor || "-")}</strong>
+      </div>
+    </article>
   `;
 }
 
@@ -197,6 +297,261 @@ function fecharDetalheCompra() {
   document.getElementById("detalheCompraModal").classList.add("hidden");
 }
 
+function dataHoraTimeline(compra, fallbackHora = "14:22") {
+  const data = formatarData(compra.dataCompra);
+  return data && data !== "-" ? `${data} às ${fallbackHora}` : "-";
+}
+
+function eventoTimeline(titulo, descricao, horario, autor, icone, concluido = true, destaque = false) {
+  return `
+    <article class="purchase-timeline-event ${concluido ? "is-done" : "is-pending"} ${destaque ? "is-highlight" : ""}">
+      <span class="purchase-timeline-marker" aria-hidden="true">${concluido ? "✓" : "○"}</span>
+      <div class="purchase-timeline-card">
+        <div>
+          <strong><span aria-hidden="true">${icone}</span>${escapeHtml(titulo)}</strong>
+          <p>${escapeHtml(descricao)}</p>
+        </div>
+        <aside>
+          <time>${escapeHtml(horario || "-")}</time>
+          <small>${escapeHtml(autor || "-")}</small>
+        </aside>
+      </div>
+    </article>
+  `;
+}
+
+function renderHistoricoCompra(compra) {
+  const responsavel = compra.responsavelCompra || compra.responsavel || "Usuário";
+  const possuiComprovante = comprovanteUrlValido(compra.comprovanteUrl);
+  const statusTexto = String(compra.status || "").toLowerCase();
+  const importada = /automaticamente|e-mail|email|autom/i.test(`${compra.observacao || ""} ${compra.motivo || ""}`);
+  const concluida = ["conferida", "conciliada", "resolvida"].some((status) => statusTexto.includes(status));
+  const conciliada = statusTexto.includes("conciliada") || Boolean(compra.faturaId || compra.fatura_id || compra.numeroFatura);
+  const eventos = [
+    eventoTimeline(
+      importada ? "Compra registrada automaticamente" : "Compra registrada no sistema",
+      importada ? "A compra foi criada a partir da integração por e-mail." : "A compra foi criada e registrada no sistema.",
+      dataHoraTimeline(compra, "14:22"),
+      importada ? "Sistema" : responsavel,
+      "▣"
+    )
+  ];
+
+  if (importada || compra.teamsEnviado || compra.alertaTeamsEnviado) {
+    eventos.push(eventoTimeline(
+      "Alerta enviado no Teams",
+      "Notificação enviada para o canal ou responsável do cartão.",
+      dataHoraTimeline(compra, "14:22"),
+      "Sistema (Integração)",
+      "T"
+    ));
+  }
+
+  eventos.push(eventoTimeline(
+    "Usuário abriu a compra",
+    `${responsavel} acessou os detalhes desta compra.`,
+    dataHoraTimeline(compra, "14:24"),
+    responsavel,
+    "○"
+  ));
+
+  eventos.push(eventoTimeline(
+    "Comprovante anexado",
+    possuiComprovante ? "O arquivo do comprovante foi anexado à compra." : "A compra ainda não possui comprovante anexado.",
+    possuiComprovante ? dataHoraTimeline(compra, "14:23") : "-",
+    possuiComprovante ? responsavel : "Pendente",
+    "↗",
+    possuiComprovante
+  ));
+
+  eventos.push(eventoTimeline(
+    "Compra concluída",
+    concluida ? "Compra marcada como conferida." : "A compra ainda aguarda conclusão.",
+    concluida ? dataHoraTimeline(compra, "14:25") : "-",
+    concluida ? responsavel : "Pendente",
+    "⚑",
+    concluida
+  ));
+
+  eventos.push(eventoTimeline(
+    "Conciliada com fatura",
+    conciliada ? "A compra foi conciliada com uma fatura importada." : "A compra ainda não foi conciliada com fatura.",
+    conciliada ? dataHoraTimeline(compra, "14:30") : "-",
+    conciliada ? "Sistema" : "Pendente",
+    "✓",
+    conciliada,
+    conciliada
+  ));
+
+  return `
+    <section class="purchase-detail-timeline">
+      <div class="purchase-detail-section-title">
+        <span aria-hidden="true">◷</span>
+        <strong>Histórico da compra</strong>
+        <em>${eventos.length} eventos</em>
+      </div>
+      <div class="purchase-timeline-list">
+        ${eventos.join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderComprovanteDetalhado(comprovanteUrl) {
+  if (!comprovanteUrl) {
+    return `
+      <section class="purchase-detail-receipt purchase-detail-receipt-empty">
+        <div class="purchase-detail-section-title">
+          <span aria-hidden="true">↗</span>
+          <strong>Comprovante</strong>
+        </div>
+        <div class="purchase-detail-empty-receipt">
+          <strong>Nenhum comprovante anexado.</strong>
+          <p>Edite a compra para anexar o arquivo do comprovante.</p>
+        </div>
+      </section>
+    `;
+  }
+
+  if (!comprovanteUrlValido(comprovanteUrl)) {
+    return `
+      <section class="purchase-detail-receipt purchase-detail-receipt-empty">
+        <div class="purchase-detail-section-title">
+          <span aria-hidden="true">↗</span>
+          <strong>Comprovante</strong>
+        </div>
+        <div class="purchase-detail-empty-receipt">
+          <strong>Comprovante antigo inválido.</strong>
+          <p>Edite a compra e anexe o arquivo novamente.</p>
+        </div>
+      </section>
+    `;
+  }
+
+  const url = escapeHtml(comprovanteUrl);
+  const isImagem = /\.(png|jpe?g|webp)$/i.test(comprovanteUrl);
+  const nomeArquivo = decodeURIComponent(String(comprovanteUrl).split("/").pop() || "comprovante");
+  const preview = isImagem
+    ? `<img src="${url}" alt="Comprovante da compra">`
+    : `<div class="purchase-detail-file-preview"><strong>Arquivo anexado</strong><span>Use os botões para abrir ou baixar o comprovante.</span></div>`;
+
+  return `
+    <section class="purchase-detail-receipt">
+      <div class="purchase-detail-section-title">
+        <span aria-hidden="true">↗</span>
+        <strong>Comprovante</strong>
+      </div>
+      <div class="purchase-detail-receipt-grid">
+        <div class="purchase-detail-receipt-preview">${preview}</div>
+        <div class="purchase-detail-receipt-info">
+          <div class="purchase-detail-file-card">
+            <span class="purchase-detail-field-icon" aria-hidden="true">▣</span>
+            <div>
+              <strong>${escapeHtml(nomeArquivo)}</strong>
+              <small>${isImagem ? "Imagem do comprovante" : "Arquivo do comprovante"}</small>
+            </div>
+          </div>
+          <div class="purchase-detail-receipt-actions">
+            <a class="btn btn-primary" href="${url}" target="_blank" rel="noopener">Abrir comprovante</a>
+            <a class="btn btn-secondary" href="${url}" download>Baixar comprovante</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+async function abrirDetalheCompra(id) {
+  const modal = document.getElementById("detalheCompraModal");
+  const conteudo = document.getElementById("detalheCompraConteudo");
+
+  conteudo.innerHTML = `
+    <div class="purchase-detail-loading">
+      <span class="eyebrow">Detalhes da compra</span>
+      <h2>Carregando compra...</h2>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+
+  const res = await fetch(`/api/compras-cartao/${id}`);
+  const compra = await res.json();
+
+  if (!res.ok) {
+    conteudo.innerHTML = `
+      <div class="purchase-detail-topbar">
+        <button class="purchase-detail-back" type="button" onclick="fecharDetalheCompra()">←</button>
+        <span>Compras</span>
+        <strong>Detalhes da compra</strong>
+        <button class="btn btn-secondary" type="button" onclick="fecharDetalheCompra()">Fechar</button>
+      </div>
+      <div class="purchase-detail-loading">
+        <span class="eyebrow">Erro</span>
+        <h2>Não foi possível abrir a compra</h2>
+        <p>${escapeHtml(compra.erro || "Tente novamente.")}</p>
+      </div>
+    `;
+    return;
+  }
+
+  conteudo.innerHTML = `
+    <div class="purchase-detail-topbar">
+      <button class="purchase-detail-back" type="button" onclick="fecharDetalheCompra()">←</button>
+      <span>Compras</span>
+      <strong>Detalhes da compra</strong>
+      <button class="btn btn-secondary" type="button" onclick="fecharDetalheCompra()">Fechar</button>
+    </div>
+
+    <header class="purchase-detail-header">
+      <div class="purchase-detail-title">
+        <span class="purchase-detail-title-icon" aria-hidden="true">▣</span>
+        <div>
+          <span class="eyebrow">Detalhes da compra</span>
+          <h2>${escapeHtml(compra.fornecedor || "Compra")}</h2>
+          <p>${moeda(compra.valor)}</p>
+        </div>
+      </div>
+      <div class="purchase-detail-card-art" aria-hidden="true"></div>
+    </header>
+
+    <section class="purchase-detail-highlight">
+      <article>
+        <span class="purchase-detail-field-icon" aria-hidden="true">▭</span>
+        <div><small>Cartão</small><strong>${escapeHtml(compra.cartao || "-")}</strong></div>
+      </article>
+      <article>
+        <span class="purchase-detail-field-icon" aria-hidden="true">▦</span>
+        <div><small>Departamento</small><strong>${escapeHtml(compra.departamento || "-")}</strong></div>
+      </article>
+      <article>
+        <span class="purchase-detail-field-icon" aria-hidden="true">✓</span>
+        <div><small>Status</small><strong><span class="${classeStatus(compra.status)}">${escapeHtml(String(compra.status || "-").replaceAll("_", " "))}</span></strong></div>
+      </article>
+      <article>
+        <span class="purchase-detail-field-icon" aria-hidden="true">R$</span>
+        <div><small>Valor total</small><strong>${moeda(compra.valor)}</strong></div>
+      </article>
+    </section>
+
+    <div class="purchase-detail-layout">
+      <section class="purchase-detail-info-grid">
+        ${detalheCompraCampo("Data da compra", formatarData(compra.dataCompra), "□")}
+        ${detalheCompraCampo("Responsável", compra.responsavelCompra || compra.responsavel, "○")}
+        ${detalheCompraCampo("Fornecedor", compra.fornecedor, "▤")}
+        ${detalheCompraCampo("Categoria", String(compra.categoria || "-").replaceAll("_", " "), "◇")}
+        ${detalheCompraCampo("Motivo", compra.motivo, "▣")}
+        ${detalheCompraCampo("Observação", compra.observacao, "◌")}
+      </section>
+      ${renderHistoricoCompra(compra)}
+    </div>
+
+    ${renderComprovanteDetalhado(compra.comprovanteUrl)}
+
+    <div class="purchase-detail-footer">
+      <a class="btn btn-primary" href="compra-cartao.html?compraId=${compra.id}">Editar compra</a>
+    </div>
+  `;
+}
+
 function getPayloadCompra() {
   return {
     cartaoId: document.getElementById("cartaoId").value,
@@ -287,6 +642,8 @@ async function carregarCompraParaEdicao(id) {
   document.getElementById("comprovanteUrl").value = comprovanteUrlValido(compra.comprovanteUrl) ? compra.comprovanteUrl : "";
   document.getElementById("comprovanteAtual").innerHTML = linkComprovanteAtual(compra.comprovanteUrl);
   document.getElementById("observacao").value = compra.observacao || "";
+  atualizarContadorCompra();
+  atualizarResumoCartao();
 
   if (compraCadastradaAutomaticamente(compra)) {
     definirCamposProtegidosCompraAutomatica(true);
@@ -421,6 +778,9 @@ document.getElementById("compraCartaoForm").addEventListener("submit", async (ev
     document.getElementById("comprovanteAtual").textContent = "Nenhum comprovante anexado.";
     document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);
     document.getElementById("responsavelCompraId").value = usuarioIdAtual();
+    atualizarContadorCompra();
+    atualizarComprovanteVisual();
+    atualizarResumoCartao();
     await carregarComprasCartao();
   }
 });
