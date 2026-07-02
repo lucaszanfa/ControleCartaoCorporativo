@@ -181,8 +181,16 @@ function atualizarBotaoMenuLateral() {
   botao.setAttribute("aria-label", recolhido ? "Abrir menu lateral" : "Recolher menu lateral");
 }
 
+function aplicarLarguraMenuSalva() {
+  const larguraSalva = Number(localStorage.getItem("sidebarLargura") || 0);
+  if (!larguraSalva) return;
+  const largura = Math.min(430, Math.max(220, larguraSalva));
+  document.documentElement.style.setProperty("--sidebar-width", `${largura}px`);
+}
+
 function aplicarEstadoMenuLateral() {
   const recolhido = localStorage.getItem("sidebarRecolhida") === "true";
+  aplicarLarguraMenuSalva();
   document.body.classList.toggle("sidebar-collapsed", recolhido);
   atualizarBotaoMenuLateral();
 }
@@ -192,6 +200,212 @@ function alternarMenuLateral() {
   document.body.classList.toggle("sidebar-collapsed", recolhido);
   localStorage.setItem("sidebarRecolhida", String(recolhido));
   atualizarBotaoMenuLateral();
+}
+
+function configurarRedimensionamentoMenu(sidebar) {
+  const resizer = sidebar.querySelector(".sidebar-resizer");
+  if (!resizer || resizer.dataset.configurado === "true") return;
+  resizer.dataset.configurado = "true";
+
+  const larguraMinima = 220;
+  const larguraMaxima = 430;
+
+  resizer.addEventListener("pointerdown", (event) => {
+    if (window.innerWidth <= 820) return;
+    event.preventDefault();
+    document.body.classList.remove("sidebar-collapsed");
+    localStorage.setItem("sidebarRecolhida", "false");
+    document.body.classList.add("sidebar-resizing");
+    resizer.setPointerCapture(event.pointerId);
+
+    const mover = (moveEvent) => {
+      const largura = Math.min(larguraMaxima, Math.max(larguraMinima, moveEvent.clientX));
+      document.documentElement.style.setProperty("--sidebar-width", `${largura}px`);
+      localStorage.setItem("sidebarLargura", String(largura));
+    };
+
+    const finalizar = () => {
+      document.body.classList.remove("sidebar-resizing");
+      resizer.removeEventListener("pointermove", mover);
+      resizer.removeEventListener("pointerup", finalizar);
+      resizer.removeEventListener("pointercancel", finalizar);
+      atualizarBotaoMenuLateral();
+    };
+
+    resizer.addEventListener("pointermove", mover);
+    resizer.addEventListener("pointerup", finalizar);
+    resizer.addEventListener("pointercancel", finalizar);
+  });
+}
+
+const paginasComBuscaGlobal = new Set([
+  "dashboard.html",
+  "dashboard-cartoes.html",
+  "relatorios.html",
+  "relatorios-cartao.html"
+]);
+
+let buscaGlobalCache = null;
+let buscaGlobalCacheCriadoEm = 0;
+
+function normalizarBusca(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function escaparBuscaGlobal(texto) {
+  return String(texto ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function somaBuscaGlobal(lista, materialId) {
+  return lista
+    .filter((item) => Number(item.materialId) === Number(materialId))
+    .reduce((total, item) => total + Number(item.quantidade || 0), 0);
+}
+
+function estoqueDisponivelBuscaGlobal(material, entradasLista, saidasLista) {
+  const totalEntradas = somaBuscaGlobal(entradasLista, material.id);
+  const totalSaidas = somaBuscaGlobal(saidasLista, material.id);
+  return totalEntradas - totalSaidas;
+}
+
+async function carregarBuscaGlobal() {
+  if (buscaGlobalCache && Date.now() - buscaGlobalCacheCriadoEm < 10000) return buscaGlobalCache;
+
+  const [bootstrapRes, comprasRes, cartoesRes] = await Promise.allSettled([
+    fetch("/api/bootstrap").then((res) => res.ok ? res.json() : {}),
+    fetch("/api/compras-cartao").then((res) => res.ok ? res.json() : []),
+    fetch("/api/cartoes").then((res) => res.ok ? res.json() : [])
+  ]);
+
+  const bootstrapDados = bootstrapRes.status === "fulfilled" ? bootstrapRes.value : {};
+  const materiais = bootstrapDados.materiais || [];
+  const entradasLista = bootstrapDados.entradas || [];
+  const saidasLista = bootstrapDados.saidas || [];
+  const compras = comprasRes.status === "fulfilled" ? comprasRes.value : [];
+  const cartoes = cartoesRes.status === "fulfilled" ? cartoesRes.value : [];
+
+  buscaGlobalCache = [
+    ...materiais.map((material) => {
+      const disponivel = estoqueDisponivelBuscaGlobal(material, entradasLista, saidasLista);
+      const unidade = material.unidade || "unidade";
+      return {
+        tipo: "Material",
+        titulo: material.nome,
+        detalhe: `Disponível agora: ${disponivel} ${unidade}${material.categoria ? ` • ${material.categoria}` : ""}`,
+        href: `materiais.html?materialId=${material.id}`,
+        texto: `${material.nome} ${material.categoria || ""} ${material.unidade || ""} estoque disponivel ${disponivel}`
+      };
+    }),
+    ...compras.map((compra) => ({
+      tipo: "Compra",
+      titulo: compra.fornecedor || "Compra sem fornecedor",
+      detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "),
+      href: `compra-cartao.html?compraId=${compra.id}`,
+      texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""} ${compra.categoria || ""}`
+    })),
+    ...cartoes.map((cartao) => ({
+      tipo: "Cartão",
+      titulo: cartao.nomeCartao || cartao.nome || "Cartão",
+      detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "),
+      href: "cartoes.html",
+      texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}`
+    })),
+    { tipo: "Relatório", titulo: "Relatórios de materiais", detalhe: "Consumo mensal e tendências", href: "relatorios.html", texto: "relatorio materiais consumo mensal tendencias pdf" },
+    { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos, pendências e categorias", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias categoria pdf" },
+    { tipo: "Página", titulo: "Estoque de materiais", detalhe: "Saldos disponíveis e baixo estoque", href: "estoque.html", texto: "estoque materiais baixo estoque saldo disponivel" },
+    { tipo: "Página", titulo: "Compras pendentes", detalhe: "Compras aguardando conclusão", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams" },
+    { tipo: "Página", titulo: "Faturas do cartão", detalhe: "Importar fatura e rodar conciliação", href: "faturas-cartao.html", texto: "faturas cartao importacao conciliacao csv" }
+  ];
+
+  buscaGlobalCacheCriadoEm = Date.now();
+  return buscaGlobalCache;
+}
+
+function renderizarResultadosBuscaGlobal(container, resultados, termo) {
+  if (!termo) {
+    container.classList.add("hidden");
+    container.innerHTML = "";
+    return;
+  }
+
+  if (!resultados.length) {
+    container.classList.remove("hidden");
+    container.innerHTML = `
+      <div class="global-search-empty">
+        <strong>Nenhum resultado encontrado</strong>
+        <span>Tente buscar por material, fornecedor, cartão ou relatório.</span>
+      </div>
+    `;
+    return;
+  }
+
+  container.classList.remove("hidden");
+  container.innerHTML = resultados.slice(0, 8).map((item) => `
+    <a class="global-search-result" href="${escaparBuscaGlobal(item.href)}">
+      <span>${escaparBuscaGlobal(item.tipo)}</span>
+      <strong>${escaparBuscaGlobal(item.titulo || "-")}</strong>
+      <small>${escaparBuscaGlobal(item.detalhe || "Abrir item")}</small>
+    </a>
+  `).join("");
+}
+
+function configurarBuscaGlobal(topbar) {
+  const wrapper = topbar.querySelector(".app-search, .dashboard-search");
+  const input = wrapper?.querySelector("input[type='search']");
+  if (!wrapper || !input || input.dataset.buscaGlobal === "true") return;
+
+  input.dataset.buscaGlobal = "true";
+  input.setAttribute("autocomplete", "off");
+  input.placeholder = "Buscar materiais, compras, cartões, relatórios...";
+
+  const resultados = document.createElement("div");
+  resultados.className = "global-search-results hidden";
+  wrapper.appendChild(resultados);
+
+  input.addEventListener("input", async () => {
+    const termo = normalizarBusca(input.value);
+    if (termo.length < 2) {
+      renderizarResultadosBuscaGlobal(resultados, [], "");
+      return;
+    }
+
+    resultados.classList.remove("hidden");
+    resultados.innerHTML = `<div class="global-search-empty"><span>Buscando...</span></div>`;
+
+    const indice = await carregarBuscaGlobal();
+    const encontrados = indice.filter((item) => normalizarBusca(item.texto).includes(termo));
+    renderizarResultadosBuscaGlobal(resultados, encontrados, termo);
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      const primeiro = resultados.querySelector("a");
+      if (primeiro) {
+        event.preventDefault();
+        primeiro.click();
+      }
+    }
+
+    if (event.key === "Escape") {
+      input.value = "";
+      renderizarResultadosBuscaGlobal(resultados, [], "");
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!wrapper.contains(event.target)) {
+      resultados.classList.add("hidden");
+    }
+  });
 }
 
 function aplicarMenuPrincipal() {
@@ -256,10 +470,12 @@ function aplicarMenuPrincipal() {
         </span>
       </div>
     </div>
+    <div class="sidebar-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar o menu"></div>
   `;
 
   const botaoMenu = sidebar.querySelector(".sidebar-menu-button");
   botaoMenu?.addEventListener("click", alternarMenuLateral);
+  configurarRedimensionamentoMenu(sidebar);
   aplicarEstadoMenuLateral();
 }
 
@@ -280,8 +496,13 @@ function aplicarContextoVisual() {
   if (!topbar) return;
 
   const moduloCartao = paginasCartoes.includes(paginaAtual);
+  const deveMostrarBuscaGlobal = paginasComBuscaGlobal.has(paginaAtual);
 
-  if (!topbar.querySelector(".app-search") && !topbar.querySelector(".dashboard-search")) {
+  if (!deveMostrarBuscaGlobal) {
+    topbar.querySelector(".app-search")?.remove();
+  }
+
+  if (deveMostrarBuscaGlobal && !topbar.querySelector(".app-search") && !topbar.querySelector(".dashboard-search")) {
     const search = document.createElement("div");
     search.className = "app-search";
     search.innerHTML = `
@@ -292,6 +513,10 @@ function aplicarContextoVisual() {
     `;
     const chip = topbar.querySelector(".user-chip");
     topbar.insertBefore(search, chip || topbar.firstElementChild?.nextSibling || null);
+  }
+
+  if (deveMostrarBuscaGlobal) {
+    configurarBuscaGlobal(topbar);
   }
 
   let actions = topbar.querySelector(".topbar-actions");

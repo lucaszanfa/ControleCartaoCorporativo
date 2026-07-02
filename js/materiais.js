@@ -7,7 +7,18 @@ const materialFormTitulo = document.getElementById("materialFormTitulo");
 const materialForm = document.getElementById("materialForm");
 const materialMensagem = document.getElementById("materialMensagem");
 const cancelarMaterialBtn = document.getElementById("cancelarMaterialBtn");
+const categoriasMateriais = document.getElementById("categoriasMateriais");
 const podeGerenciarMateriais = temPermissao("cadastrarMaterial");
+const materialUrlParams = new URLSearchParams(window.location.search);
+const materialSelecionadoId = Number(materialUrlParams.get("materialId") || 0);
+
+function aplicarMaterialSelecionadoDaUrl() {
+  if (!materialSelecionadoId) return;
+  const materialSelecionado = materiais.find((material) => material.id === materialSelecionadoId);
+  if (!materialSelecionado) return;
+
+  filtroNome.value = materialSelecionado.nome;
+}
 
 function preencherCategorias() {
   const categorias = [...new Set(materiais.map((material) => material.categoria))].sort();
@@ -16,6 +27,30 @@ function preencherCategorias() {
   filtroCategoria.innerHTML += categorias.map((categoria) => {
     return `<option value="${categoria}">${categoria}</option>`;
   }).join("");
+
+  if (categoriasMateriais) {
+    categoriasMateriais.innerHTML = categorias.map((categoria) => {
+      return `<option value="${categoria}"></option>`;
+    }).join("");
+  }
+}
+
+function atualizarPreviewMaterial() {
+  const nome = document.getElementById("materialNome").value.trim();
+  const categoria = document.getElementById("materialCategoria").value.trim();
+  const unidade = document.getElementById("materialUnidade").value.trim();
+  const unidadesPorCaixa = Number(document.getElementById("materialUnidadesPorCaixa").value) || 1;
+  const estoqueMinimo = Number(document.getElementById("materialEstoqueMinimo").value) || 0;
+
+  document.getElementById("previewMaterialNome").textContent = nome || "Novo material";
+  document.getElementById("previewMaterialCategoria").textContent = categoria || "-";
+  document.getElementById("previewMaterialUnidade").textContent = unidade || "-";
+  document.getElementById("previewMaterialCaixa").textContent = unidade
+    ? `${unidadesPorCaixa} ${unidade}`
+    : String(unidadesPorCaixa || "-");
+  document.getElementById("previewMaterialMinimo").textContent = unidade
+    ? `${estoqueMinimo} ${unidade}`
+    : String(estoqueMinimo);
 }
 
 function abrirFormulario(material = null) {
@@ -29,6 +64,7 @@ function abrirFormulario(material = null) {
   materialFormTitulo.textContent = material ? "Editar material" : "Novo material";
   materialFormCard.classList.remove("hidden");
   materialMensagem.classList.add("hidden");
+  atualizarPreviewMaterial();
 }
 
 function fecharFormulario() {
@@ -51,7 +87,7 @@ function renderizarMateriais() {
     const textoBotaoStatus = material.ativo ? "Desativar" : "Ativar";
 
     return `
-      <tr class="report-data-row ${material.ativo ? "" : "row-inactive"}">
+      <tr class="report-data-row ${material.ativo ? "" : "row-inactive"} ${material.id === materialSelecionadoId ? "material-row-selected" : ""}" data-material-id="${material.id}">
         <td><strong>${material.nome}</strong></td>
         <td>${material.categoria}</td>
         <td><span class="report-number-pill">${material.unidade}</span></td>
@@ -84,6 +120,13 @@ function renderizarMateriais() {
   document.querySelectorAll(".alternar-material").forEach((botao) => {
     botao.addEventListener("click", () => alternarStatusMaterial(Number(botao.dataset.id)));
   });
+
+  if (materialSelecionadoId) {
+    const linhaSelecionada = materiaisTabela.querySelector(`[data-material-id="${materialSelecionadoId}"]`);
+    if (linhaSelecionada) {
+      setTimeout(() => linhaSelecionada.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+    }
+  }
 }
 
 async function salvarMaterial(event) {
@@ -149,7 +192,11 @@ if (!podeGerenciarMateriais) {
 novoMaterialBtn.addEventListener("click", () => abrirFormulario());
 cancelarMaterialBtn.addEventListener("click", fecharFormulario);
 materialForm.addEventListener("submit", salvarMaterial);
+["materialNome", "materialCategoria", "materialUnidade", "materialUnidadesPorCaixa", "materialEstoqueMinimo"].forEach((campoId) => {
+  document.getElementById(campoId).addEventListener("input", atualizarPreviewMaterial);
+});
 preencherCategorias();
+aplicarMaterialSelecionadoDaUrl();
 renderizarMateriais();
 filtroNome.addEventListener("input", renderizarMateriais);
 filtroCategoria.addEventListener("change", renderizarMateriais);

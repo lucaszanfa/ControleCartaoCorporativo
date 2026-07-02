@@ -3,42 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | Controle de Saída de Materiais</title>
+  <title>Login | Controle de Sa&iacute;da de Materiais</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="login-page">
   <main class="login-container">
     <section class="login-card">
       <div class="brand-block">
-        <img class="brand-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A Sistemas Elétricos e Automação">
+        <img class="brand-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A Sistemas El&eacute;tricos e Automa&ccedil;&atilde;o">
         <div>
-          <h1>Controle de Saída</h1>
+          <h1>Controle de Sa&iacute;da</h1>
           <p>Materiais administrativos</p>
         </div>
       </div>
+      <p class="login-intro">Bem-vindo! Fa&ccedil;a login para acessar o sistema.</p>
 
-      <form id="loginForm" class="form-grid">
+      <form id="loginForm" class="form-grid login-form">
         <div id="loginMensagem" class="alert-success hidden"></div>
-        <label>
-          E-mail
-          <input type="email" id="email" placeholder="usuario@empresa.com" required>
+
+        <label class="login-field">
+          <span>E-mail</span>
+          <div class="login-input-wrap">
+            <span aria-hidden="true">✉</span>
+            <input type="email" id="email" placeholder="usuario@empresa.com" required>
+          </div>
         </label>
-        <label>
-          Senha
-          <input type="password" id="senha" placeholder="Digite sua senha" required>
+
+        <label class="login-field">
+          <span>Senha</span>
+          <div class="login-input-wrap">
+            <span aria-hidden="true">▣</span>
+            <input type="password" id="senha" placeholder="Digite sua senha" required>
+          </div>
         </label>
-        <button class="btn btn-primary" type="submit">Entrar</button>
-        <a class="form-link" href="cadastro-usuario.html">Cadastrar novo usuário</a>
+
+        <button class="btn btn-primary login-submit" type="submit">
+          <span aria-hidden="true">↪</span>
+          Entrar
+        </button>
+
+        <div class="login-separator"><span>ou</span></div>
+
+        <a class="form-link login-register-link" href="cadastro-usuario.html">
+          <span aria-hidden="true">⊕</span>
+          Cadastrar novo usu&aacute;rio
+        </a>
+
+        <div class="login-security">
+          <span class="login-security-icon" aria-hidden="true">◇</span>
+          <div>
+            <strong>Seu acesso &eacute; seguro</strong>
+            <p>Seus dados s&atilde;o protegidos e usados apenas para controle administrativo.</p>
+          </div>
+        </div>
       </form>
     </section>
+
     <section class="login-showcase" aria-label="Sistema de controle de materiais SM&A">
-      <img src="img/smamateriais1.png" alt="Mascote SM&A segurando materiais administrativos">
-      <div>
-        <span class="eyebrow">SM&A Materiais</span>
-        <h2>Controle mensal de saídas com visual simples e corporativo.</h2>
+      <div class="login-showcase-copy">
+        <span class="eyebrow">Sistema SM&A</span>
+        <h2>Controle mensal de sa&iacute;das com visual simples e corporativo.</h2>
+        <p>Gerencie, acompanhe e tenha total controle dos materiais administrativos da sua empresa de forma pr&aacute;tica e eficiente.</p>
       </div>
+      <img src="img/smamateriais1.png" alt="Mascote SM&A segurando materiais administrativos">
     </section>
   </main>
+
+  <footer class="login-footer">
+    <span>SM&A Sistemas e Materiais</span>
+    <span>Controle e organiza&ccedil;&atilde;o que simplificam sua rotina.</span>
+  </footer>
 
   <script src="js/login.js"></script>
 </body>

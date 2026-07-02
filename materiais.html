@@ -36,41 +36,84 @@
         <button id="novoMaterialBtn" class="btn btn-primary material-action" type="button">Novo material</button>
       </header>
 
-      <section id="materialFormCard" class="card hidden">
-        <div class="section-header">
-          <h2 id="materialFormTitulo">Novo material</h2>
+      <section id="materialFormCard" class="card material-editor-card hidden">
+        <div class="material-editor-header">
+          <span class="material-editor-icon" aria-hidden="true">+</span>
+          <div>
+            <h2 id="materialFormTitulo">Novo material</h2>
+            <p>Cadastre um novo item para controle de estoque e movimentações.</p>
+          </div>
         </div>
         <div id="materialMensagem" class="alert-success hidden"></div>
-        <form id="materialForm" class="form-grid form-grid-two">
-          <input id="materialId" type="hidden">
-          <label>
-            Nome
-            <input id="materialNome" type="text" placeholder="Ex.: Caneta" required>
-          </label>
-          <label>
-            Categoria
-            <input id="materialCategoria" type="text" placeholder="Ex.: Escritório" required>
-          </label>
-          <label>
-            Unidade de estoque
-            <input id="materialUnidade" type="text" placeholder="Ex.: unidade, pacote, resma, rolo" required>
-            <small class="field-hint">É a unidade que será usada para calcular o estoque.</small>
-          </label>
-          <label>
-            Itens por caixa padrão
-            <input id="materialUnidadesPorCaixa" type="number" min="1" step="1" value="1" required>
-            <small class="field-hint">Use 1 se não houver caixa padrão. Na entrada/saída esse valor pode ser ajustado.</small>
-          </label>
-          <label>
-            Estoque mínimo
-            <input id="materialEstoqueMinimo" type="number" min="0" step="1" value="0" required>
-            <small class="field-hint">Quando o saldo chegar nesse número, o sistema poderá avisar o responsável pela compra.</small>
-          </label>
-          <div class="form-actions full-width">
-            <button class="btn btn-secondary" id="cancelarMaterialBtn" type="button">Cancelar</button>
-            <button class="btn btn-primary" type="submit">Salvar material</button>
-          </div>
-        </form>
+        <div class="material-editor-layout">
+          <form id="materialForm" class="material-editor-form">
+            <input id="materialId" type="hidden">
+            <div class="material-form-panel">
+              <h3>Informações do material</h3>
+              <div class="material-form-grid">
+                <label>
+                  <span>Nome <em>*</em></span>
+                  <input id="materialNome" type="text" placeholder="Ex.: Caneta" required>
+                </label>
+                <label>
+                  <span>Categoria <em>*</em></span>
+                  <input id="materialCategoria" type="text" placeholder="Ex.: Escritório" required list="categoriasMateriais">
+                  <datalist id="categoriasMateriais"></datalist>
+                </label>
+                <label>
+                  <span>Unidade de estoque <em>*</em></span>
+                  <input id="materialUnidade" type="text" placeholder="Ex.: unidade, pacote, resma, rolo" required>
+                  <small class="field-hint">É a unidade que será usada para calcular o estoque.</small>
+                </label>
+                <label>
+                  <span>Itens por caixa padrão <em>*</em></span>
+                  <input id="materialUnidadesPorCaixa" type="number" min="1" step="1" value="1" required>
+                  <small class="field-hint">Use 1 se não houver caixa padrão. Na entrada/saída esse valor pode ser ajustado.</small>
+                </label>
+                <label>
+                  <span>Estoque mínimo <em>*</em></span>
+                  <input id="materialEstoqueMinimo" type="number" min="0" step="1" value="0" required>
+                  <small class="field-hint">Quando o saldo chegar nesse número, o sistema poderá avisar o responsável pela compra.</small>
+                </label>
+              </div>
+              <div class="material-editor-actions">
+                <button class="btn btn-secondary" id="cancelarMaterialBtn" type="button">Cancelar</button>
+                <button class="btn btn-primary" type="submit">Salvar material</button>
+              </div>
+            </div>
+          </form>
+
+          <aside class="material-preview-panel" aria-label="Pré-visualização do material">
+            <div class="material-preview-title">
+              <span aria-hidden="true">◉</span>
+              <strong>Pré-visualização do material</strong>
+            </div>
+            <div class="material-preview-card">
+              <span class="material-preview-icon" aria-hidden="true">□</span>
+              <div>
+                <strong id="previewMaterialNome">Novo material</strong>
+                <p>As informações aparecerão aqui conforme preenchimento.</p>
+              </div>
+            </div>
+            <div class="material-preview-list">
+              <strong>Resumo rápido</strong>
+              <p><span>Categoria</span><b id="previewMaterialCategoria">-</b></p>
+              <p><span>Unidade de estoque</span><b id="previewMaterialUnidade">-</b></p>
+              <p><span>Itens por caixa padrão</span><b id="previewMaterialCaixa">-</b></p>
+              <p><span>Estoque mínimo</span><b id="previewMaterialMinimo">-</b></p>
+            </div>
+            <div class="material-preview-alert">
+              <strong>Alerta de estoque mínimo</strong>
+              <p>Você será avisado quando o saldo chegar ao estoque mínimo definido.</p>
+            </div>
+            <div class="material-preview-tips">
+              <strong>Dicas de cadastro</strong>
+              <span>Use nomes claros e objetivos.</span>
+              <span>Defina a unidade de medida correta.</span>
+              <span>Revise o estoque mínimo para evitar faltas.</span>
+            </div>
+          </aside>
+        </div>
       </section>
 
       <section class="card">

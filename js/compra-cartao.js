@@ -7,7 +7,18 @@ let comprasCartaoCache = [];
 const camposProtegidosCompraAutomatica = ["cartaoId", "departamentoId", "dataCompra", "valor", "fornecedor", "observacao"];
 
 function compraCadastradaAutomaticamente(compra) {
-  return Boolean(compra?.automatica) || String(compra?.observacao || "").includes("Compra cadastrada automaticamente");
+  const textoOrigem = [
+    compra?.origem,
+    compra?.origemCadastro,
+    compra?.emailOrigemId,
+    compra?.email_origem_id,
+    compra?.observacao,
+    compra?.motivo
+  ].filter(Boolean).join(" ");
+
+  return Boolean(compra?.automatica)
+    || String(compra?.observacao || "").includes("Compra cadastrada automaticamente")
+    || /e-mail|email|automaticamente|automatica|automático/i.test(textoOrigem);
 }
 
 function definirCamposProtegidosCompraAutomatica(bloquear) {
@@ -324,7 +335,7 @@ function renderHistoricoCompra(compra) {
   const responsavel = compra.responsavelCompra || compra.responsavel || "Usuário";
   const possuiComprovante = comprovanteUrlValido(compra.comprovanteUrl);
   const statusTexto = String(compra.status || "").toLowerCase();
-  const importada = /automaticamente|e-mail|email|autom/i.test(`${compra.observacao || ""} ${compra.motivo || ""}`);
+  const importada = compraCadastradaAutomaticamente(compra);
   const concluida = ["conferida", "conciliada", "resolvida"].some((status) => statusTexto.includes(status));
   const conciliada = statusTexto.includes("conciliada") || Boolean(compra.faturaId || compra.fatura_id || compra.numeroFatura);
   const eventos = [
@@ -394,6 +405,41 @@ function renderHistoricoCompra(compra) {
         ${eventos.join("")}
       </div>
     </section>
+  `;
+}
+
+function renderIndicadorCompraAutomatica(compra) {
+  if (!compraCadastradaAutomaticamente(compra)) return "";
+
+  return `
+    <span class="purchase-auto-badge" title="Compra importada automaticamente por e-mail">
+      <span aria-hidden="true">✉</span>
+      Importada automaticamente
+    </span>
+  `;
+}
+
+function renderOrigemCompraAutomatica(compra) {
+  if (!compraCadastradaAutomaticamente(compra)) {
+    return `<div class="purchase-detail-card-art" aria-hidden="true"></div>`;
+  }
+
+  return `
+    <div class="purchase-auto-origin">
+      <div class="purchase-auto-origin-copy">
+        <span class="purchase-auto-origin-icon" aria-hidden="true">✉</span>
+        <div>
+          <small>Origem</small>
+          <strong>e-mail corporativo</strong>
+          <p>Importada automaticamente</p>
+        </div>
+      </div>
+      <div class="purchase-auto-stamp" aria-hidden="true">
+        <span>Importada</span>
+        <strong>✉</strong>
+        <small>Auto</small>
+      </div>
+    </div>
   `;
 }
 
@@ -506,11 +552,14 @@ async function abrirDetalheCompra(id) {
         <span class="purchase-detail-title-icon" aria-hidden="true">▣</span>
         <div>
           <span class="eyebrow">Detalhes da compra</span>
-          <h2>${escapeHtml(compra.fornecedor || "Compra")}</h2>
+          <div class="purchase-detail-title-line">
+            <h2>${escapeHtml(compra.fornecedor || "Compra")}</h2>
+            ${renderIndicadorCompraAutomatica(compra)}
+          </div>
           <p>${moeda(compra.valor)}</p>
         </div>
       </div>
-      <div class="purchase-detail-card-art" aria-hidden="true"></div>
+      ${renderOrigemCompraAutomatica(compra)}
     </header>
 
     <section class="purchase-detail-highlight">
