@@ -5,8 +5,13 @@ const usuariosSetorFiltro = document.getElementById("usuariosSetorFiltro");
 const usuariosStatusFiltro = document.getElementById("usuariosStatusFiltro");
 const usuariosLimparFiltros = document.getElementById("usuariosLimparFiltros");
 const usuariosContagem = document.getElementById("usuariosContagem");
+const departamentosAdminPanel = document.getElementById("departamentosAdminPanel");
+const departamentoForm = document.getElementById("departamentoForm");
+const departamentoNome = document.getElementById("departamentoNome");
+const departamentosLista = document.getElementById("departamentosLista");
 
 let usuariosCache = [];
+let departamentosCache = [];
 
 function textoSeguro(valor) {
   return String(valor ?? "")
@@ -33,7 +38,7 @@ function permissaoPersonalizada(usuario) {
 }
 
 function atualizarResumo(usuarios) {
-  const setores = new Set(usuarios.map((usuario) => usuario.setor).filter(Boolean));
+  const setores = new Set(departamentosCache.length ? departamentosCache.map((setor) => setor.nome) : usuarios.map((usuario) => usuario.setor).filter(Boolean));
   const ativos = usuarios.filter((usuario) => usuario.status === "ativo").length;
   const admins = usuarios.filter((usuario) => usuario.permissoes?.administrarUsuarios || usuario.perfil === "admin").length;
   const personalizados = usuarios.filter(permissaoPersonalizada).length;
@@ -47,10 +52,13 @@ function atualizarResumo(usuarios) {
 
 function preencherFiltroSetores(usuarios) {
   const valorAtual = usuariosSetorFiltro.value;
-  const setores = [...new Set(usuarios.map((usuario) => usuario.setor).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const setores = (departamentosCache.length
+    ? departamentosCache.map((setor) => setor.nome)
+    : [...new Set(usuarios.map((usuario) => usuario.setor).filter(Boolean))]
+  ).sort((a, b) => a.localeCompare(b));
 
   usuariosSetorFiltro.innerHTML = `
-    <option value="">Todos os setores</option>
+    <option value="">Todos os departamentos</option>
     ${setores.map((setor) => `<option value="${textoSeguro(setor)}">${textoSeguro(setor)}</option>`).join("")}
   `;
   usuariosSetorFiltro.value = setores.includes(valorAtual) ? valorAtual : "";
@@ -98,10 +106,6 @@ function renderizarUsuarios() {
             <option value="bloqueado" ${status === "bloqueado" ? "selected" : ""}>Bloqueado</option>
           </select>
         </td>
-        <td>${criarToggle("perm-cadastrar", permissoes.cadastrarMaterial)}</td>
-        <td>${criarToggle("perm-saida", permissoes.registrarSaida)}</td>
-        <td>${criarToggle("perm-entrada", permissoes.registrarEntrada)}</td>
-        <td>${criarToggle("perm-relatorios", permissoes.verRelatorios)}</td>
         <td>${criarToggle("perm-admin", permissoes.administrarUsuarios)}</td>
         <td>
           <div class="users-actions">
@@ -130,12 +134,107 @@ function criarToggle(classe, ativo) {
 }
 
 async function carregarUsuarios() {
-  const resposta = await fetch("/api/usuarios");
-  usuariosCache = await resposta.json();
+  const [usuariosResposta, departamentosResposta] = await Promise.all([
+    fetch("/api/usuarios"),
+    fetch("/api/setores-detalhados")
+  ]);
+  usuariosCache = await usuariosResposta.json();
+  departamentosCache = await departamentosResposta.json();
 
   atualizarResumo(usuariosCache);
   preencherFiltroSetores(usuariosCache);
+  renderizarDepartamentos();
   renderizarUsuarios();
+}
+
+function usuarioPodeCadastrarDepartamento() {
+  return usuarioLogado?.perfil === "admin";
+}
+
+function renderizarDepartamentos() {
+  if (!departamentosAdminPanel) return;
+
+  departamentosAdminPanel.classList.toggle("hidden", !usuarioPodeCadastrarDepartamento());
+
+  if (!usuarioPodeCadastrarDepartamento()) {
+    return;
+  }
+
+  departamentosLista.innerHTML = departamentosCache.length
+    ? departamentosCache.map((departamento) => `
+        <article class="users-department-item">
+          <strong>${textoSeguro(departamento.nome)}</strong>
+          <button class="btn users-department-delete" type="button" data-id="${departamento.id}" data-nome="${textoSeguro(departamento.nome)}" aria-label="Excluir departamento ${textoSeguro(departamento.nome)}">🗑️ Excluir</button>
+        </article>
+      `).join("")
+    : `<span class="users-department-empty">Nenhum departamento cadastrado.</span>`;
+}
+
+
+async function excluirDepartamento(event) {
+  const botao = event.target.closest(".users-department-delete");
+  if (!botao) return;
+
+  const nome = botao.dataset.nome;
+  if (!window.confirm(`Deseja realmente excluir o departamento “${nome}”?`)) return;
+
+  botao.disabled = true;
+  try {
+    const resposta = await fetch(`/api/setores/${botao.dataset.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminEmail: usuarioLogado?.email || "" })
+    });
+    const dados = await resposta.json();
+
+    usuariosMensagem.textContent = dados.mensagem || dados.erro || "Departamento excluído.";
+    usuariosMensagem.classList.remove("hidden");
+    if (!resposta.ok) return;
+
+    await carregarUsuarios();
+  } finally {
+    botao.disabled = false;
+  }
+}
+
+async function cadastrarDepartamento(event) {
+  event.preventDefault();
+
+  if (!usuarioPodeCadastrarDepartamento()) {
+    usuariosMensagem.textContent = "Apenas administradores podem cadastrar departamentos.";
+    usuariosMensagem.classList.remove("hidden");
+    return;
+  }
+
+  const nome = departamentoNome.value.trim();
+  if (!nome) return;
+
+  const botao = departamentoForm.querySelector('button[type="submit"]');
+  botao.disabled = true;
+  botao.textContent = "Cadastrando...";
+
+  try {
+    const resposta = await fetch("/api/setores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nome,
+        adminEmail: usuarioLogado?.email || ""
+      })
+    });
+    const dados = await resposta.json();
+
+    usuariosMensagem.textContent = dados.mensagem || dados.erro || "Departamento cadastrado.";
+    usuariosMensagem.classList.remove("hidden");
+
+    if (!resposta.ok) return;
+
+    departamentoNome.value = "";
+    await carregarUsuarios();
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Cadastrar departamento";
+  }
 }
 
 async function salvarPermissoes(event) {
@@ -144,10 +243,6 @@ async function salvarPermissoes(event) {
   const payload = {
     status: linha.querySelector(".status-usuario").value,
     permissoes: {
-      cadastrarMaterial: linha.querySelector(".perm-cadastrar").checked,
-      registrarSaida: linha.querySelector(".perm-saida").checked,
-      registrarEntrada: linha.querySelector(".perm-entrada").checked,
-      verRelatorios: linha.querySelector(".perm-relatorios").checked,
       administrarUsuarios: linha.querySelector(".perm-admin").checked
     }
   };
@@ -175,5 +270,8 @@ usuariosLimparFiltros.addEventListener("click", () => {
   usuariosStatusFiltro.value = "";
   renderizarUsuarios();
 });
+
+departamentoForm?.addEventListener("submit", cadastrarDepartamento);
+departamentosLista?.addEventListener("click", excluirDepartamento);
 
 carregarUsuarios();

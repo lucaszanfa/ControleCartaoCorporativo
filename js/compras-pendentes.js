@@ -5,6 +5,15 @@ const filtroStatus = document.getElementById("filtroStatus");
 const filtroCartao = document.getElementById("filtroCartao");
 const filtroFornecedor = document.getElementById("filtroFornecedor");
 const pendentesMensagem = document.getElementById("pendentesMensagem");
+const teamsConfirmModal = document.getElementById("teamsConfirmModal");
+const teamsConfirmCompra = document.getElementById("teamsConfirmCompra");
+const teamsConfirmPendencias = document.getElementById("teamsConfirmPendencias");
+const teamsConfirmDestino = document.getElementById("teamsConfirmDestino");
+const teamsConfirmDescricao = document.getElementById("teamsConfirmDescricao");
+const cancelarEnvioTeamsBtn = document.getElementById("cancelarEnvioTeamsBtn");
+const confirmarEnvioTeamsBtn = document.getElementById("confirmarEnvioTeamsBtn");
+
+let compraTeamsSelecionada = null;
 
 function textoStatus(valor) {
   return String(valor || "-").replaceAll("_", " ");
@@ -12,6 +21,10 @@ function textoStatus(valor) {
 
 function pendenciaBadge(pendencia) {
   return `<span class="status status-pending">${pendencia}</span>`;
+}
+
+function teamsIconHtml() {
+  return `<span class="teams-button-icon" aria-hidden="true">💬</span>`;
 }
 
 function identificarPendencias(compra) {
@@ -81,6 +94,7 @@ function alertaParaPendente(alerta) {
     cartaoId: alerta.cartao_id,
     departamentoId: alerta.departamento_id,
     cartao: alerta.cartao,
+    departamento: alerta.departamento,
     ultimos4Digitos: alerta.ultimos_4_digitos,
     fornecedor: alerta.estabelecimento,
     valor: alerta.valor,
@@ -88,6 +102,25 @@ function alertaParaPendente(alerta) {
     status: statusAlertaParaCompra(alerta),
     pendencias: pendenciasDoAlerta(alerta),
     origem: "alerta"
+  };
+}
+
+function destinoTeams(compra) {
+  const temResponsavel = Boolean(compra.responsavel || compra.compradorNome || compra.compradorEmail || compra.responsavelCompraId);
+  const semRegistro = compra.status === "sem_registro" || compra.origem === "alerta" && !compra.compraId;
+
+  if (temResponsavel && !semRegistro) {
+    return {
+      tipo: "individual",
+      titulo: compra.responsavel || compra.compradorNome || "responsavel pela compra",
+      descricao: "A mensagem sera enviada individualmente para a pessoa responsavel pela compra, com o link para concluir o cadastro."
+    };
+  }
+
+  return {
+    tipo: "grupo",
+    titulo: compra.departamento ? `grupo do departamento ${compra.departamento}` : `grupo do cartao ${compra.cartao || "-"}`,
+    descricao: "Como a compra nao tem responsavel definido ou veio como sem registro, a mensagem sera enviada para o grupo responsavel pelo cartao/departamento."
   };
 }
 
@@ -134,12 +167,34 @@ function renderizarPendentes() {
       </td>
       <td>
         <div class="actions">
-          <button class="btn btn-secondary enviar-teams-pendente" data-alerta-id="${compra.alertaId || ""}" data-compra-id="${compra.compraId || compra.id}" type="button">Teams</button>
+          <button class="btn btn-secondary teams-icon-button enviar-teams-pendente" data-pendente-id="${compra.id}" data-alerta-id="${compra.alertaId || ""}" data-compra-id="${compra.compraId || compra.id}" type="button" title="Enviar alerta no Teams" aria-label="Enviar alerta no Teams">
+            ${teamsIconHtml()}
+          </button>
           <a class="btn btn-primary" href="${linkConclusao(compra)}">Concluir</a>
         </div>
       </td>
     </tr>
   `).join("");
+}
+
+function abrirConfirmacaoTeams(compra) {
+  compraTeamsSelecionada = compra;
+  const destino = destinoTeams(compra);
+  const pendencias = (compra.pendencias || []).join(", ") || "Revisao";
+  const compraTexto = `${compra.fornecedor || "Compra"} - ${moeda(compra.valor)} | ${compra.cartao || "Cartao nao informado"}`;
+
+  teamsConfirmCompra.textContent = compraTexto;
+  teamsConfirmPendencias.textContent = pendencias;
+  teamsConfirmDestino.textContent = destino.titulo;
+  teamsConfirmDescricao.textContent = `${destino.descricao} A automacao enviara os dados da compra, as pendencias e um atalho para a pagina de conclusao.`;
+  teamsConfirmModal.classList.remove("hidden");
+}
+
+function fecharConfirmacaoTeams() {
+  compraTeamsSelecionada = null;
+  teamsConfirmModal.classList.add("hidden");
+  confirmarEnvioTeamsBtn.disabled = false;
+  confirmarEnvioTeamsBtn.textContent = "Confirmar envio";
 }
 
 async function carregarCartoesFiltro() {
@@ -216,6 +271,26 @@ async function enviarTeamsPendente({ compraId, alertaId }) {
   if (dados.detalhe) pendentesMensagem.textContent += ` Detalhe: ${dados.detalhe}`;
 }
 
+async function confirmarEnvioTeams() {
+  if (!compraTeamsSelecionada) return;
+  confirmarEnvioTeamsBtn.disabled = true;
+  confirmarEnvioTeamsBtn.textContent = "Enviando...";
+
+  try {
+    await enviarTeamsPendente({
+      compraId: compraTeamsSelecionada.compraId || compraTeamsSelecionada.id,
+      alertaId: compraTeamsSelecionada.alertaId
+    });
+    fecharConfirmacaoTeams();
+  } catch (error) {
+    pendentesMensagem.textContent = "Nao foi possivel enviar a notificacao Teams.";
+    pendentesMensagem.classList.remove("hidden");
+    confirmarEnvioTeamsBtn.disabled = false;
+    confirmarEnvioTeamsBtn.textContent = "Confirmar envio";
+    console.error(error);
+  }
+}
+
 [filtroStatus, filtroCartao, filtroFornecedor].forEach((campo) => {
   campo.addEventListener("input", renderizarPendentes);
   campo.addEventListener("change", renderizarPendentes);
@@ -224,10 +299,16 @@ async function enviarTeamsPendente({ compraId, alertaId }) {
 tabelaPendentes.addEventListener("click", (event) => {
   const botao = event.target.closest(".enviar-teams-pendente");
   if (!botao) return;
-  enviarTeamsPendente({
-    compraId: botao.dataset.compraId,
-    alertaId: botao.dataset.alertaId
-  });
+  const compra = comprasPendentes.find((item) => String(item.id) === String(botao.dataset.pendenteId))
+    || comprasPendentes.find((item) => String(item.compraId || item.id) === String(botao.dataset.compraId));
+  if (!compra) return;
+  abrirConfirmacaoTeams(compra);
+});
+
+cancelarEnvioTeamsBtn.addEventListener("click", fecharConfirmacaoTeams);
+confirmarEnvioTeamsBtn.addEventListener("click", confirmarEnvioTeams);
+teamsConfirmModal.addEventListener("click", (event) => {
+  if (event.target === teamsConfirmModal) fecharConfirmacaoTeams();
 });
 
 carregarCartoesFiltro().then(carregarComprasPendentes);

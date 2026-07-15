@@ -10,58 +10,88 @@
   <div class="app-shell">
     <aside class="sidebar"></aside>
     <main class="main-content pending-page">
-      <header class="topbar">
+      <header class="topbar pending-topbar">
         <div>
-          <span class="eyebrow">Conclusão de cadastro</span>
-          <h1>Compras pendentes</h1>
+          <span class="eyebrow">Conclus&atilde;o de cadastro</span>
+          <h1>Compras pendentes</h1><p class="topbar-subtitle">Veja as compras que ainda precisam de informações ou conferência.</p>
         </div>
-        <span class="user-chip">Usuário</span>
+        <span class="user-chip">Usu&aacute;rio</span>
       </header>
 
       <section class="card report-hero-card pending-hero-card">
-        <div class="support-strip report-hero pending-hero">
-          <img src="img/smamateriais1.png" alt="SM&A materiais">
-          <div>
-            <strong>Fila de compras para completar</strong>
-            <span>Revise compras que ainda precisam de responsável, categoria, motivo, comprovante ou conferência.</span>
+        <div class="pending-hero">
+          <div class="pending-hero-media">
+            <img src="img/smamateriais1.png" alt="SM&amp;A materiais">
           </div>
+          <div class="pending-hero-copy">
+            <strong>Fila de compras para completar</strong>
+            <span>Revise compras que ainda precisam de respons&aacute;vel, categoria, motivo, comprovante ou confer&ecirc;ncia.</span>
+          </div>
+          <a class="btn btn-secondary pending-hero-action" href="#comprasPendentesTabela">
+            Ver todas as pend&ecirc;ncias
+            <span aria-hidden="true">&rsaquo;</span>
+          </a>
         </div>
       </section>
 
       <section class="cards-grid report-summary-grid pending-summary-grid">
         <article class="card metric-card pending-metric pending-metric-total">
-          <span>Pendentes</span>
-          <strong id="resumoPendentes">0</strong>
+          <span class="pending-metric-icon" aria-hidden="true">🛒</span>
+          <div>
+            <span>Pendentes</span>
+            <strong id="resumoPendentes">0</strong>
+            <small>Compras aguardando conclus&atilde;o</small>
+          </div>
+          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
         </article>
         <article class="card metric-card pending-metric pending-metric-proof">
-          <span>Sem comprovante</span>
-          <strong id="resumoSemComprovante">0</strong>
+          <span class="pending-metric-icon" aria-hidden="true">🧾</span>
+          <div>
+            <span>Sem comprovante</span>
+            <strong id="resumoSemComprovante">0</strong>
+            <small>Aguardando envio de comprovante</small>
+          </div>
+          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
         </article>
         <article class="card metric-card pending-metric pending-metric-review">
-          <span>Em conferência</span>
-          <strong id="resumoConferencia">0</strong>
+          <span class="pending-metric-icon" aria-hidden="true">🔎</span>
+          <div>
+            <span>Em confer&ecirc;ncia</span>
+            <strong id="resumoConferencia">0</strong>
+            <small>Em an&aacute;lise pela confer&ecirc;ncia</small>
+          </div>
+          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
         </article>
         <article class="card metric-card pending-metric pending-metric-risk">
-          <span>Divergentes</span>
-          <strong id="resumoDivergentes">0</strong>
+          <span class="pending-metric-icon" aria-hidden="true">⚠️</span>
+          <div>
+            <span>Divergentes</span>
+            <strong id="resumoDivergentes">0</strong>
+            <small>Itens com diverg&ecirc;ncias</small>
+          </div>
+          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
         </article>
       </section>
 
       <section class="card report-filter-card pending-filter-card">
         <div id="pendentesMensagem" class="alert-success hidden"></div>
+        <div class="pending-filter-title">
+          <span aria-hidden="true">▽</span>
+          <strong>Filtros</strong>
+        </div>
         <div class="filters-row filters-three">
           <label>Status
             <select id="filtroStatus">
               <option value="">Todos</option>
               <option value="sem_registro">Sem registro</option>
               <option value="sem_comprovante">Sem comprovante</option>
-              <option value="aguardando_conferencia">Aguardando conferência</option>
+              <option value="aguardando_conferencia">Aguardando confer&ecirc;ncia</option>
               <option value="divergente">Divergente</option>
             </select>
           </label>
-          <label>Cartão
+          <label>Cart&atilde;o
             <select id="filtroCartao">
-              <option value="">Todos os cartões</option>
+              <option value="">Todos os cart&otilde;es</option>
             </select>
           </label>
           <label>Fornecedor
@@ -73,8 +103,8 @@
       <section class="card report-workspace-card pending-table-card">
         <div class="section-header">
           <div>
-            <h2>Compras aguardando conclusão</h2>
-            <p>Use o botão concluir para abrir a compra e preencher o que está faltando.</p>
+            <h2>Compras aguardando conclus&atilde;o</h2>
+            <p>Use o bot&atilde;o concluir para abrir a compra e preencher o que est&aacute; faltando.</p>
           </div>
         </div>
         <div class="table-wrapper">
@@ -82,12 +112,12 @@
             <thead>
               <tr>
                 <th>Data</th>
-                <th>Cartão</th>
+                <th>Cart&atilde;o</th>
                 <th>Fornecedor</th>
                 <th>Valor</th>
                 <th>Status</th>
                 <th>Falta resolver</th>
-                <th>Ações</th>
+                <th>A&ccedil;&otilde;es</th>
               </tr>
             </thead>
             <tbody id="comprasPendentesTabela"></tbody>
@@ -95,6 +125,44 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div id="teamsConfirmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="teamsConfirmTitle">
+    <div class="modal-card teams-confirm-card">
+      <div class="teams-confirm-header">
+        <span class="teams-logo-mark" aria-hidden="true">💬</span>
+        <div>
+          <span class="eyebrow">Confirma&ccedil;&atilde;o Teams</span>
+          <h2 id="teamsConfirmTitle">Enviar alerta no Teams?</h2>
+          <p>Revise o destino da mensagem antes de chamar a automa&ccedil;&atilde;o do Power Automate.</p>
+        </div>
+      </div>
+
+      <div class="teams-confirm-summary">
+        <div>
+          <span>Compra</span>
+          <strong id="teamsConfirmCompra">-</strong>
+        </div>
+        <div>
+          <span>Falta resolver</span>
+          <strong id="teamsConfirmPendencias">-</strong>
+        </div>
+        <div>
+          <span>Destino</span>
+          <strong id="teamsConfirmDestino">-</strong>
+        </div>
+      </div>
+
+      <div class="teams-confirm-message">
+        <strong>O que vai acontecer</strong>
+        <p id="teamsConfirmDescricao">A automa&ccedil;&atilde;o enviar&aacute; uma mensagem no Teams com o link para concluir esta compra.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cancelarEnvioTeamsBtn" class="btn btn-secondary" type="button">Cancelar</button>
+        <button id="confirmarEnvioTeamsBtn" class="btn btn-primary" type="button">Confirmar envio</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/dados.js"></script>

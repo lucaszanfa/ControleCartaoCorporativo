@@ -31,7 +31,7 @@ loginForm.addEventListener("submit", async function (event) {
     }
 
     localStorage.setItem("usuarioLogado", JSON.stringify(dados));
-    window.location.href = "dashboard.html";
+    window.location.href = "dashboard-cartoes.html";
   } catch (error) {
     loginMensagem.textContent = "Servidor indisponível. Verifique se o sistema está rodando na porta 3010.";
     loginMensagem.classList.remove("hidden");

@@ -77,61 +77,6 @@ function atualizarBotaoTema() {
   botao.setAttribute("title", temaEscuro ? "Ativar modo claro" : "Ativar modo escuro");
 }
 
-function aplicarMenuPrincipal() {
-  const sidebar = document.querySelector(".sidebar");
-  if (!sidebar) return;
-
-  const paginaAtual = window.location.pathname.split("/").pop() || "dashboard.html";
-  const podeVerCartoesGerenciais = ehAdminOuGerente();
-  const materiais = [
-    { href: "dashboard.html", label: "Visao geral", icon: "⌂" },
-    { href: "materiais.html", label: "Cadastro de materiais", icon: "□" },
-    { href: "estoque.html", label: "Estoque", icon: "▤" },
-    { href: "registrar-saida.html", label: "Registrar saida", icon: "↗", permissao: "registrarSaida" },
-    { href: "registrar-entrada.html", label: "Registrar entrada", icon: "↓", permissao: "registrarEntrada" },
-    { href: "historico.html", label: "Historico", icon: "◷" },
-    { href: "relatorios.html", label: "Relatorios", icon: "▥", permissao: "verRelatorios" }
-  ].filter((item) => !item.permissao || temPermissao(item.permissao));
-
-  const cartoes = [
-    { href: "compra-cartao.html", label: "Registrar compra", icon: "▣" },
-    { href: "compra-automatica.html", label: "Compra automatica", icon: "◎" },
-    { href: "compras-pendentes.html", label: "Compras pendentes", icon: "!" },
-    ...(podeVerCartoesGerenciais ? [
-      { href: "dashboard-cartoes.html", label: "Resumo dos cartoes", icon: "▦" },
-      { href: "cartoes.html", label: "Cartoes cadastrados", icon: "▭" },
-      { href: "faturas-cartao.html", label: "Faturas", icon: "$" },
-      { href: "conciliacao-cartao.html", label: "Conciliacao", icon: "✓" },
-      { href: "relatorios-cartao.html", label: "Relatorios de cartao", icon: "▥" }
-    ] : [])
-  ];
-
-  sidebar.innerHTML = `
-    <div class="sidebar-brand">
-      <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
-      <div>
-        <strong>Controle Administrativo</strong>
-        <small>Materiais e cartoes</small>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-group">
-        <span class="nav-group-title">Materiais</span>
-        ${materiais.map((item) => criarLinkMenu(item, paginaAtual)).join("")}
-      </div>
-      <div class="nav-group">
-        <span class="nav-group-title">Cartoes corporativos</span>
-        ${cartoes.map((item) => criarLinkMenu(item, paginaAtual)).join("")}
-      </div>
-      <div class="nav-group nav-group-system">
-        <span class="nav-group-title">Sistema</span>
-        ${criarLinkMenu({ href: "usuarios.html", label: "Usuarios", icon: "⚙", adminOnly: true }, paginaAtual)}
-        <a class="logout-link" href="login.html"><span class="nav-icon">←</span><span>Sair</span></a>
-      </div>
-    </nav>
-  `;
-}
-
 function iniciaisUsuario() {
   const nome = usuarioLogado?.nome || "Usuario";
   return nome
@@ -238,98 +183,37 @@ function configurarRedimensionamentoMenu(sidebar) {
   });
 }
 
-const paginasComBuscaGlobal = new Set([
-  "dashboard.html",
-  "dashboard-cartoes.html",
-  "relatorios.html",
-  "relatorios-cartao.html"
-]);
+const paginasComBuscaGlobal = new Set(["dashboard-cartoes.html", "relatorios-cartao.html"]);
 
 let buscaGlobalCache = null;
 let buscaGlobalCacheCriadoEm = 0;
 
 function normalizarBusca(texto) {
-  return String(texto || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+  return String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 function escaparBuscaGlobal(texto) {
-  return String(texto ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function somaBuscaGlobal(lista, materialId) {
-  return lista
-    .filter((item) => Number(item.materialId) === Number(materialId))
-    .reduce((total, item) => total + Number(item.quantidade || 0), 0);
-}
-
-function estoqueDisponivelBuscaGlobal(material, entradasLista, saidasLista) {
-  const totalEntradas = somaBuscaGlobal(entradasLista, material.id);
-  const totalSaidas = somaBuscaGlobal(saidasLista, material.id);
-  return totalEntradas - totalSaidas;
+  return String(texto ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
 async function carregarBuscaGlobal() {
   if (buscaGlobalCache && Date.now() - buscaGlobalCacheCriadoEm < 10000) return buscaGlobalCache;
-
-  const [bootstrapRes, comprasRes, cartoesRes] = await Promise.allSettled([
-    fetch("/api/bootstrap").then((res) => res.ok ? res.json() : {}),
+  const [comprasRes, cartoesRes] = await Promise.allSettled([
     fetch("/api/compras-cartao").then((res) => res.ok ? res.json() : []),
     fetch("/api/cartoes").then((res) => res.ok ? res.json() : [])
   ]);
-
-  const bootstrapDados = bootstrapRes.status === "fulfilled" ? bootstrapRes.value : {};
-  const materiais = bootstrapDados.materiais || [];
-  const entradasLista = bootstrapDados.entradas || [];
-  const saidasLista = bootstrapDados.saidas || [];
   const compras = comprasRes.status === "fulfilled" ? comprasRes.value : [];
   const cartoes = cartoesRes.status === "fulfilled" ? cartoesRes.value : [];
-
   buscaGlobalCache = [
-    ...materiais.map((material) => {
-      const disponivel = estoqueDisponivelBuscaGlobal(material, entradasLista, saidasLista);
-      const unidade = material.unidade || "unidade";
-      return {
-        tipo: "Material",
-        titulo: material.nome,
-        detalhe: `Disponível agora: ${disponivel} ${unidade}${material.categoria ? ` • ${material.categoria}` : ""}`,
-        href: `materiais.html?materialId=${material.id}`,
-        texto: `${material.nome} ${material.categoria || ""} ${material.unidade || ""} estoque disponivel ${disponivel}`
-      };
-    }),
-    ...compras.map((compra) => ({
-      tipo: "Compra",
-      titulo: compra.fornecedor || "Compra sem fornecedor",
-      detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "),
-      href: `compra-cartao.html?compraId=${compra.id}`,
-      texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""} ${compra.categoria || ""}`
-    })),
-    ...cartoes.map((cartao) => ({
-      tipo: "Cartão",
-      titulo: cartao.nomeCartao || cartao.nome || "Cartão",
-      detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "),
-      href: "cartoes.html",
-      texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}`
-    })),
-    { tipo: "Relatório", titulo: "Relatórios de materiais", detalhe: "Consumo mensal e tendências", href: "relatorios.html", texto: "relatorio materiais consumo mensal tendencias pdf" },
+    ...compras.map((compra) => ({ tipo: "Compra", titulo: compra.fornecedor || "Compra sem fornecedor", detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "), href: `compra-cartao.html?compraId=${compra.id}`, texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""} ${compra.categoria || ""}` })),
+    ...cartoes.map((cartao) => ({ tipo: "Cartão", titulo: cartao.nomeCartao || cartao.nome || "Cartão", detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "), href: "cartoes.html", texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}` })),
     { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos, pendências e categorias", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias categoria pdf" },
-    { tipo: "Página", titulo: "Estoque de materiais", detalhe: "Saldos disponíveis e baixo estoque", href: "estoque.html", texto: "estoque materiais baixo estoque saldo disponivel" },
     { tipo: "Página", titulo: "Compras pendentes", detalhe: "Compras aguardando conclusão", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams" },
     { tipo: "Página", titulo: "Faturas do cartão", detalhe: "Importar fatura e rodar conciliação", href: "faturas-cartao.html", texto: "faturas cartao importacao conciliacao csv" }
   ];
-
   buscaGlobalCacheCriadoEm = Date.now();
   return buscaGlobalCache;
 }
-
 function renderizarResultadosBuscaGlobal(container, resultados, termo) {
   if (!termo) {
     container.classList.add("hidden");
@@ -342,7 +226,7 @@ function renderizarResultadosBuscaGlobal(container, resultados, termo) {
     container.innerHTML = `
       <div class="global-search-empty">
         <strong>Nenhum resultado encontrado</strong>
-        <span>Tente buscar por material, fornecedor, cartão ou relatório.</span>
+        <span>Tente buscar por fornecedor, cartão ou relatório.</span>
       </div>
     `;
     return;
@@ -365,7 +249,7 @@ function configurarBuscaGlobal(topbar) {
 
   input.dataset.buscaGlobal = "true";
   input.setAttribute("autocomplete", "off");
-  input.placeholder = "Buscar materiais, compras, cartões, relatórios...";
+  input.placeholder = "Buscar compras, cartões e relatórios...";
 
   const resultados = document.createElement("div");
   resultados.className = "global-search-results hidden";
@@ -411,22 +295,10 @@ function configurarBuscaGlobal(topbar) {
 function aplicarMenuPrincipal() {
   const sidebar = document.querySelector(".sidebar");
   if (!sidebar) return;
-
-  const paginaAtual = window.location.pathname.split("/").pop() || "dashboard.html";
+  const paginaAtual = window.location.pathname.split("/").pop() || "dashboard-cartoes.html";
   const podeVerCartoesGerenciais = ehAdminOuGerente();
-  const materiais = [
-    { href: "dashboard.html", label: "Visão geral", icon: "dashboard" },
-    { href: "materiais.html", label: "Cadastro de materiais", icon: "cadastro" },
-    { href: "estoque.html", label: "Estoque", icon: "estoque" },
-    { href: "registrar-saida.html", label: "Registrar saída", icon: "saida", permissao: "registrarSaida" },
-    { href: "registrar-entrada.html", label: "Registrar entrada", icon: "entrada", permissao: "registrarEntrada" },
-    { href: "historico.html", label: "Histórico", icon: "historico" },
-    { href: "relatorios.html", label: "Relatórios", icon: "relatorios", permissao: "verRelatorios" }
-  ].filter((item) => !item.permissao || temPermissao(item.permissao));
-
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra", icon: "compra" },
-    { href: "compra-automatica.html", label: "Compra automática", icon: "automatica" },
     { href: "compras-pendentes.html", label: "Compras pendentes", icon: "pendentes" },
     ...(podeVerCartoesGerenciais ? [
       { href: "dashboard-cartoes.html", label: "Resumo dos cartões", icon: "resumo" },
@@ -436,118 +308,32 @@ function aplicarMenuPrincipal() {
       { href: "relatorios-cartao.html", label: "Relatórios de cartão", icon: "relatorios" }
     ] : [])
   ];
-
   sidebar.innerHTML = `
-    <div class="sidebar-brand">
-      <img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
-      <div>
-        <strong>Controle Administrativo</strong>
-        <small>Materiais e cartões</small>
-      </div>
-      <button class="sidebar-menu-button" type="button" aria-label="Menu lateral">☰</button>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-group">
-        <span class="nav-group-title">Materiais</span>
-        ${materiais.map((item) => criarLinkMenuModerno(item, paginaAtual)).join("")}
-      </div>
-      <div class="nav-group">
-        <span class="nav-group-title">Cartões corporativos</span>
-        ${cartoes.map((item) => criarLinkMenuModerno(item, paginaAtual)).join("")}
-      </div>
-      <div class="nav-group nav-group-system">
-        <span class="nav-group-title">Sistema</span>
-        ${criarLinkMenuModerno({ href: "usuarios.html", label: "Usuários", icon: "usuarios", adminOnly: true }, paginaAtual)}
-        <a class="logout-link" href="login.html"><span class="nav-icon">${navIconModerno("sair")}</span><span class="nav-label">Sair</span><span class="nav-arrow">›</span></a>
-      </div>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="sidebar-user-card">
-        <span class="sidebar-avatar">${iniciaisUsuario()}</span>
-        <span>
-          <strong>${usuarioLogado?.nome || "Usuário"}</strong>
-          <small>${usuarioLogado?.perfil || "usuário"}</small>
-        </span>
-      </div>
-    </div>
-    <div class="sidebar-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar o menu"></div>
-  `;
-
-  const botaoMenu = sidebar.querySelector(".sidebar-menu-button");
-  botaoMenu?.addEventListener("click", alternarMenuLateral);
+    <div class="sidebar-brand"><img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A"><div><strong>Cartões Corporativos</strong><small>Controle e conciliação</small></div><button class="sidebar-menu-button" type="button" aria-label="Menu lateral">☰</button></div>
+    <nav class="sidebar-nav"><div class="nav-group"><span class="nav-group-title">Cartões corporativos</span>${cartoes.map((item) => criarLinkMenuModerno(item, paginaAtual)).join("")}</div><div class="nav-group nav-group-system"><span class="nav-group-title">Sistema</span>${criarLinkMenuModerno({ href: "usuarios.html", label: "Usuários", icon: "usuarios", adminOnly: true }, paginaAtual)}<a class="logout-link" href="login.html"><span class="nav-icon">${navIconModerno("sair")}</span><span class="nav-label">Sair</span><span class="nav-arrow">›</span></a></div></nav>
+    <div class="sidebar-footer"><div class="sidebar-user-card"><span class="sidebar-avatar">${iniciaisUsuario()}</span><span><strong>${usuarioLogado?.nome || "Usuário"}</strong><small>${usuarioLogado?.perfil || "usuário"}</small></span></div></div><div class="sidebar-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar o menu"></div>`;
+  sidebar.querySelector(".sidebar-menu-button")?.addEventListener("click", alternarMenuLateral);
   configurarRedimensionamentoMenu(sidebar);
   aplicarEstadoMenuLateral();
 }
-
 function aplicarContextoVisual() {
-  const paginaAtual = window.location.pathname.split("/").pop() || "dashboard.html";
-  const paginasCartoes = [
-    "dashboard-cartoes.html",
-    "cartoes.html",
-    "compra-cartao.html",
-    "compra-automatica.html",
-    "compras-pendentes.html",
-    "faturas-cartao.html",
-    "conciliacao-cartao.html",
-    "alertas-cartao.html",
-    "relatorios-cartao.html"
-  ];
+  const paginaAtual = window.location.pathname.split("/").pop() || "dashboard-cartoes.html";
   const topbar = document.querySelector(".topbar");
   if (!topbar) return;
-
-  const moduloCartao = paginasCartoes.includes(paginaAtual);
   const deveMostrarBuscaGlobal = paginasComBuscaGlobal.has(paginaAtual);
-
-  if (!deveMostrarBuscaGlobal) {
-    topbar.querySelector(".app-search")?.remove();
-  }
-
+  if (!deveMostrarBuscaGlobal) topbar.querySelector(".app-search")?.remove();
   if (deveMostrarBuscaGlobal && !topbar.querySelector(".app-search") && !topbar.querySelector(".dashboard-search")) {
-    const search = document.createElement("div");
-    search.className = "app-search";
-    search.innerHTML = `
-      <label>
-        <span class="hidden">Buscar</span>
-        <input type="search" placeholder="Buscar materiais, cartoes, relatorios...">
-      </label>
-    `;
-    const chip = topbar.querySelector(".user-chip");
-    topbar.insertBefore(search, chip || topbar.firstElementChild?.nextSibling || null);
+    const search = document.createElement("div"); search.className = "app-search";
+    search.innerHTML = `<label><span class="hidden">Buscar</span><input type="search" placeholder="Buscar compras, cartões e relatórios..."></label>`;
+    const chip = topbar.querySelector(".user-chip"); topbar.insertBefore(search, chip || null);
   }
-
-  if (deveMostrarBuscaGlobal) {
-    configurarBuscaGlobal(topbar);
-  }
-
+  if (deveMostrarBuscaGlobal) configurarBuscaGlobal(topbar);
   let actions = topbar.querySelector(".topbar-actions");
-  if (!actions) {
-    actions = document.createElement("div");
-    actions.className = "topbar-actions";
-    topbar.appendChild(actions);
-  }
-
-  if (!actions.querySelector(".module-switch")) {
-    const switcher = document.createElement("div");
-    switcher.className = "module-switch";
-    switcher.innerHTML = `
-      <a class="${!moduloCartao ? "active" : ""}" href="dashboard.html">Materiais</a>
-      <a class="${moduloCartao ? "active" : ""}" href="compra-cartao.html">Cartoes</a>
-    `;
-    actions.appendChild(switcher);
-  }
-
-  if (!actions.querySelector("#themeToggle")) {
-    const themeButton = document.createElement("button");
-    themeButton.id = "themeToggle";
-    themeButton.className = "theme-toggle";
-    themeButton.type = "button";
-    themeButton.addEventListener("click", alternarTema);
-    actions.appendChild(themeButton);
-  }
-
+  if (!actions) { actions = document.createElement("div"); actions.className = "topbar-actions"; topbar.appendChild(actions); }
+  actions.querySelector(".module-switch")?.remove();
+  if (!actions.querySelector("#themeToggle")) { const button = document.createElement("button"); button.id="themeToggle"; button.className="theme-toggle"; button.type="button"; button.addEventListener("click", alternarTema); actions.appendChild(button); }
   atualizarBotaoTema();
 }
-
 function aplicarPermissoes() {
   aplicarTemaSalvo();
   sincronizarUsuarioLogado();
@@ -583,17 +369,12 @@ function aplicarPermissoes() {
   });
 
   const pagina = window.location.pathname.split("/").pop();
-  const regras = {
-    "registrar-saida.html": "registrarSaida",
-    "registrar-entrada.html": "registrarEntrada",
-    "relatorios.html": "verRelatorios",
-    "usuarios.html": "administrarUsuarios"
-  };
+  const regras = { "usuarios.html": "administrarUsuarios" };
   const permissaoNecessaria = regras[pagina];
 
   if (permissaoNecessaria && !temPermissao(permissaoNecessaria)) {
     alert("Seu usuario nao tem permissao para acessar esta pagina.");
-    window.location.href = "dashboard.html";
+    window.location.href = "dashboard-cartoes.html";
     return;
   }
 
@@ -602,7 +383,6 @@ function aplicarPermissoes() {
     "cartoes.html",
     "faturas-cartao.html",
     "conciliacao-cartao.html",
-    "alertas-cartao.html",
     "relatorios-cartao.html"
   ];
 

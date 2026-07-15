@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Usuários | Controle Administrativo</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260715-2">
 </head>
 <body>
   <div class="app-shell">
@@ -15,7 +15,7 @@
         <div>
           <span class="eyebrow">Administração</span>
           <h1>Usuários e permissões</h1>
-          <p class="topbar-subtitle">Gerencie usuários, setores e permissões de acesso ao sistema.</p>
+          <p class="topbar-subtitle">Gerencie usuários, departamentos e permissões de acesso ao sistema.</p>
         </div>
         <span class="user-chip">Administrador</span>
       </header>
@@ -30,7 +30,7 @@
           </div>
         </article>
         <article class="users-summary-card users-summary-green">
-          <span class="users-summary-icon" aria-hidden="true">✓</span>
+          <span class="users-summary-icon" aria-hidden="true">🛡️</span>
           <div>
             <span>Administradores</span>
             <strong id="usuariosAdminsResumo">0</strong>
@@ -38,15 +38,15 @@
           </div>
         </article>
         <article class="users-summary-card users-summary-purple">
-          <span class="users-summary-icon" aria-hidden="true">▦</span>
+          <span class="users-summary-icon" aria-hidden="true">🏢</span>
           <div>
-            <span>Setores</span>
+            <span>Departamentos</span>
             <strong id="usuariosSetoresResumo">0</strong>
             <small>cadastrados</small>
           </div>
         </article>
         <article class="users-summary-card users-summary-orange">
-          <span class="users-summary-icon" aria-hidden="true">☷</span>
+          <span class="users-summary-icon" aria-hidden="true">🔐</span>
           <div>
             <span>Permissões personalizadas</span>
             <strong id="usuariosPermissoesResumo">0</strong>
@@ -58,15 +58,37 @@
       <section class="users-panel">
         <div id="usuariosMensagem" class="alert-success hidden"></div>
 
+        <section id="departamentosAdminPanel" class="users-departments-panel hidden">
+          <div class="users-departments-header">
+            <div>
+              <span class="eyebrow">Menu de admin</span>
+              <h2>Departamentos</h2>
+              <p>Cadastre os departamentos que aparecem nos filtros do fechamento mensal e nos demais cadastros.</p>
+            </div>
+          </div>
+          <form id="departamentoForm" class="users-department-form">
+            <label>
+              Nome do departamento
+              <input id="departamentoNome" type="text" placeholder="Ex.: Engenharia" maxlength="80" required>
+            </label>
+            <button class="btn btn-primary" type="submit">Cadastrar departamento</button>
+          </form>
+          <div class="users-departments-list-header">
+            <strong>Departamentos cadastrados</strong>
+            <small>Use o botão Excluir ao lado do departamento desejado.</small>
+          </div>
+          <div id="departamentosLista" class="users-departments-list"></div>
+        </section>
+
         <div class="users-toolbar">
           <label class="users-search">
             <span class="hidden">Buscar usuário</span>
             <input id="usuariosBusca" type="search" placeholder="Buscar usuário por nome ou e-mail">
           </label>
           <label>
-            <span class="hidden">Setor</span>
+            <span class="hidden">Departamento</span>
             <select id="usuariosSetorFiltro">
-              <option value="">Todos os setores</option>
+              <option value="">Todos os departamentos</option>
             </select>
           </label>
           <label>
@@ -89,16 +111,12 @@
                 <tr>
                   <th rowspan="2">Usuário</th>
                   <th rowspan="2">E-mail</th>
-                  <th rowspan="2">Setor</th>
+                  <th rowspan="2">Departamento</th>
                   <th rowspan="2">Status</th>
-                  <th colspan="5" class="users-permissions-head">Permissões</th>
+                  <th colspan="1" class="users-permissions-head">Permiss&otilde;es</th>
                   <th rowspan="2">Ações</th>
                 </tr>
                 <tr>
-                  <th>Cadastrar material</th>
-                  <th>Saída</th>
-                  <th>Entrada</th>
-                  <th>Relatórios</th>
                   <th>Admin</th>
                 </tr>
               </thead>
@@ -115,6 +133,6 @@
 
   <script src="js/dados.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/usuarios.js"></script>
+  <script src="js/usuarios.js?v=20260715-2"></script>
 </body>
 </html>
