@@ -10,41 +10,66 @@
   <main class="login-container">
     <section class="login-card">
       <div class="brand-block">
-        <img class="brand-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A">
+        <img class="brand-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A Sistemas Elétricos e Automação">
         <div>
           <h1>Cadastro de usuário</h1>
           <p>Aguarde liberação do administrador após o cadastro.</p>
         </div>
       </div>
 
-      <form id="cadastroUsuarioForm" class="form-grid">
+      <form id="cadastroUsuarioForm" class="form-grid login-form">
         <div id="cadastroMensagem" class="alert-success hidden"></div>
-        <label>
-          Nome
-          <input type="text" id="nome" placeholder="Seu nome" required>
+
+        <label class="login-field">
+          <span>Nome</span>
+          <div class="login-input-wrap">
+            <span aria-hidden="true">◐</span>
+            <input type="text" id="nome" placeholder="Seu nome" required>
+          </div>
         </label>
-        <label>
-          E-mail
-          <input type="email" id="email" placeholder="usuario@empresa.com" required>
+
+        <label class="login-field">
+          <span>E-mail</span>
+          <div class="login-input-wrap">
+            <span aria-hidden="true">✉</span>
+            <input type="email" id="email" placeholder="usuario@empresa.com" required>
+          </div>
         </label>
-        <label>
-          Senha
-          <input type="password" id="senha" placeholder="Crie uma senha" required>
+
+        <label class="login-field">
+          <span>Senha</span>
+          <div class="login-input-wrap">
+            <span aria-hidden="true">▣</span>
+            <input type="password" id="senha" placeholder="Crie uma senha" required>
+          </div>
         </label>
-        <label>
-          Setor
-          <select id="setor" required></select>
+
+        <label class="login-field">
+          <span>Setor</span>
+          <div class="login-input-wrap">
+            <span aria-hidden="true">▦</span>
+            <select id="setor" required></select>
+          </div>
         </label>
-        <button class="btn btn-primary" type="submit">Solicitar cadastro</button>
-        <a class="form-link" href="login.html">Voltar para login</a>
+
+        <button class="btn btn-primary login-submit" type="submit">
+          <span aria-hidden="true">↪</span>
+          Solicitar cadastro
+        </button>
+
+        <a class="form-link login-register-link" href="login.html">
+          <span aria-hidden="true">⊕</span>
+          Voltar para login
+        </a>
       </form>
     </section>
+
     <section class="login-showcase" aria-label="Cadastro de usuário SM&A">
-      <img src="img/mascote-comemorando.png" alt="Mascote SM&A comemorando">
-      <div>
+      <div class="login-showcase-copy">
         <span class="eyebrow">Acesso controlado</span>
         <h2>O administrador libera as permissões de cada usuário.</h2>
       </div>
+      <img src="img/mascote-comemorando.png" alt="Mascote SM&A comemorando">
     </section>
   </main>
 

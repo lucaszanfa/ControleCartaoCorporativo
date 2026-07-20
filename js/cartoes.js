@@ -3,6 +3,17 @@ let setoresCartoes = [];
 const formCard = document.getElementById("cartaoFormCard");
 const form = document.getElementById("cartaoForm");
 const msg = document.getElementById("cartaoMensagem");
+function corPorDepartamento(departamento) {
+  const cores = ["blue", "green", "purple", "orange", "cyan", "pink", "red", "yellow"];
+  const nome = String(departamento || "sem-departamento").trim().toLowerCase();
+  const departamentos = setoresCartoes
+    .map((setor) => String(setor.nome || "").trim().toLowerCase())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const indice = departamentos.indexOf(nome);
+
+  return cores[(indice >= 0 ? indice : 0) % cores.length];
+}
 
 async function initCartoes() {
   setoresCartoes = await (await fetch("/api/setores-detalhados")).json();
@@ -33,13 +44,13 @@ async function carregarCartoes() {
   if (document.getElementById("filtroDepartamento").value) qs.set("departamentoId", document.getElementById("filtroDepartamento").value);
   if (document.getElementById("filtroStatus").value) qs.set("status", document.getElementById("filtroStatus").value);
   cartoes = await (await fetch(`/api/cartoes?${qs}`)).json();
-  document.getElementById("cartoesTabela").innerHTML = cartoes.map((cartao, index) => {
-    const cor = ["blue", "green", "purple", "orange"][index % 4];
+  document.getElementById("cartoesTabela").innerHTML = cartoes.map((cartao) => {
+    const cor = corPorDepartamento(cartao.departamento);
     return `
       <tr class="report-data-row corporate-card-row ${cartao.status === "inativo" ? "row-inactive" : ""}">
         <td>
           <div class="corporate-card-name">
-            <span class="corporate-card-icon corporate-card-icon-${cor}">▭</span>
+            <span class="corporate-card-icon corporate-card-icon-${cor}" aria-hidden="true">💳</span>
             <strong>${cartao.nomeCartao}</strong>
           </div>
         </td>

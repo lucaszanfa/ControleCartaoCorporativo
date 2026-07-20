@@ -1,13 +1,12 @@
-﻿# Controle Cartao Corporativo
+# Controle Cartao Corporativo
 
-Sistema web para controle de materiais, cartoes corporativos, faturas, conciliacao de compras e alertas via Microsoft Teams/Power Automate.
+Sistema web dedicado ao controle de cartoes corporativos, compras, faturas, conciliacao e alertas via Microsoft Teams/Power Automate.
 
 O projeto roda em Node.js com Express e atualmente usa SQLite como banco local. Ele tambem pode ser publicado no Render para receber chamadas HTTPS do Power Automate.
 
 ## Funcionalidades
 
 - Login e cadastro/aprovacao de usuarios.
-- Controle de materiais: cadastro, entradas, saidas, historico, relatorios e PDF.
 - Controle de cartoes corporativos: cadastro de cartoes, compras, faturas, conciliacao e relatorios.
 - Compras automaticas por e-mail usando Power Automate.
 - Compras pendentes de conclusao.

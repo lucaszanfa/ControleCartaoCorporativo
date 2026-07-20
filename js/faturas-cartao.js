@@ -1,4 +1,5 @@
 let csvFaturaSelecionada = "";
+let transacoesFaturaSelecionadas = [];
 
 async function initFaturas() {
   const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
@@ -17,6 +18,35 @@ function parseCsv(texto) {
   });
 }
 
+function renderPreviaFatura() {
+  const previa = document.getElementById("previaFatura");
+  if (!transacoesFaturaSelecionadas.length) {
+    previa.innerHTML = "";
+    previa.classList.add("hidden");
+    return;
+  }
+  previa.classList.remove("hidden");
+  previa.innerHTML = `
+    <div class="section-header">
+      <div><h2>Prévia das transações</h2><p>Confira os dados reconhecidos antes de importar.</p></div>
+      <strong>${transacoesFaturaSelecionadas.length} transação(ões)</strong>
+    </div>
+    <div class="table-wrapper"><table>
+      <thead><tr><th>Data</th><th>Estabelecimento</th><th>Valor</th><th>Final</th><th>Categoria</th></tr></thead>
+      <tbody>${transacoesFaturaSelecionadas.map((item) => `<tr><td>${escapeHtml(item.dataTransacao)}</td><td>${escapeHtml(item.estabelecimento)}</td><td>${moeda(item.valor)}</td><td>${escapeHtml(item.ultimos4Digitos)}</td><td>${escapeHtml(item.categoriaDetectada || "outros")}</td></tr>`).join("")}</tbody>
+    </table></div>
+  `;
+}
+
+function arquivoComoDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 async function carregarArquivoFatura(event) {
   const file = event.target.files?.[0];
   const mensagem = document.getElementById("faturaMensagem");
@@ -26,27 +56,72 @@ async function carregarArquivoFatura(event) {
   if (!file) {
     arquivoNome.value = "";
     csvFaturaSelecionada = "";
+    transacoesFaturaSelecionadas = [];
+    renderPreviaFatura();
     arquivoAtual.textContent = "Nenhum arquivo selecionado.";
     return;
   }
 
-  if (!file.name.toLowerCase().endsWith(".csv")) {
+  const isCsv = file.name.toLowerCase().endsWith(".csv");
+  const isPdf = file.name.toLowerCase().endsWith(".pdf");
+  if (!isCsv && !isPdf) {
     event.target.value = "";
     arquivoNome.value = "";
     csvFaturaSelecionada = "";
     arquivoAtual.textContent = "Nenhum arquivo selecionado.";
-    mensagem.textContent = "Anexe um arquivo CSV.";
+    mensagem.textContent = "Anexe um arquivo CSV ou PDF.";
     mensagem.classList.remove("hidden");
     return;
   }
 
-  const texto = await file.text();
-  const transacoes = parseCsv(texto);
   arquivoNome.value = file.name;
-  csvFaturaSelecionada = texto.trim();
-  arquivoAtual.textContent = `Arquivo selecionado: ${file.name} (${transacoes.length} transação(ões))`;
-  mensagem.textContent = "Arquivo CSV carregado. Ao importar, o sistema fará a conciliação automaticamente.";
   mensagem.classList.remove("hidden");
+
+  if (isCsv) {
+    const texto = await file.text();
+    csvFaturaSelecionada = texto.trim();
+    transacoesFaturaSelecionadas = parseCsv(texto);
+    arquivoAtual.textContent = `Arquivo selecionado: ${file.name} (${transacoesFaturaSelecionadas.length} transação(ões))`;
+    mensagem.textContent = "Arquivo CSV carregado. Confira a prévia antes de importar.";
+    renderPreviaFatura();
+    return;
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    event.target.value = "";
+    arquivoNome.value = "";
+    mensagem.textContent = "O PDF deve ter no máximo 10 MB.";
+    return;
+  }
+
+  arquivoAtual.textContent = `Processando PDF: ${file.name}...`;
+  mensagem.textContent = "Extraindo as transações do PDF...";
+  const resposta = await fetch("/api/faturas-cartao/extrair-pdf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fileName: file.name,
+      base64: await arquivoComoDataUrl(file),
+      cartaoId: document.getElementById("cartaoId").value,
+      anoReferencia: document.getElementById("anoReferencia").value
+    })
+  });
+  const dados = await resposta.json();
+  if (!resposta.ok) {
+    event.target.value = "";
+    arquivoNome.value = "";
+    transacoesFaturaSelecionadas = [];
+    arquivoAtual.textContent = "Nenhum arquivo selecionado.";
+    mensagem.textContent = dados.erro || "Não foi possível processar o PDF.";
+    renderPreviaFatura();
+    return;
+  }
+
+  csvFaturaSelecionada = "";
+  transacoesFaturaSelecionadas = dados.transacoes || [];
+  arquivoAtual.textContent = `PDF processado: ${file.name} (${transacoesFaturaSelecionadas.length} transação(ões))`;
+  mensagem.textContent = "PDF convertido. Confira a prévia antes de importar.";
+  renderPreviaFatura();
 }
 
 function escapeHtml(valor) {
@@ -171,10 +246,10 @@ async function rodarConciliacao(id) {
 document.getElementById("faturaForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const mensagem = document.getElementById("faturaMensagem");
-  const transacoes = parseCsv(csvFaturaSelecionada);
+  const transacoes = transacoesFaturaSelecionadas;
 
   if (!transacoes.length) {
-    mensagem.textContent = "Anexe um arquivo CSV com pelo menos uma transação.";
+    mensagem.textContent = "Anexe um arquivo CSV ou PDF com pelo menos uma transação reconhecida.";
     mensagem.classList.remove("hidden");
     return;
   }
@@ -203,6 +278,8 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
     }
     event.target.reset();
     csvFaturaSelecionada = "";
+    transacoesFaturaSelecionadas = [];
+    renderPreviaFatura();
     document.getElementById("arquivoNome").value = "";
     document.getElementById("arquivoFaturaAtual").textContent = "Nenhum arquivo selecionado.";
     document.getElementById("mesReferencia").value = new Date().getMonth() + 1;

@@ -1,15 +1,5 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE IF NOT EXISTS materiais (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome TEXT NOT NULL,
-  categoria TEXT NOT NULL,
-  unidade TEXT NOT NULL,
-  unidades_por_caixa INTEGER NOT NULL DEFAULT 1 CHECK (unidades_por_caixa >= 1),
-  estoque_minimo INTEGER NOT NULL DEFAULT 0 CHECK (estoque_minimo >= 0),
-  ativo INTEGER NOT NULL DEFAULT 1
-);
-
 CREATE TABLE IF NOT EXISTS setores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nome TEXT NOT NULL UNIQUE
@@ -23,48 +13,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   setor TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pendente',
   perfil TEXT NOT NULL DEFAULT 'usuario',
-  pode_cadastrar_material INTEGER NOT NULL DEFAULT 0,
-  pode_registrar_saida INTEGER NOT NULL DEFAULT 0,
-  pode_registrar_entrada INTEGER NOT NULL DEFAULT 0,
-  pode_ver_relatorios INTEGER NOT NULL DEFAULT 0,
   pode_administrar_usuarios INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS saidas (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  material_id INTEGER NOT NULL,
-  quantidade INTEGER NOT NULL,
-  data TEXT NOT NULL,
-  setor TEXT NOT NULL,
-  responsavel TEXT NOT NULL,
-  local_uso TEXT,
-  motivo TEXT,
-  observacao TEXT,
-  FOREIGN KEY (material_id) REFERENCES materiais(id)
-);
-
-CREATE TABLE IF NOT EXISTS entradas (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  material_id INTEGER NOT NULL,
-  quantidade INTEGER NOT NULL,
-  valor_total REAL NOT NULL,
-  data TEXT NOT NULL,
-  observacao TEXT,
-  FOREIGN KEY (material_id) REFERENCES materiais(id)
-);
-
-CREATE TABLE IF NOT EXISTS alertas_estoque (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  material_id INTEGER NOT NULL,
-  quantidade_atual INTEGER NOT NULL DEFAULT 0,
-  estoque_minimo INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'aberto' CHECK (status IN ('aberto', 'resolvido')),
-  enviado_power_automate INTEGER NOT NULL DEFAULT 0,
-  data_envio TEXT,
-  resolvido_em TEXT,
-  criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (material_id) REFERENCES materiais(id)
 );
 
 CREATE TABLE IF NOT EXISTS cartoes_corporativos (

@@ -57,7 +57,7 @@ function renderizarKpisCartoes() {
 
   document.getElementById("cartoesDashboardCards").innerHTML = cards.map((card, index) => `
     <article class="cards-kpi cards-kpi-${card.tone}">
-      <span class="cards-kpi-icon">${["▭", "▾", "$", "▤", "!", "◷", "▣", "⚖"][index]}</span>
+      <span class="cards-kpi-icon" aria-hidden="true">${["💳", "🛍️", "💰", "🧾", "📝", "🚨", "📎", "⚠️"][index]}</span>
       <span>${card.label}</span>
       <strong>${card.value}</strong>
       <small>${card.trend}</small>
