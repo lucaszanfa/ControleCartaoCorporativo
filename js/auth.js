@@ -208,6 +208,7 @@ async function carregarBuscaGlobal() {
     ...compras.map((compra) => ({ tipo: "Compra", titulo: compra.fornecedor || "Compra sem fornecedor", detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "), href: `compra-cartao.html?compraId=${compra.id}`, texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""} ${compra.categoria || ""}` })),
     ...cartoes.map((cartao) => ({ tipo: "Cartão", titulo: cartao.nomeCartao || cartao.nome || "Cartão", detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "), href: "cartoes.html", texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}` })),
     { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos, pendências e categorias", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias categoria pdf" },
+    { tipo: "Página", titulo: "Compra automática", detalhe: "Registrar ou testar compra recebida pela automação", href: "compra-automatica.html", texto: "compra automatica email power automate registrar testar" },
     { tipo: "Página", titulo: "Compras pendentes", detalhe: "Compras aguardando conclusão", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams" },
     { tipo: "Página", titulo: "Faturas do cartão", detalhe: "Importar fatura e rodar conciliação", href: "faturas-cartao.html", texto: "faturas cartao importacao conciliacao csv" }
   ];
@@ -299,6 +300,7 @@ function aplicarMenuPrincipal() {
   const podeVerCartoesGerenciais = ehAdminOuGerente();
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra", icon: "compra" },
+    { href: "compra-automatica.html", label: "Compra automática", icon: "automatica" },
     { href: "compras-pendentes.html", label: "Compras pendentes", icon: "pendentes" },
     ...(podeVerCartoesGerenciais ? [
       { href: "dashboard-cartoes.html", label: "Resumo dos cartões", icon: "resumo" },
