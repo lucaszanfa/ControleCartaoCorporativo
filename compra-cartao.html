@@ -130,7 +130,7 @@
     </main>
   </div>
 
-  <div id="detalheCompraModal" class="modal-overlay hidden">
+  <div id="detalheCompraModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="detalheCompraTitulo">
     <div class="modal-card purchase-detail-modal">
       <div id="detalheCompraConteudo" class="purchase-detail-shell">
         <div class="purchase-detail-loading">
@@ -141,12 +141,12 @@
     </div>
   </div>
 
-  <div id="pendenciaCompatibilidadeModal" class="modal-overlay hidden">
+  <div id="pendenciaCompatibilidadeModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pendenciaCompatibilidadeTitulo">
     <div class="modal-card">
       <div class="section-header">
         <div>
           <span class="eyebrow">Possível pendência encontrada</span>
-          <h2>Esta compra já está na fatura?</h2>
+          <h2 id="pendenciaCompatibilidadeTitulo">Esta compra já está na fatura?</h2>
         </div>
       </div>
       <div id="pendenciaCompatibilidadeConteudo" class="detail-grid"></div>

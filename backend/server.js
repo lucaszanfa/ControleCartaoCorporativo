@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const express = require("express");
 const cors = require("cors");
+const { PDFParse } = require("pdf-parse");
 const { loadEnv } = require("./config");
 const { initDb, all, get, run } = require("./db");
 const { sendTeamsAlert } = require("./teamsNotificationService");
@@ -1130,6 +1131,75 @@ app.patch("/api/compras-cartao/:id/anexar-comprovante", async (request, response
 
 app.get("/api/faturas-cartao", async (_request, response) => {
   response.json(await all(`SELECT f.*, c.nome_cartao AS cartao FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id ORDER BY f.ano_referencia DESC, f.mes_referencia DESC`));
+});
+
+
+function categoriaFaturaPorTexto(estabelecimento) {
+  const texto = String(estabelecimento || "").toLowerCase();
+  if (/uber|99|taxi|posto|combust|logistica|transporte/.test(texto)) return "transporte";
+  if (/mercado|supermercado|padaria|restaurante|cafe|alimento/.test(texto)) return "outros";
+  if (/limpeza|higiene|sanit/.test(texto)) return "limpeza";
+  if (/manutenc|reparo|eletric|hidraul|clima/.test(texto)) return "manutencao";
+  if (/servico|assinatura|software|cloud|nuvem|internet/.test(texto)) return "servicos";
+  if (/papelaria|office|informatica|tecnologia|material/.test(texto)) return "material_administrativo";
+  return "outros";
+}
+
+function dataFaturaNormalizada(valor, anoReferencia) {
+  const partes = String(valor).replaceAll("-", "/").split("/");
+  if (partes.length < 2) return "";
+  const [dia, mes, anoInformado] = partes;
+  let ano = anoInformado || String(anoReferencia || new Date().getFullYear());
+  if (ano.length === 2) ano = `20${ano}`;
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+function transacoesExtraidasDoTexto(texto, cartao, anoReferencia) {
+  const ignorar = /^(total|subtotal|saldo|pagamento|vencimento|limite|encargos|anuidade|melhor dia)/i;
+  const linhas = String(texto || "").split(/\r?\n/).map((linha) => linha.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const transacoes = [];
+
+  for (const linha of linhas) {
+    const encontrada = linha.match(/^(\d{2}[\/-]\d{2}(?:[\/-]\d{2,4})?)\s+(.+?)\s+(?:R\$\s*)?(-?[\d.]+,\d{2})(?:\s*[CD])?$/i);
+    if (!encontrada) continue;
+    const estabelecimento = encontrada[2].trim();
+    if (!estabelecimento || ignorar.test(estabelecimento)) continue;
+    const valor = Number(encontrada[3].replaceAll(".", "").replace(",", "."));
+    if (!Number.isFinite(valor) || valor <= 0) continue;
+    transacoes.push({
+      dataTransacao: dataFaturaNormalizada(encontrada[1], anoReferencia),
+      estabelecimento,
+      valor,
+      ultimos4Digitos: cartao.ultimos_4_digitos,
+      codigoAutorizacao: "",
+      categoriaDetectada: categoriaFaturaPorTexto(estabelecimento)
+    });
+  }
+  return transacoes;
+}
+
+app.post("/api/faturas-cartao/extrair-pdf", async (request, response) => {
+  let parser;
+  try {
+    const { fileName, base64, cartaoId, anoReferencia } = request.body;
+    if (!fileName || !base64 || !cartaoId) return response.status(400).json({ erro: "PDF e cartão são obrigatórios." });
+    const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
+    if (!cartao) return response.status(404).json({ erro: "Cartão não encontrado." });
+    const buffer = Buffer.from(String(base64).split(",").pop(), "base64");
+    if (!buffer.length || buffer.length > 10 * 1024 * 1024) return response.status(400).json({ erro: "O PDF deve ter no máximo 10 MB." });
+
+    parser = new PDFParse({ data: buffer });
+    const resultado = await parser.getText();
+    const texto = String(resultado?.text || "").trim();
+    if (!texto) return response.status(422).json({ erro: "O PDF não possui texto selecionável. Para arquivos escaneados será necessário OCR." });
+    const transacoes = transacoesExtraidasDoTexto(texto, cartao, anoReferencia);
+    if (!transacoes.length) return response.status(422).json({ erro: "Não foi possível reconhecer transações neste modelo de fatura. Confira se cada linha contém data, estabelecimento e valor." });
+    response.json({ transacoes });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao processar o PDF da fatura.", detalhe: error.message });
+  } finally {
+    if (parser) await parser.destroy().catch(() => {});
+  }
 });
 
 app.post("/api/faturas-cartao/importar", async (request, response) => {

@@ -5,26 +5,47 @@
   <div class="app-shell">
     <aside class="sidebar"></aside>
     <main class="main-content">
-      <header class="topbar"><div><span class="eyebrow">Importação por arquivo CSV</span><h1>Faturas do cartão</h1><p class="topbar-subtitle">Importe faturas para comparar as transações com as compras registradas.</p></div><span class="user-chip">Usuário</span></header>
-      <section class="card">
+      <header class="topbar"><div><span class="eyebrow">Importação por CSV ou PDF</span><h1>Faturas do cartão</h1><p class="topbar-subtitle">Importe faturas para comparar as transações com as compras registradas.</p></div><span class="user-chip">Usuário</span></header>
+
+      <section class="card report-filter-card">
+        <div class="section-header">
+          <div>
+            <h2>Importar fatura</h2>
+            <p>Envie o arquivo da fatura para conciliar automaticamente com as compras registradas.</p>
+          </div>
+        </div>
         <div id="faturaMensagem" class="alert-success hidden"></div>
         <div id="resultadoConciliacao" class="conciliation-result hidden"></div>
         <form id="faturaForm" class="form-grid form-grid-two">
           <label>Cartão <select id="cartaoId" required></select></label>
           <label>Mês <select id="mesReferencia" required></select></label>
           <label>Ano <input id="anoReferencia" type="number" value="2026" required></label>
-          <label>Arquivo CSV
-            <input id="arquivoFatura" type="file" accept=".csv,text/csv" required>
+          <label class="purchase-upload-label">Arquivo CSV ou PDF
+            <input id="arquivoFatura" type="file" accept=".csv,text/csv,.pdf,application/pdf" required>
             <input id="arquivoNome" type="hidden">
+            <span class="purchase-upload-box">
+              <strong>Arraste e solte o arquivo aqui</strong>
+              <small>ou clique para selecionar</small>
+            </span>
             <small id="arquivoFaturaAtual" class="field-hint">Nenhum arquivo selecionado.</small>
           </label>
+          <section id="previaFatura" class="full-width invoice-preview hidden"></section>
           <label class="full-width">Observação <textarea id="observacao" rows="2"></textarea></label>
           <div class="form-actions full-width"><button class="btn btn-primary" type="submit">Importar e conciliar fatura</button></div>
         </form>
       </section>
-      <section class="card"><div class="table-wrapper"><table><thead><tr><th>Cartão</th><th>Mês/Ano</th><th>Arquivo</th><th>Status</th><th>Ação</th></tr></thead><tbody id="faturasTabela"></tbody></table></div></section>
+
+      <section class="card report-workspace-card">
+        <div class="section-header">
+          <div>
+            <h2>Faturas importadas</h2>
+            <p>Histórico de importações por cartão e período.</p>
+          </div>
+        </div>
+        <div class="table-wrapper"><table><thead><tr><th>Cartão</th><th>Mês/Ano</th><th>Arquivo</th><th>Status</th><th>Ação</th></tr></thead><tbody id="faturasTabela"></tbody></table></div>
+      </section>
     </main>
   </div>
-  <script src="js/dados.js"></script><script src="js/auth.js"></script><script src="js/cartoes-utils.js"></script><script src="js/faturas-cartao.js"></script>
+  <script src="js/dados.js"></script><script src="js/auth.js"></script><script src="js/cartoes-utils.js"></script><script src="js/faturas-cartao.js?v=20260716-1"></script>
 </body>
 </html>
