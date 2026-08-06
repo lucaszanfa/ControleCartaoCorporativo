@@ -119,7 +119,10 @@ POWER_AUTOMATE_COMPRA_SEM_REGISTRO_URL=
 POWER_AUTOMATE_COMPRA_SEM_COMPROVANTE_URL=
 POWER_AUTOMATE_COMPRA_AUTOMATICA_CADASTRADA_URL=
 TEAMS_WEBHOOK_URL=
+COMPRA_AUTOMATICA_API_KEY=
 ```
+
+`COMPRA_AUTOMATICA_API_KEY` protege a rota `POST /api/compras-cartao/automatica` (a que o Power Automate chama para cadastrar compras automaticas). Enquanto essa variavel nao estiver definida, a rota continua aceitando chamadas sem chave (assim o ambiente local e a pagina de simulacao "Compra automatica" continuam funcionando sem configuracao extra). Depois que voce definir essa variavel no Render, a rota passa a exigir o header `x-api-key` com o mesmo valor — veja o passo a passo em [Power Automate](#cadastro-automatico-de-compra-por-e-mail).
 
 No Render, essas mesmas variaveis devem ser cadastradas em:
 
@@ -195,7 +198,10 @@ Headers:
 
 ```txt
 Content-Type: application/json
+x-api-key: <valor de COMPRA_AUTOMATICA_API_KEY cadastrado no Render>
 ```
+
+O header `x-api-key` só é obrigatório depois que a variável `COMPRA_AUTOMATICA_API_KEY` for cadastrada no Render (veja [Variaveis De Ambiente](#variaveis-de-ambiente)). Sem essa variável configurada, a rota aceita chamadas sem o header, então o fluxo continua funcionando normalmente até você decidir ativar a proteção.
 
 Body:
 
@@ -316,7 +322,7 @@ POST /api/compras-cartao/automatica
 - Nunca publique `.env`.
 - Nunca coloque URLs secretas do Power Automate no frontend.
 - Configure variaveis sensiveis apenas no ambiente do servidor.
-- Para producao, adicione uma chave secreta nas rotas chamadas pelo Power Automate, por exemplo `x-api-key`.
+- Para producao, cadastre `COMPRA_AUTOMATICA_API_KEY` no Render e configure o mesmo valor como header `x-api-key` na acao HTTP do Power Automate (rota `/api/compras-cartao/automatica`).
 - Use banco gerenciado em nuvem para evitar perda de dados.
 - Evite expor banco de dados diretamente para usuarios ou automacoes; o acesso deve passar pelo backend.
 
