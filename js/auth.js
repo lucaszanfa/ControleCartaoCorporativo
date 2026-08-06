@@ -88,27 +88,52 @@ function iniciaisUsuario() {
     .toUpperCase();
 }
 
+const ICONES_SVG = {
+  dashboard: '<path d="M4 13.5 12 6l8 7.5"></path><path d="M6.5 12.5V20h11v-7.5"></path><path d="M10 20v-5h4v5"></path>',
+  cadastro: '<rect x="5" y="4" width="14" height="16" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h4"></path>',
+  estoque: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"></path><path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>',
+  saida: '<path d="M7 17 17 7"></path><path d="M9 7h8v8"></path>',
+  entrada: '<path d="M12 4v14"></path><path d="m6 12 6 6 6-6"></path>',
+  historico: '<circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path>',
+  relatorios: '<path d="M5 20V10"></path><path d="M12 20V4"></path><path d="M19 20v-7"></path>',
+  compra: '<rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M3 10h18"></path><path d="M7 15h4"></path>',
+  automatica: '<path d="M20 12a8 8 0 0 1-13.66 5.66"></path><path d="M4 12A8 8 0 0 1 17.66 6.34"></path><path d="M17 3v4h4"></path><path d="M7 21v-4H3"></path>',
+  pendentes: '<rect x="6" y="4" width="12" height="16" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h3"></path>',
+  resumo: '<path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 15l3-3 3 2 4-6"></path>',
+  cartoes: '<rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 14h5"></path>',
+  faturas: '<path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M9 13h6M9 17h4"></path>',
+  conciliacao: '<circle cx="12" cy="12" r="8"></circle><path d="m8.5 12.5 2.3 2.3 4.9-5.2"></path>',
+  usuarios: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path>',
+  sair: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path>',
+  suporte: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><path d="M4 14a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2v1Z"></path><path d="M20 14a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2v1Z"></path><path d="M14 20h-2a3 3 0 0 1-3-3"></path>',
+  dinheiro: '<rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><path d="M6 9v.01M18 15v.01"></path>',
+  predio: '<rect x="4" y="3" width="16" height="18" rx="1"></rect><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01"></path><path d="M10 21v-4h4v4"></path>',
+  check: '<path d="M20 6 9 17l-5-5"></path>',
+  clipe: '<path d="M21 12.5 12.5 21a4.5 4.5 0 0 1-6.36-6.36L15 5.79a3 3 0 0 1 4.24 4.24L10.4 18.9a1.5 1.5 0 0 1-2.12-2.12l8.06-8.06"></path>',
+  recibo: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6"></path>',
+  nota: '<path d="M4 4h16v16H4z"></path><path d="M8 8h8M8 12h8M8 16h5"></path>',
+  chat: '<path d="M4 4h16v12H8l-4 4Z"></path>',
+  olho: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>',
+  relogio: '<circle cx="12" cy="12" r="8"></circle><path d="M12 8v4l3 2"></path>',
+  envelope: '<rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path>',
+  calendario: '<rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path>',
+  pessoa: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path>',
+  loja: '<path d="M4 9v10h16V9"></path><path d="M2 5h20l-1.5 4a2.5 2.5 0 0 1-5 0A2.5 2.5 0 0 1 13 9a2.5 2.5 0 0 1-5 0A2.5 2.5 0 0 1 3.5 9L2 5Z"></path>',
+  etiqueta: '<path d="M20.6 12.6 12 21.2 2.8 12 2.8 2.8 12 2.8Z"></path><circle cx="7.5" cy="7.5" r="1.5"></circle>',
+  lixeira: '<path d="M4 7h16"></path><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"></path><path d="M9 7V4h6v3"></path>',
+  alerta: '<path d="M12 2 2 20h20Z"></path><path d="M12 9v5M12 17v.01"></path>',
+  sacola: '<path d="M6 7h12l1 14H5Z"></path><path d="M9 7a3 3 0 0 1 6 0"></path>',
+  circulo: '<circle cx="12" cy="12" r="8"></circle>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"></path>'
+};
+
+function svgIcone(tipo, extraClass) {
+  const classe = extraClass ? ` class="${extraClass}"` : "";
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"${classe}>${ICONES_SVG[tipo] || ICONES_SVG.dashboard}</svg>`;
+}
+
 function navIconModerno(tipo) {
-  const icones = {
-    dashboard: '<path d="M4 13.5 12 6l8 7.5"></path><path d="M6.5 12.5V20h11v-7.5"></path><path d="M10 20v-5h4v5"></path>',
-    cadastro: '<rect x="5" y="4" width="14" height="16" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h4"></path>',
-    estoque: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"></path><path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>',
-    saida: '<path d="M7 17 17 7"></path><path d="M9 7h8v8"></path>',
-    entrada: '<path d="M12 4v14"></path><path d="m6 12 6 6 6-6"></path>',
-    historico: '<circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path>',
-    relatorios: '<path d="M5 20V10"></path><path d="M12 20V4"></path><path d="M19 20v-7"></path>',
-    compra: '<rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M3 10h18"></path><path d="M7 15h4"></path>',
-    automatica: '<path d="M20 12a8 8 0 0 1-13.66 5.66"></path><path d="M4 12A8 8 0 0 1 17.66 6.34"></path><path d="M17 3v4h4"></path><path d="M7 21v-4H3"></path>',
-    pendentes: '<rect x="6" y="4" width="12" height="16" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h3"></path>',
-    resumo: '<path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 15l3-3 3 2 4-6"></path>',
-    cartoes: '<rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 14h5"></path>',
-    faturas: '<path d="M7 3h8l4 4v14H7z"></path><path d="M15 3v5h5"></path><path d="M9 13h6M9 17h4"></path>',
-    conciliacao: '<circle cx="12" cy="12" r="8"></circle><path d="m8.5 12.5 2.3 2.3 4.9-5.2"></path>',
-    usuarios: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path>',
-    sair: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path>',
-    suporte: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"></path><path d="M4 14a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2v1Z"></path><path d="M20 14a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2v1Z"></path><path d="M14 20h-2a3 3 0 0 1-3-3"></path>'
-  };
-  return `<svg viewBox="0 0 24 24" aria-hidden="true">${icones[tipo] || icones.dashboard}</svg>`;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONES_SVG[tipo] || ICONES_SVG.dashboard}</svg>`;
 }
 
 function criarLinkMenuModerno(item, paginaAtual) {
@@ -311,7 +336,7 @@ function aplicarMenuPrincipal() {
     ] : [])
   ];
   sidebar.innerHTML = `
-    <div class="sidebar-brand"><img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A"><div><strong>Cartões Corporativos</strong><small>Controle e conciliação</small></div><button class="sidebar-menu-button" type="button" aria-label="Menu lateral">☰</button></div>
+    <div class="sidebar-brand"><img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A"><div><strong>Cartões Corporativos</strong><small>Controle e conciliação</small></div><button class="sidebar-menu-button" type="button" aria-label="Menu lateral">${svgIcone("menu", "icon-sm")}</button></div>
     <nav class="sidebar-nav"><div class="nav-group"><span class="nav-group-title">Cartões corporativos</span>${cartoes.map((item) => criarLinkMenuModerno(item, paginaAtual)).join("")}</div><div class="nav-group nav-group-system"><span class="nav-group-title">Sistema</span>${criarLinkMenuModerno({ href: "usuarios.html", label: "Usuários", icon: "usuarios", adminOnly: true }, paginaAtual)}<a class="logout-link" href="login.html"><span class="nav-icon">${navIconModerno("sair")}</span><span class="nav-label">Sair</span><span class="nav-arrow">›</span></a></div></nav>
     <div class="sidebar-footer"><div class="sidebar-user-card"><span class="sidebar-avatar">${iniciaisUsuario()}</span><span><strong>${usuarioLogado?.nome || "Usuário"}</strong><small>${usuarioLogado?.perfil || "usuário"}</small></span></div></div><div class="sidebar-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar o menu"></div>`;
   sidebar.querySelector(".sidebar-menu-button")?.addEventListener("click", alternarMenuLateral);

@@ -205,7 +205,7 @@ function detalheItem(rotulo, valor, extraClass = "") {
 function detalheCompraCampo(rotulo, valor, icone, extraClass = "") {
   return `
     <article class="purchase-detail-field ${extraClass}">
-      <span class="purchase-detail-field-icon" aria-hidden="true">${icone}</span>
+      <span class="purchase-detail-field-icon" aria-hidden="true">${svgIcone(icone, "icon-sm")}</span>
       <div>
         <small>${escapeHtml(rotulo)}</small>
         <strong>${escapeHtml(valor || "-")}</strong>
@@ -316,10 +316,10 @@ function dataHoraTimeline(compra, fallbackHora = "14:22") {
 function eventoTimeline(titulo, descricao, horario, autor, icone, concluido = true, destaque = false) {
   return `
     <article class="purchase-timeline-event ${concluido ? "is-done" : "is-pending"} ${destaque ? "is-highlight" : ""}">
-      <span class="purchase-timeline-marker" aria-hidden="true">${concluido ? "✓" : "○"}</span>
+      <span class="purchase-timeline-marker" aria-hidden="true">${concluido ? svgIcone("check", "icon-sm") : svgIcone("circulo", "icon-sm")}</span>
       <div class="purchase-timeline-card">
         <div>
-          <strong><span aria-hidden="true">${icone}</span>${escapeHtml(titulo)}</strong>
+          <strong><span aria-hidden="true">${svgIcone(icone, "icon-sm")}</span>${escapeHtml(titulo)}</strong>
           <p>${escapeHtml(descricao)}</p>
         </div>
         <aside>
@@ -344,7 +344,7 @@ function renderHistoricoCompra(compra) {
       importada ? "A compra foi criada a partir da integração por e-mail." : "A compra foi criada e registrada no sistema.",
       dataHoraTimeline(compra, "14:22"),
       importada ? "Sistema" : responsavel,
-      "📝"
+      "nota"
     )
   ];
 
@@ -354,7 +354,7 @@ function renderHistoricoCompra(compra) {
       "Notificação enviada para o canal ou responsável do cartão.",
       dataHoraTimeline(compra, "14:22"),
       "Sistema (Integração)",
-      "💬"
+      "chat"
     ));
   }
 
@@ -363,7 +363,7 @@ function renderHistoricoCompra(compra) {
     `${responsavel} acessou os detalhes desta compra.`,
     dataHoraTimeline(compra, "14:24"),
     responsavel,
-    "👀"
+    "olho"
   ));
 
   eventos.push(eventoTimeline(
@@ -371,7 +371,7 @@ function renderHistoricoCompra(compra) {
     possuiComprovante ? "O arquivo do comprovante foi anexado à compra." : "A compra ainda não possui comprovante anexado.",
     possuiComprovante ? dataHoraTimeline(compra, "14:23") : "-",
     possuiComprovante ? responsavel : "Pendente",
-    "📎",
+    "clipe",
     possuiComprovante
   ));
 
@@ -380,7 +380,7 @@ function renderHistoricoCompra(compra) {
     concluida ? "Compra marcada como conferida." : "A compra ainda aguarda conclusão.",
     concluida ? dataHoraTimeline(compra, "14:25") : "-",
     concluida ? responsavel : "Pendente",
-    "✅",
+    "check",
     concluida
   ));
 
@@ -389,7 +389,7 @@ function renderHistoricoCompra(compra) {
     conciliada ? "A compra foi conciliada com uma fatura importada." : "A compra ainda não foi conciliada com fatura.",
     conciliada ? dataHoraTimeline(compra, "14:30") : "-",
     conciliada ? "Sistema" : "Pendente",
-    "🧾",
+    "recibo",
     conciliada,
     conciliada
   ));
@@ -397,7 +397,7 @@ function renderHistoricoCompra(compra) {
   return `
     <section class="purchase-detail-timeline">
       <div class="purchase-detail-section-title">
-        <span aria-hidden="true">🕘</span>
+        <span aria-hidden="true">${svgIcone("relogio", "icon-sm")}</span>
         <strong>Histórico da compra</strong>
         <em>${eventos.length} eventos</em>
       </div>
@@ -413,7 +413,7 @@ function renderIndicadorCompraAutomatica(compra) {
 
   return `
     <span class="purchase-auto-badge" title="Compra importada automaticamente por e-mail">
-      <span aria-hidden="true">📧</span>
+      <span aria-hidden="true">${svgIcone("envelope", "icon-sm")}</span>
       Importada automaticamente
     </span>
   `;
@@ -427,7 +427,7 @@ function renderOrigemCompraAutomatica(compra) {
   return `
     <div class="purchase-auto-origin">
       <div class="purchase-auto-origin-copy">
-        <span class="purchase-auto-origin-icon" aria-hidden="true">📧</span>
+        <span class="purchase-auto-origin-icon" aria-hidden="true">${svgIcone("envelope", "icon-sm")}</span>
         <div>
           <small>Origem</small>
           <strong>e-mail corporativo</strong>
@@ -436,7 +436,7 @@ function renderOrigemCompraAutomatica(compra) {
       </div>
       <div class="purchase-auto-stamp" aria-hidden="true">
         <span>Importada</span>
-        <strong>📧</strong>
+        <strong>${svgIcone("envelope", "icon-sm")}</strong>
         <small>Auto</small>
       </div>
     </div>
@@ -448,7 +448,7 @@ function renderComprovanteDetalhado(comprovanteUrl) {
     return `
       <section class="purchase-detail-receipt purchase-detail-receipt-empty">
         <div class="purchase-detail-section-title">
-          <span aria-hidden="true">📎</span>
+          <span aria-hidden="true">${svgIcone("clipe", "icon-sm")}</span>
           <strong>Comprovante</strong>
         </div>
         <div class="purchase-detail-empty-receipt">
@@ -463,7 +463,7 @@ function renderComprovanteDetalhado(comprovanteUrl) {
     return `
       <section class="purchase-detail-receipt purchase-detail-receipt-empty">
         <div class="purchase-detail-section-title">
-          <span aria-hidden="true">📎</span>
+          <span aria-hidden="true">${svgIcone("clipe", "icon-sm")}</span>
           <strong>Comprovante</strong>
         </div>
         <div class="purchase-detail-empty-receipt">
@@ -484,14 +484,14 @@ function renderComprovanteDetalhado(comprovanteUrl) {
   return `
     <section class="purchase-detail-receipt">
       <div class="purchase-detail-section-title">
-        <span aria-hidden="true">📎</span>
+        <span aria-hidden="true">${svgIcone("clipe", "icon-sm")}</span>
         <strong>Comprovante</strong>
       </div>
       <div class="purchase-detail-receipt-grid">
         <div class="purchase-detail-receipt-preview">${preview}</div>
         <div class="purchase-detail-receipt-info">
           <div class="purchase-detail-file-card">
-            <span class="purchase-detail-field-icon" aria-hidden="true">📄</span>
+            <span class="purchase-detail-field-icon" aria-hidden="true">${svgIcone("nota", "icon-sm")}</span>
             <div>
               <strong>${escapeHtml(nomeArquivo)}</strong>
               <small>${isImagem ? "Imagem do comprovante" : "Arquivo do comprovante"}</small>
@@ -549,7 +549,7 @@ async function abrirDetalheCompra(id) {
 
     <header class="purchase-detail-header">
       <div class="purchase-detail-title">
-        <span class="purchase-detail-title-icon" aria-hidden="true">🛒</span>
+        <span class="purchase-detail-title-icon" aria-hidden="true">${svgIcone("sacola", "icon-sm")}</span>
         <div>
           <span class="eyebrow">Detalhes da compra</span>
           <div class="purchase-detail-title-line">
@@ -564,15 +564,15 @@ async function abrirDetalheCompra(id) {
 
     <section class="purchase-detail-highlight">
       <article>
-        <span class="purchase-detail-field-icon" aria-hidden="true">💳</span>
+        <span class="purchase-detail-field-icon" aria-hidden="true">${svgIcone("cartoes", "icon-sm")}</span>
         <div><small>Cartão</small><strong>${escapeHtml(compra.cartao || "-")}</strong></div>
       </article>
       <article>
-        <span class="purchase-detail-field-icon" aria-hidden="true">🏢</span>
+        <span class="purchase-detail-field-icon" aria-hidden="true">${svgIcone("predio", "icon-sm")}</span>
         <div><small>Departamento</small><strong>${escapeHtml(compra.departamento || "-")}</strong></div>
       </article>
       <article>
-        <span class="purchase-detail-field-icon" aria-hidden="true">✅</span>
+        <span class="purchase-detail-field-icon" aria-hidden="true">${svgIcone("check", "icon-sm")}</span>
         <div><small>Status</small><strong><span class="${classeStatus(compra.status)}">${escapeHtml(String(compra.status || "-").replaceAll("_", " "))}</span></strong></div>
       </article>
       <article>
@@ -583,12 +583,12 @@ async function abrirDetalheCompra(id) {
 
     <div class="purchase-detail-layout">
       <section class="purchase-detail-info-grid">
-        ${detalheCompraCampo("Data da compra", formatarData(compra.dataCompra), "📅")}
-        ${detalheCompraCampo("Responsável", compra.responsavelCompra || compra.responsavel, "👤")}
-        ${detalheCompraCampo("Fornecedor", compra.fornecedor, "🏪")}
-        ${detalheCompraCampo("Categoria", String(compra.categoria || "-").replaceAll("_", " "), "🏷️")}
-        ${detalheCompraCampo("Motivo", compra.motivo, "💬")}
-        ${detalheCompraCampo("Observação", compra.observacao, "📝")}
+        ${detalheCompraCampo("Data da compra", formatarData(compra.dataCompra), "calendario")}
+        ${detalheCompraCampo("Responsável", compra.responsavelCompra || compra.responsavel, "pessoa")}
+        ${detalheCompraCampo("Fornecedor", compra.fornecedor, "loja")}
+        ${detalheCompraCampo("Categoria", String(compra.categoria || "-").replaceAll("_", " "), "etiqueta")}
+        ${detalheCompraCampo("Motivo", compra.motivo, "chat")}
+        ${detalheCompraCampo("Observação", compra.observacao, "nota")}
       </section>
       ${renderHistoricoCompra(compra)}
     </div>
