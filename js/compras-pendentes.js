@@ -24,7 +24,7 @@ function pendenciaBadge(pendencia) {
 }
 
 function teamsIconHtml() {
-  return `<span class="teams-button-icon" aria-hidden="true">💬</span>`;
+  return `<span class="teams-button-icon" aria-hidden="true">${svgIcone("chat", "icon-sm")}</span>`;
 }
 
 function identificarPendencias(compra) {

@@ -934,7 +934,29 @@ function normalizarValorCompraAutomatica(valor) {
   return Number(texto);
 }
 
-app.post("/api/compras-cartao/automatica", async (request, response) => {
+let avisoChaveCompraAutomaticaExibido = false;
+
+function validarChaveCompraAutomatica(request, response, next) {
+  const chaveEsperada = process.env.COMPRA_AUTOMATICA_API_KEY;
+
+  if (!chaveEsperada) {
+    if (!avisoChaveCompraAutomaticaExibido) {
+      console.warn("Aviso: COMPRA_AUTOMATICA_API_KEY nao configurada. A rota /api/compras-cartao/automatica esta aceitando chamadas sem chave de API.");
+      avisoChaveCompraAutomaticaExibido = true;
+    }
+    next();
+    return;
+  }
+
+  if (request.get("x-api-key") !== chaveEsperada) {
+    response.status(401).json({ erro: "Chave de API ausente ou invalida." });
+    return;
+  }
+
+  next();
+}
+
+app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (request, response) => {
   try {
     const {
       dataCompra,

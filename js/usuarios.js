@@ -164,7 +164,7 @@ function renderizarDepartamentos() {
     ? departamentosCache.map((departamento) => `
         <article class="users-department-item">
           <strong>${textoSeguro(departamento.nome)}</strong>
-          <button class="btn users-department-delete" type="button" data-id="${departamento.id}" data-nome="${textoSeguro(departamento.nome)}" aria-label="Excluir departamento ${textoSeguro(departamento.nome)}">🗑️ Excluir</button>
+          <button class="btn users-department-delete" type="button" data-id="${departamento.id}" data-nome="${textoSeguro(departamento.nome)}" aria-label="Excluir departamento ${textoSeguro(departamento.nome)}">${svgIcone("lixeira", "icon-sm")} Excluir</button>
         </article>
       `).join("")
     : `<span class="users-department-empty">Nenhum departamento cadastrado.</span>`;

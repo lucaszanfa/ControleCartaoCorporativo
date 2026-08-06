@@ -50,7 +50,7 @@ async function carregarCartoes() {
       <tr class="report-data-row corporate-card-row ${cartao.status === "inativo" ? "row-inactive" : ""}">
         <td>
           <div class="corporate-card-name">
-            <span class="corporate-card-icon corporate-card-icon-${cor}" aria-hidden="true">💳</span>
+            <span class="corporate-card-icon corporate-card-icon-${cor}" aria-hidden="true">${svgIcone("cartoes", "icon-sm")}</span>
             <strong>${cartao.nomeCartao}</strong>
           </div>
         </td>
