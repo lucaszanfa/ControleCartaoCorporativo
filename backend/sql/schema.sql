@@ -5,6 +5,11 @@ CREATE TABLE IF NOT EXISTS setores (
   nome TEXT NOT NULL UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS categorias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS usuarios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nome TEXT NOT NULL,
@@ -41,7 +46,7 @@ CREATE TABLE IF NOT EXISTS compras_cartao (
   data_compra TEXT NOT NULL,
   valor REAL NOT NULL CHECK (valor > 0),
   fornecedor TEXT NOT NULL,
-  categoria TEXT CHECK (categoria IS NULL OR categoria = '' OR categoria IN ('material_administrativo', 'copa', 'limpeza', 'manutencao', 'transporte', 'servicos', 'outros')),
+  categoria TEXT,
   motivo TEXT,
   comprovante_url TEXT,
   observacao TEXT,

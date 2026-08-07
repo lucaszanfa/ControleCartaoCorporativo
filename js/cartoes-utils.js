@@ -1,13 +1,3 @@
-const CARTAO_CATEGORIAS = [
-  "material_administrativo",
-  "copa",
-  "limpeza",
-  "manutencao",
-  "transporte",
-  "servicos",
-  "outros"
-];
-
 function moeda(valor) {
   return Number(valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
