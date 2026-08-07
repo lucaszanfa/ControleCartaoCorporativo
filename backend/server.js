@@ -602,6 +602,76 @@ app.delete("/api/setores/:id", async (request, response) => {
   }
 });
 
+app.get("/api/categorias", async (_request, response) => {
+  try {
+    response.json(await all("SELECT id, nome FROM categorias ORDER BY nome"));
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao listar categorias.", detalhe: error.message });
+  }
+});
+
+app.post("/api/categorias", async (request, response) => {
+  try {
+    const nome = String(request.body?.nome || "").trim();
+    const adminEmail = String(request.body?.adminEmail || "").trim();
+
+    if (!nome) {
+      response.status(400).json({ erro: "Informe o nome da categoria." });
+      return;
+    }
+
+    const admin = await get("SELECT perfil, status FROM usuarios WHERE lower(email) = lower(?)", [adminEmail]);
+    if (!admin || admin.status !== "ativo" || admin.perfil !== "admin") {
+      response.status(403).json({ erro: "Apenas administradores podem cadastrar categorias." });
+      return;
+    }
+
+    const existente = await get("SELECT id FROM categorias WHERE lower(nome) = lower(?)", [nome]);
+    if (existente) {
+      response.status(409).json({ erro: "Esta categoria já está cadastrada." });
+      return;
+    }
+
+    const result = await run("INSERT INTO categorias (nome) VALUES (?)", [nome]);
+    response.status(201).json({ id: result.id, nome, mensagem: "Categoria cadastrada com sucesso." });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao cadastrar categoria.", detalhe: error.message });
+  }
+});
+
+app.delete("/api/categorias/:id", async (request, response) => {
+  try {
+    const adminEmail = String(request.body?.adminEmail || "").trim();
+    const admin = await get("SELECT perfil, status FROM usuarios WHERE lower(email) = lower(?)", [adminEmail]);
+
+    if (!admin || admin.status !== "ativo" || admin.perfil !== "admin") {
+      response.status(403).json({ erro: "Apenas administradores podem excluir categorias." });
+      return;
+    }
+
+    const categoria = await get("SELECT id, nome FROM categorias WHERE id = ?", [request.params.id]);
+    if (!categoria) {
+      response.status(404).json({ erro: "Categoria não encontrada." });
+      return;
+    }
+
+    const vinculos = await get("SELECT COUNT(*) AS total FROM compras_cartao WHERE lower(categoria) = lower(?)", [categoria.nome]);
+
+    if (Number(vinculos.total) > 0) {
+      response.status(409).json({
+        erro: "Não é possível excluir esta categoria porque ela está em uso.",
+        vinculos: vinculos.total
+      });
+      return;
+    }
+
+    await run("DELETE FROM categorias WHERE id = ?", [categoria.id]);
+    response.json({ mensagem: `Categoria ${categoria.nome} excluída com sucesso.` });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao excluir categoria.", detalhe: error.message });
+  }
+});
+
 app.post("/api/uploads/comprovante", async (request, response) => {
   try {
     const { fileName, mimeType, base64, departamentoId, dataCompra } = request.body;

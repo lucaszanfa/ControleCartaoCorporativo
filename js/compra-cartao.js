@@ -37,13 +37,14 @@ function definirCamposProtegidosCompraAutomatica(bloquear) {
 async function initCompraCartao() {
   const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
   const setoresDetalhados = await (await fetch("/api/setores-detalhados")).json();
+  const categorias = await (await fetch("/api/categorias")).json();
   cartoesAtivosCache = cartoes;
 
   preencherSelect(document.getElementById("cartaoId"), cartoes, "id", "nomeCartao");
   preencherSelect(document.getElementById("departamentoId"), setoresDetalhados, "id", "nome");
   preencherSelect(document.getElementById("responsavelCompraId"), usuarios, "id", "nome");
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
-  document.getElementById("categoria").innerHTML = CARTAO_CATEGORIAS.map((c) => `<option value="${c}">${c}</option>`).join("");
+  document.getElementById("categoria").innerHTML = categorias.map((c) => `<option value="${c.nome}">${c.nome}</option>`).join("");
   document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);
   document.getElementById("cartaoId").addEventListener("change", () => {
     preencherDepartamentoPorCartao();

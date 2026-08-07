@@ -9,9 +9,14 @@ const departamentosAdminPanel = document.getElementById("departamentosAdminPanel
 const departamentoForm = document.getElementById("departamentoForm");
 const departamentoNome = document.getElementById("departamentoNome");
 const departamentosLista = document.getElementById("departamentosLista");
+const categoriasAdminPanel = document.getElementById("categoriasAdminPanel");
+const categoriaForm = document.getElementById("categoriaForm");
+const categoriaNome = document.getElementById("categoriaNome");
+const categoriasLista = document.getElementById("categoriasLista");
 
 let usuariosCache = [];
 let departamentosCache = [];
+let categoriasCache = [];
 
 function textoSeguro(valor) {
   return String(valor ?? "")
@@ -134,16 +139,19 @@ function criarToggle(classe, ativo) {
 }
 
 async function carregarUsuarios() {
-  const [usuariosResposta, departamentosResposta] = await Promise.all([
+  const [usuariosResposta, departamentosResposta, categoriasResposta] = await Promise.all([
     fetch("/api/usuarios"),
-    fetch("/api/setores-detalhados")
+    fetch("/api/setores-detalhados"),
+    fetch("/api/categorias")
   ]);
   usuariosCache = await usuariosResposta.json();
   departamentosCache = await departamentosResposta.json();
+  categoriasCache = await categoriasResposta.json();
 
   atualizarResumo(usuariosCache);
   preencherFiltroSetores(usuariosCache);
   renderizarDepartamentos();
+  renderizarCategorias();
   renderizarUsuarios();
 }
 
@@ -237,6 +245,91 @@ async function cadastrarDepartamento(event) {
   }
 }
 
+function renderizarCategorias() {
+  if (!categoriasAdminPanel) return;
+
+  categoriasAdminPanel.classList.toggle("hidden", !usuarioPodeCadastrarDepartamento());
+
+  if (!usuarioPodeCadastrarDepartamento()) {
+    return;
+  }
+
+  categoriasLista.innerHTML = categoriasCache.length
+    ? categoriasCache.map((categoria) => `
+        <article class="users-department-item">
+          <strong>${textoSeguro(categoria.nome)}</strong>
+          <button class="btn users-category-delete" type="button" data-id="${categoria.id}" data-nome="${textoSeguro(categoria.nome)}" aria-label="Excluir categoria ${textoSeguro(categoria.nome)}">${svgIcone("lixeira", "icon-sm")} Excluir</button>
+        </article>
+      `).join("")
+    : `<span class="users-department-empty">Nenhuma categoria cadastrada.</span>`;
+}
+
+async function excluirCategoria(event) {
+  const botao = event.target.closest(".users-category-delete");
+  if (!botao) return;
+
+  const nome = botao.dataset.nome;
+  if (!window.confirm(`Deseja realmente excluir a categoria “${nome}”?`)) return;
+
+  botao.disabled = true;
+  try {
+    const resposta = await fetch(`/api/categorias/${botao.dataset.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminEmail: usuarioLogado?.email || "" })
+    });
+    const dados = await resposta.json();
+
+    usuariosMensagem.textContent = dados.mensagem || dados.erro || "Categoria excluída.";
+    usuariosMensagem.classList.remove("hidden");
+    if (!resposta.ok) return;
+
+    await carregarUsuarios();
+  } finally {
+    botao.disabled = false;
+  }
+}
+
+async function cadastrarCategoria(event) {
+  event.preventDefault();
+
+  if (!usuarioPodeCadastrarDepartamento()) {
+    usuariosMensagem.textContent = "Apenas administradores podem cadastrar categorias.";
+    usuariosMensagem.classList.remove("hidden");
+    return;
+  }
+
+  const nome = categoriaNome.value.trim();
+  if (!nome) return;
+
+  const botao = categoriaForm.querySelector('button[type="submit"]');
+  botao.disabled = true;
+  botao.textContent = "Cadastrando...";
+
+  try {
+    const resposta = await fetch("/api/categorias", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nome,
+        adminEmail: usuarioLogado?.email || ""
+      })
+    });
+    const dados = await resposta.json();
+
+    usuariosMensagem.textContent = dados.mensagem || dados.erro || "Categoria cadastrada.";
+    usuariosMensagem.classList.remove("hidden");
+
+    if (!resposta.ok) return;
+
+    categoriaNome.value = "";
+    await carregarUsuarios();
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Cadastrar categoria";
+  }
+}
+
 async function salvarPermissoes(event) {
   const linha = event.target.closest("tr");
   const id = linha.dataset.id;
@@ -273,5 +366,7 @@ usuariosLimparFiltros.addEventListener("click", () => {
 
 departamentoForm?.addEventListener("submit", cadastrarDepartamento);
 departamentosLista?.addEventListener("click", excluirDepartamento);
+categoriaForm?.addEventListener("submit", cadastrarCategoria);
+categoriasLista?.addEventListener("click", excluirCategoria);
 
 carregarUsuarios();

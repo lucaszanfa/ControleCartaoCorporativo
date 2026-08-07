@@ -80,6 +80,28 @@
           <div id="departamentosLista" class="users-departments-list"></div>
         </section>
 
+        <section id="categoriasAdminPanel" class="users-departments-panel hidden">
+          <div class="users-departments-header">
+            <div>
+              <span class="eyebrow">Menu de admin</span>
+              <h2>Categorias</h2>
+              <p>Cadastre as categorias que aparecem no registro de compras no cartão corporativo.</p>
+            </div>
+          </div>
+          <form id="categoriaForm" class="users-department-form">
+            <label>
+              Nome da categoria
+              <input id="categoriaNome" type="text" placeholder="Ex.: material_administrativo" maxlength="80" required>
+            </label>
+            <button class="btn btn-primary" type="submit">Cadastrar categoria</button>
+          </form>
+          <div class="users-departments-list-header">
+            <strong>Categorias cadastradas</strong>
+            <small>Use o botão Excluir ao lado da categoria desejada.</small>
+          </div>
+          <div id="categoriasLista" class="users-departments-list"></div>
+        </section>
+
         <div class="users-toolbar">
           <label class="users-search">
             <span class="sr-only">Buscar usuário</span>

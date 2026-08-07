@@ -63,6 +63,8 @@ async function initDb() {
   await exec(schema);
   await ensureUsuarioColumns();
   await ensureComprasCartaoNullableFields();
+  await ensureCategoriaSemListaFixa();
+  await ensureCategoriasSeed();
 }
 
 async function ensureUsuarioColumns() {
@@ -102,7 +104,7 @@ async function ensureComprasCartaoNullableFields() {
       data_compra TEXT NOT NULL,
       valor REAL NOT NULL CHECK (valor > 0),
       fornecedor TEXT NOT NULL,
-      categoria TEXT CHECK (categoria IS NULL OR categoria = '' OR categoria IN ('material_administrativo', 'copa', 'limpeza', 'manutencao', 'transporte', 'servicos', 'outros')),
+      categoria TEXT,
       motivo TEXT,
       comprovante_url TEXT,
       observacao TEXT,
@@ -128,6 +130,63 @@ async function ensureComprasCartaoNullableFields() {
 
     PRAGMA foreign_keys = ON;
   `);
+}
+
+async function ensureCategoriaSemListaFixa() {
+  const tabela = await get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'compras_cartao'");
+  if (!tabela || !tabela.sql.includes("material_administrativo")) {
+    return;
+  }
+
+  await exec(`
+    PRAGMA foreign_keys = OFF;
+
+    CREATE TABLE compras_cartao_migracao (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cartao_id INTEGER NOT NULL,
+      departamento_id INTEGER NOT NULL,
+      responsavel_compra_id INTEGER,
+      data_compra TEXT NOT NULL,
+      valor REAL NOT NULL CHECK (valor > 0),
+      fornecedor TEXT NOT NULL,
+      categoria TEXT,
+      motivo TEXT,
+      comprovante_url TEXT,
+      observacao TEXT,
+      status TEXT NOT NULL DEFAULT 'registrada' CHECK (status IN ('registrada', 'aguardando_conferencia', 'conferida', 'divergente', 'sem_comprovante', 'resolvida', 'cancelada')),
+      criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
+      FOREIGN KEY (departamento_id) REFERENCES setores(id),
+      FOREIGN KEY (responsavel_compra_id) REFERENCES usuarios(id)
+    );
+
+    INSERT INTO compras_cartao_migracao (
+      id, cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor,
+      categoria, motivo, comprovante_url, observacao, status, criado_em, atualizado_em
+    )
+    SELECT
+      id, cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor,
+      categoria, motivo, comprovante_url, observacao, status, criado_em, atualizado_em
+    FROM compras_cartao;
+
+    DROP TABLE compras_cartao;
+    ALTER TABLE compras_cartao_migracao RENAME TO compras_cartao;
+
+    PRAGMA foreign_keys = ON;
+  `);
+}
+
+async function ensureCategoriasSeed() {
+  const existentes = await get("SELECT COUNT(*) AS total FROM categorias");
+  if (existentes.total > 0) {
+    return;
+  }
+
+  const padrao = ["material_administrativo", "copa", "limpeza", "manutencao", "transporte", "servicos", "outros"];
+  for (const nome of padrao) {
+    await run("INSERT OR IGNORE INTO categorias (nome) VALUES (?)", [nome]);
+  }
 }
 
 module.exports = {
