@@ -38,6 +38,7 @@ async function initCompraCartao() {
   const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
   const setoresDetalhados = await (await fetch("/api/setores-detalhados")).json();
   const categorias = await (await fetch("/api/categorias")).json();
+  const fornecedores = await (await fetch("/api/compras-cartao/fornecedores")).json();
   cartoesAtivosCache = cartoes;
 
   preencherSelect(document.getElementById("cartaoId"), cartoes, "id", "nomeCartao");
@@ -45,6 +46,7 @@ async function initCompraCartao() {
   preencherSelect(document.getElementById("responsavelCompraId"), usuarios, "id", "nome");
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
   document.getElementById("categoria").innerHTML = categorias.map((c) => `<option value="${c.nome}">${c.nome}</option>`).join("");
+  document.getElementById("fornecedoresLista").innerHTML = fornecedores.map((f) => `<option value="${escapeHtml(f)}"></option>`).join("");
   document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);
   document.getElementById("cartaoId").addEventListener("change", () => {
     preencherDepartamentoPorCartao();

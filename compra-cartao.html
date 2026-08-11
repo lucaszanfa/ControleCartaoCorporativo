@@ -41,7 +41,10 @@
             <label>Responsável <em>*</em><select id="responsavelCompraId" required></select></label>
             <label>Data da compra <em>*</em><input id="dataCompra" type="date" required></label>
             <label>Valor <em>*</em><input id="valor" type="number" min="0.01" step="0.01" placeholder="0,00" required></label>
-            <label>Fornecedor <input id="fornecedor" placeholder="Digite o nome do fornecedor" required></label>
+            <label>Fornecedor
+              <input id="fornecedor" list="fornecedoresLista" placeholder="Digite o nome do fornecedor" required autocomplete="off">
+              <datalist id="fornecedoresLista"></datalist>
+            </label>
             <label>Categoria <em>*</em><select id="categoria" required></select></label>
             <label class="purchase-upload-label">Comprovante
               <input id="comprovanteArquivo" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">

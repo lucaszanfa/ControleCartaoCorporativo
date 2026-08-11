@@ -815,6 +815,17 @@ app.get("/api/compras-cartao", async (request, response) => {
   response.json((await all(sql, params)).map(mapCompraCartao));
 });
 
+app.get("/api/compras-cartao/fornecedores", async (_request, response) => {
+  try {
+    const linhas = await all(
+      "SELECT fornecedor FROM compras_cartao WHERE trim(ifnull(fornecedor, '')) <> '' GROUP BY lower(trim(fornecedor)) ORDER BY COUNT(*) DESC, fornecedor"
+    );
+    response.json(linhas.map((linha) => linha.fornecedor.trim()));
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao listar fornecedores.", detalhe: error.message });
+  }
+});
+
 function pendenciasCadastroCompra(compra) {
   const pendencias = [];
   if (!compra.responsavelCompraId) pendencias.push("Responsavel");
