@@ -4,6 +4,7 @@ const alertaResolucaoId = compraParams.get("alertaId");
 const transacaoResolucaoId = compraParams.get("transacaoId");
 let cartoesAtivosCache = [];
 let comprasCartaoCache = [];
+let fornecedoresConhecidosCache = [];
 const camposProtegidosCompraAutomatica = ["cartaoId", "departamentoId", "dataCompra", "valor", "fornecedor", "observacao"];
 
 function compraCadastradaAutomaticamente(compra) {
@@ -34,6 +35,46 @@ function definirCamposProtegidosCompraAutomatica(bloquear) {
   });
 }
 
+const REGEX_MARCAS_DIACRITICAS = new RegExp("[̀-ͯ]", "g");
+
+function normalizarNomeFornecedor(nome) {
+  return String(nome || "")
+    .normalize("NFD").replace(REGEX_MARCAS_DIACRITICAS, "")
+    .toUpperCase()
+    .replace(/\.(COM\.BR|COM|NET|ORG|BR)\b/g, "")
+    .replace(/\b(LTDA|EIRELI|ME|EPP|S\/A|SA)\b/g, "")
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+}
+
+function configurarSugestaoFornecedor() {
+  const campo = document.getElementById("fornecedor");
+  const sugestao = document.getElementById("fornecedorSugestao");
+  if (!campo || !sugestao) return;
+
+  campo.addEventListener("blur", () => {
+    const digitado = campo.value.trim();
+    sugestao.classList.add("hidden");
+    sugestao.innerHTML = "";
+    if (!digitado) return;
+
+    const digitadoNormalizado = normalizarNomeFornecedor(digitado);
+    const correspondente = fornecedoresConhecidosCache.find((nome) => (
+      nome !== digitado && normalizarNomeFornecedor(nome) === digitadoNormalizado
+    ));
+    if (!correspondente) return;
+
+    sugestao.innerHTML = `Já existe "${escapeHtml(correspondente)}" cadastrado. <a href="#" id="usarFornecedorSugerido">Usar esse nome</a>?`;
+    sugestao.classList.remove("hidden");
+    document.getElementById("usarFornecedorSugerido").addEventListener("click", (event) => {
+      event.preventDefault();
+      campo.value = correspondente;
+      sugestao.classList.add("hidden");
+      sugestao.innerHTML = "";
+    });
+  });
+}
+
 async function initCompraCartao() {
   const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
   const setoresDetalhados = await (await fetch("/api/setores-detalhados")).json();
@@ -47,6 +88,8 @@ async function initCompraCartao() {
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
   document.getElementById("categoria").innerHTML = categorias.map((c) => `<option value="${c.nome}">${c.nome}</option>`).join("");
   document.getElementById("fornecedoresLista").innerHTML = fornecedores.map((f) => `<option value="${escapeHtml(f)}"></option>`).join("");
+  fornecedoresConhecidosCache = fornecedores;
+  configurarSugestaoFornecedor();
   document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);
   document.getElementById("cartaoId").addEventListener("change", () => {
     preencherDepartamentoPorCartao();
