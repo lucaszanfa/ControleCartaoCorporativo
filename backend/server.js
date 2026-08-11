@@ -985,7 +985,7 @@ function normalizarDataCompraAutomatica(valor) {
 
 function normalizarValorCompraAutomatica(valor) {
   if (typeof valor === "number") {
-    return Number.isInteger(valor) && Math.abs(valor) >= 10000 ? valor / 100 : valor;
+    return valor;
   }
 
   const textoOriginal = String(valor || "").trim();
@@ -993,10 +993,6 @@ function normalizarValorCompraAutomatica(valor) {
     .replace("R$", "")
     .replace(/\s/g, "")
     .replace(/[^\d,.-]/g, "");
-
-  if (/^-?\d{5,}$/.test(texto)) {
-    return Number(texto) / 100;
-  }
 
   if (texto.includes(",") && texto.includes(".")) {
     const ultimoPonto = texto.lastIndexOf(".");
