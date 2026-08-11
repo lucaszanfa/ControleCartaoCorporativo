@@ -208,7 +208,7 @@ function configurarRedimensionamentoMenu(sidebar) {
   });
 }
 
-const paginasComBuscaGlobal = new Set(["dashboard-cartoes.html", "relatorios-cartao.html"]);
+const paginasComBuscaGlobal = new Set(["relatorios-cartao.html"]);
 
 let buscaGlobalCache = null;
 let buscaGlobalCacheCriadoEm = 0;
@@ -321,14 +321,13 @@ function configurarBuscaGlobal(topbar) {
 function aplicarMenuPrincipal() {
   const sidebar = document.querySelector(".sidebar");
   if (!sidebar) return;
-  const paginaAtual = window.location.pathname.split("/").pop() || "dashboard-cartoes.html";
+  const paginaAtual = window.location.pathname.split("/").pop() || "relatorios-cartao.html";
   const podeVerCartoesGerenciais = ehAdminOuGerente();
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra", icon: "compra" },
     { href: "compra-automatica.html", label: "Compra automática", icon: "automatica" },
     { href: "compras-pendentes.html", label: "Compras pendentes", icon: "pendentes" },
     ...(podeVerCartoesGerenciais ? [
-      { href: "dashboard-cartoes.html", label: "Resumo dos cartões", icon: "resumo" },
       { href: "cartoes.html", label: "Cartões cadastrados", icon: "cartoes" },
       { href: "faturas-cartao.html", label: "Faturas", icon: "faturas" },
       { href: "conciliacao-cartao.html", label: "Conciliação", icon: "conciliacao" },
@@ -344,7 +343,7 @@ function aplicarMenuPrincipal() {
   aplicarEstadoMenuLateral();
 }
 function aplicarContextoVisual() {
-  const paginaAtual = window.location.pathname.split("/").pop() || "dashboard-cartoes.html";
+  const paginaAtual = window.location.pathname.split("/").pop() || "relatorios-cartao.html";
   const topbar = document.querySelector(".topbar");
   if (!topbar) return;
   const deveMostrarBuscaGlobal = paginasComBuscaGlobal.has(paginaAtual);
@@ -401,12 +400,11 @@ function aplicarPermissoes() {
 
   if (permissaoNecessaria && !temPermissao(permissaoNecessaria)) {
     alert("Seu usuario nao tem permissao para acessar esta pagina.");
-    window.location.href = "dashboard-cartoes.html";
+    window.location.href = "compra-cartao.html";
     return;
   }
 
   const paginasCartaoGerenciais = [
-    "dashboard-cartoes.html",
     "cartoes.html",
     "faturas-cartao.html",
     "conciliacao-cartao.html",

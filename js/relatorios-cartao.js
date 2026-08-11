@@ -1,12 +1,3 @@
-const categoriasRelatorioCartao = [
-  "material_administrativo",
-  "copa",
-  "limpeza",
-  "manutencao",
-  "transporte",
-  "servicos",
-  "outros"
-];
 let ultimoRelatorioCartao = null;
 const coresRelatorioCartao = ["#2563eb", "#14b8a6", "#8b5cf6", "#f59e0b", "#94a3b8", "#ef4444"];
 let abaRelatorioCartaoAtiva = "cartao";
@@ -44,17 +35,28 @@ function qsComprasPeriodo() {
 }
 
 async function carregarFiltros() {
-  const [departamentos, cartoes] = await Promise.all([
+  const [departamentos, cartoes, categorias] = await Promise.all([
     fetch("/api/setores-detalhados").then((r) => r.json()),
-    fetch("/api/cartoes").then((r) => r.json())
+    fetch("/api/cartoes").then((r) => r.json()),
+    fetch("/api/categorias").then((r) => r.json())
   ]);
 
   preencherSelect(document.getElementById("filtroDepartamento"), departamentos, "id", "nome", "Todos os departamentos");
   preencherSelect(document.getElementById("filtroCartao"), cartoes, "id", "nomeCartao", "Todos os cartões");
   document.getElementById("filtroCategoria").innerHTML = [
     '<option value="">Todas as categorias</option>',
-    ...categoriasRelatorioCartao.map((categoria) => `<option value="${categoria}">${categoria.replaceAll("_", " ")}</option>`)
+    ...categorias.map((categoria) => `<option value="${categoria.nome}">${categoria.nome.replaceAll("_", " ")}</option>`)
   ].join("");
+}
+
+function definirPeriodoPadraoMesAtual() {
+  const hoje = new Date();
+  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  const paraISO = (data) => data.toISOString().slice(0, 10);
+
+  document.getElementById("filtroDataInicial").value = paraISO(primeiroDia);
+  document.getElementById("filtroDataFinal").value = paraISO(ultimoDia);
 }
 
 function renderResumo({ porCartao, porDepartamento, pendencias }) {
@@ -225,7 +227,21 @@ function renderInsightsRelatorioCartao(relatorio) {
   document.getElementById("insightMaiorGastoTexto").textContent = maior?.cartao || "-";
   document.getElementById("insightTicketMedio").textContent = moeda(compras ? total / compras : 0);
   document.getElementById("insightParticipacaoMaior").textContent = `${participacao.toFixed(1).replace(".", ",")}%`;
-  document.getElementById("insightPeriodo").textContent = document.getElementById("filtroDataInicial").value || document.getElementById("filtroDataFinal").value ? "Personalizado" : "Todos";
+  document.getElementById("insightPeriodo").textContent = textoPeriodoSelecionado();
+}
+
+function textoPeriodoSelecionado() {
+  const dataInicial = document.getElementById("filtroDataInicial").value;
+  const dataFinal = document.getElementById("filtroDataFinal").value;
+  if (!dataInicial && !dataFinal) return "Todos";
+
+  const hoje = new Date();
+  const paraISO = (data) => data.toISOString().slice(0, 10);
+  const inicioMesAtual = paraISO(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const fimMesAtual = paraISO(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
+
+  if (dataInicial === inicioMesAtual && dataFinal === fimMesAtual) return "Este mês";
+  return "Personalizado";
 }
 
 function renderVisualRelatorioCartao() {
@@ -440,6 +456,7 @@ function configurarEventos() {
 
 async function initRelatoriosCartao() {
   await carregarFiltros();
+  definirPeriodoPadraoMesAtual();
   configurarEventos();
   await carregarRelatoriosCartao();
 }

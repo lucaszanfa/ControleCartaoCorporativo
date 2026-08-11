@@ -31,7 +31,8 @@ loginForm.addEventListener("submit", async function (event) {
     }
 
     localStorage.setItem("usuarioLogado", JSON.stringify(dados));
-    window.location.href = "dashboard-cartoes.html";
+    const podeVerCartoesGerenciais = dados.perfil === "admin" || dados.perfil === "gerente" || dados.permissoes?.administrarUsuarios;
+    window.location.href = podeVerCartoesGerenciais ? "relatorios-cartao.html" : "compra-cartao.html";
   } catch (error) {
     loginMensagem.textContent = "Servidor indisponível. Verifique se o sistema está rodando na porta 3010.";
     loginMensagem.classList.remove("hidden");
