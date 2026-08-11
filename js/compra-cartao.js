@@ -75,16 +75,34 @@ function configurarSugestaoFornecedor() {
   });
 }
 
+function exibirErroCarregamentoCompraCartao() {
+  const mensagem = document.getElementById("compraMensagem");
+  mensagem.textContent = "Não foi possível carregar os dados necessários (cartões, departamentos, usuários ou categorias). Verifique sua conexão e recarregue a página antes de registrar a compra.";
+  mensagem.classList.remove("hidden");
+  document.querySelectorAll("#compraCartaoForm input, #compraCartaoForm select, #compraCartaoForm textarea, #compraCartaoForm button").forEach((campo) => {
+    campo.disabled = true;
+  });
+}
+
 async function initCompraCartao() {
-  const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
-  const setoresDetalhados = await (await fetch("/api/setores-detalhados")).json();
-  const categorias = await (await fetch("/api/categorias")).json();
-  const fornecedores = await (await fetch("/api/compras-cartao/fornecedores")).json();
+  let cartoes, setoresDetalhados, categorias, fornecedores, usuariosDisponiveis;
+  try {
+    [cartoes, setoresDetalhados, categorias, fornecedores, usuariosDisponiveis] = await Promise.all([
+      fetch("/api/cartoes?status=ativo").then((resposta) => resposta.json()),
+      fetch("/api/setores-detalhados").then((resposta) => resposta.json()),
+      fetch("/api/categorias").then((resposta) => resposta.json()),
+      fetch("/api/compras-cartao/fornecedores").then((resposta) => resposta.json()),
+      fetch("/api/usuarios").then((resposta) => resposta.json())
+    ]);
+  } catch (error) {
+    exibirErroCarregamentoCompraCartao();
+    return;
+  }
   cartoesAtivosCache = cartoes;
 
   preencherSelect(document.getElementById("cartaoId"), cartoes, "id", "nomeCartao");
   preencherSelect(document.getElementById("departamentoId"), setoresDetalhados, "id", "nome");
-  preencherSelect(document.getElementById("responsavelCompraId"), usuarios, "id", "nome");
+  preencherSelect(document.getElementById("responsavelCompraId"), usuariosDisponiveis, "id", "nome");
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
   document.getElementById("categoria").innerHTML = categorias.map((c) => `<option value="${c.nome}">${c.nome}</option>`).join("");
   document.getElementById("fornecedoresLista").innerHTML = fornecedores.map((f) => `<option value="${escapeHtml(f)}"></option>`).join("");

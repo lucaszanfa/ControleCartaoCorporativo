@@ -25,6 +25,28 @@ function comprasDoMesCartoes() {
   return dashboardCartoesState.compras.filter((compra) => String(compra.dataCompra || "").startsWith(prefixo));
 }
 
+function mesAnteriorPrefixo() {
+  const agora = new Date();
+  const mesAnterior = new Date(agora.getFullYear(), agora.getMonth() - 1, 1);
+  return `${mesAnterior.getFullYear()}-${String(mesAnterior.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function comprasDoMesAnteriorCartoes() {
+  const prefixo = mesAnteriorPrefixo();
+  return dashboardCartoesState.compras.filter((compra) => String(compra.dataCompra || "").startsWith(prefixo));
+}
+
+function calcularTendenciaMensal(atual, anterior) {
+  const atualNum = Number(atual) || 0;
+  const anteriorNum = Number(anterior) || 0;
+  if (anteriorNum === 0) {
+    return atualNum > 0 ? "Sem registro no mês anterior" : "Sem movimentação no período";
+  }
+  const variacao = ((atualNum - anteriorNum) / anteriorNum) * 100;
+  const sinal = variacao > 0 ? "+" : "";
+  return `${sinal}${Math.round(variacao)}% vs. mês anterior`;
+}
+
 function somarPorCampo(lista, campo) {
   return lista.reduce((acc, item) => {
     const chave = item[campo] || "Sem informação";
@@ -44,15 +66,19 @@ function totalLimiteCartoes() {
 
 function renderizarKpisCartoes() {
   const dados = dashboardCartoesState.resumo;
+  const comprasMesAnterior = comprasDoMesAnteriorCartoes();
+  const qtdMesAnterior = comprasMesAnterior.length;
+  const valorMesAnterior = comprasMesAnterior.reduce((soma, compra) => soma + Number(compra.valor || 0), 0);
+
   const cards = [
-    { label: "Cartões ativos", value: dados.total_cartoes_ativos, trend: "0% vs. mês anterior", tone: "blue" },
-    { label: "Compras no mês", value: dados.compras_registradas_mes, trend: "+18% vs. mês anterior", tone: "green" },
-    { label: "Valor registrado no mês", value: moeda(dados.valor_total_mes), trend: "+24% vs. mês anterior", tone: "cyan" },
-    { label: "Transações da fatura", value: dados.transacoes_fatura_mes, trend: "+7% vs. mês anterior", tone: "purple" },
-    { label: "Compras sem registro", value: dados.compras_sem_registro, trend: "0% vs. mês anterior", tone: "orange" },
-    { label: "Alertas pendentes", value: dados.alertas_pendentes, trend: "+15% vs. mês anterior", tone: "red" },
-    { label: "Sem comprovante", value: dados.compras_sem_comprovante, trend: "-3% vs. mês anterior", tone: "yellow" },
-    { label: "Divergências abertas", value: dados.divergencias_abertas, trend: "-50% vs. mês anterior", tone: "violet" }
+    { label: "Cartões ativos", value: dados.total_cartoes_ativos, trend: "cadastrados no sistema", tone: "blue" },
+    { label: "Compras no mês", value: dados.compras_registradas_mes, trend: calcularTendenciaMensal(dados.compras_registradas_mes, qtdMesAnterior), tone: "green" },
+    { label: "Valor registrado no mês", value: moeda(dados.valor_total_mes), trend: calcularTendenciaMensal(dados.valor_total_mes, valorMesAnterior), tone: "cyan" },
+    { label: "Transações da fatura", value: dados.transacoes_fatura_mes, trend: "importadas no mês atual", tone: "purple" },
+    { label: "Compras sem registro", value: dados.compras_sem_registro, trend: "em aberto agora", tone: "orange" },
+    { label: "Alertas pendentes", value: dados.alertas_pendentes, trend: "aguardando resolução", tone: "red" },
+    { label: "Sem comprovante", value: dados.compras_sem_comprovante, trend: "em aberto agora", tone: "yellow" },
+    { label: "Divergências abertas", value: dados.divergencias_abertas, trend: "em aberto agora", tone: "violet" }
   ];
 
   document.getElementById("cartoesDashboardCards").innerHTML = cards.map((card, index) => `

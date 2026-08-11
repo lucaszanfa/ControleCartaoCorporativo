@@ -3,7 +3,20 @@ const cadastroMensagem = document.getElementById("cadastroMensagem");
 const setorSelectCadastro = document.getElementById("setor");
 const params = new URLSearchParams(window.location.search);
 
-setorSelectCadastro.innerHTML = setores.map((setor) => `<option value="${setor}">${setor}</option>`).join("");
+async function carregarDepartamentosCadastro() {
+  const botaoEnviar = cadastroForm.querySelector('button[type="submit"]');
+  try {
+    const departamentos = await (await fetch("/api/setores-detalhados")).json();
+    setorSelectCadastro.innerHTML = departamentos.map((departamento) => `<option value="${departamento.nome}">${departamento.nome}</option>`).join("");
+  } catch (error) {
+    cadastroMensagem.textContent = "Não foi possível carregar a lista de departamentos. Recarregue a página antes de continuar.";
+    cadastroMensagem.classList.remove("hidden");
+    setorSelectCadastro.disabled = true;
+    if (botaoEnviar) botaoEnviar.disabled = true;
+  }
+}
+
+carregarDepartamentosCadastro();
 document.getElementById("email").value = params.get("email") || "";
 
 cadastroForm.addEventListener("submit", async function (event) {

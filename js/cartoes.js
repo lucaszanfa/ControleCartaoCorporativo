@@ -16,11 +16,22 @@ function corPorDepartamento(departamento) {
 }
 
 async function initCartoes() {
-  setoresCartoes = await (await fetch("/api/setores-detalhados")).json();
+  let usuariosDisponiveis;
+  try {
+    [setoresCartoes, usuariosDisponiveis] = await Promise.all([
+      fetch("/api/setores-detalhados").then((resposta) => resposta.json()),
+      fetch("/api/usuarios").then((resposta) => resposta.json())
+    ]);
+  } catch (error) {
+    msg.textContent = "Não foi possível carregar departamentos/usuários. Verifique sua conexão e recarregue a página.";
+    msg.classList.remove("hidden");
+    document.getElementById("novoCartaoBtn").disabled = true;
+    return;
+  }
   preencherSelect(document.getElementById("departamentoId"), setoresCartoes, "id", "nome");
   preencherSelect(document.getElementById("filtroDepartamento"), setoresCartoes, "id", "nome", "Todos");
-  preencherSelect(document.getElementById("responsavelId"), usuarios, "id", "nome");
-  preencherSelect(document.getElementById("gerenteId"), usuarios, "id", "nome");
+  preencherSelect(document.getElementById("responsavelId"), usuariosDisponiveis, "id", "nome");
+  preencherSelect(document.getElementById("gerenteId"), usuariosDisponiveis, "id", "nome");
   await carregarCartoes();
 }
 
