@@ -3934,6 +3934,53 @@ textarea {
   resize: vertical;
 }
 
+.purchase-fornecedor-campo {
+  position: relative;
+}
+
+.fornecedor-autocomplete-lista {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 2px;
+  max-height: 216px;
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+}
+
+.fornecedor-autocomplete-lista.hidden {
+  display: none;
+}
+
+.fornecedor-autocomplete-item {
+  padding: 9px 10px;
+  border-radius: 7px;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fornecedor-autocomplete-item:hover,
+.fornecedor-autocomplete-item.ativo {
+  background: rgba(37, 99, 235, 0.14);
+  color: var(--brand);
+}
+
+.fornecedor-autocomplete-vazio {
+  padding: 9px 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .purchase-counter {
   justify-self: end;
   margin-top: -4px;

@@ -41,9 +41,9 @@
             <label>Responsável <em>*</em><select id="responsavelCompraId" required></select></label>
             <label>Data da compra <em>*</em><input id="dataCompra" type="date" required></label>
             <label>Valor <em>*</em><input id="valor" type="number" min="0.01" step="0.01" placeholder="0,00" required></label>
-            <label>Fornecedor
-              <input id="fornecedor" list="fornecedoresLista" placeholder="Digite o nome do fornecedor" required autocomplete="off">
-              <datalist id="fornecedoresLista"></datalist>
+            <label class="purchase-fornecedor-campo">Fornecedor
+              <input id="fornecedor" placeholder="Digite o nome do fornecedor" required autocomplete="off">
+              <div id="fornecedorAutocompleteLista" class="fornecedor-autocomplete-lista hidden"></div>
               <small id="fornecedorSugestao" class="field-hint hidden"></small>
             </label>
             <label>Categoria <em>*</em><select id="categoria" required></select></label>

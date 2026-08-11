@@ -47,10 +47,53 @@ function normalizarNomeFornecedor(nome) {
     .trim();
 }
 
+const LIMITE_SUGESTOES_FORNECEDOR = 6;
+
+function renderizarListaAutocompleteFornecedor(lista, termo) {
+  if (!termo) {
+    lista.classList.add("hidden");
+    lista.innerHTML = "";
+    return;
+  }
+
+  const termoNormalizado = termo.toLowerCase();
+  const correspondentes = fornecedoresConhecidosCache
+    .filter((nome) => nome.toLowerCase().includes(termoNormalizado))
+    .slice(0, LIMITE_SUGESTOES_FORNECEDOR);
+
+  if (!correspondentes.length) {
+    lista.classList.add("hidden");
+    lista.innerHTML = "";
+    return;
+  }
+
+  lista.innerHTML = correspondentes.map((nome) => `<div class="fornecedor-autocomplete-item" data-nome="${escapeHtml(nome)}">${escapeHtml(nome)}</div>`).join("");
+  lista.classList.remove("hidden");
+}
+
 function configurarSugestaoFornecedor() {
   const campo = document.getElementById("fornecedor");
   const sugestao = document.getElementById("fornecedorSugestao");
-  if (!campo || !sugestao) return;
+  const lista = document.getElementById("fornecedorAutocompleteLista");
+  if (!campo || !sugestao || !lista) return;
+
+  campo.addEventListener("input", () => renderizarListaAutocompleteFornecedor(lista, campo.value.trim()));
+  campo.addEventListener("focus", () => renderizarListaAutocompleteFornecedor(lista, campo.value.trim()));
+
+  lista.addEventListener("mousedown", (event) => {
+    const item = event.target.closest(".fornecedor-autocomplete-item");
+    if (!item) return;
+    event.preventDefault();
+    campo.value = item.dataset.nome;
+    lista.classList.add("hidden");
+    lista.innerHTML = "";
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target !== campo && !lista.contains(event.target)) {
+      lista.classList.add("hidden");
+    }
+  });
 
   campo.addEventListener("blur", () => {
     const digitado = campo.value.trim();
@@ -105,7 +148,6 @@ async function initCompraCartao() {
   preencherSelect(document.getElementById("responsavelCompraId"), usuariosDisponiveis, "id", "nome");
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
   document.getElementById("categoria").innerHTML = categorias.map((c) => `<option value="${c.nome}">${c.nome}</option>`).join("");
-  document.getElementById("fornecedoresLista").innerHTML = fornecedores.map((f) => `<option value="${escapeHtml(f)}"></option>`).join("");
   fornecedoresConhecidosCache = fornecedores;
   configurarSugestaoFornecedor();
   document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);
