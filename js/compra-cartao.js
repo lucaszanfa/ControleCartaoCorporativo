@@ -210,10 +210,13 @@ function renderizarComprasCartao() {
         <strong>${compra.cartao}</strong>
         <small>final ${compra.ultimos4Digitos || "----"}</small>
       </td>
-      <td>${compra.fornecedor}</td>
+      <td>
+        ${compra.fornecedor}
+        ${compra.parcelaTotal > 1 ? `<small class="field-hint">Parcela ${compra.parcelaAtual}/${compra.parcelaTotal}</small>` : ""}
+      </td>
       <td><span class="report-money-pill">${moeda(compra.valor)}</span></td>
       <td>${compra.categoria}</td>
-      <td><span class="${classeStatus(compra.status)}">${compra.status}</span></td>
+      <td><span class="${classeStatus(compra.status)}">${compra.status === "aguardando_fatura" ? "aguardando fatura" : compra.status}</span></td>
       <td>
         ${podeVerDetalhes
           ? `<button class="btn btn-secondary btn-compact" type="button" onclick="abrirDetalheCompra(${compra.id})">Ver detalhes</button>`
@@ -719,7 +722,8 @@ function getPayloadCompra() {
     motivo: document.getElementById("motivo").value,
     comprovanteUrl: document.getElementById("comprovanteUrl").value,
     observacao: document.getElementById("observacao").value,
-    usuarioLogadoId: usuarioIdAtual()
+    usuarioLogadoId: usuarioIdAtual(),
+    parcelas: document.getElementById("parcelas").value || 1
   };
 }
 
@@ -766,6 +770,7 @@ async function carregarCompraParaEdicao(id) {
   const compra = await res.json();
   const mensagem = document.getElementById("compraMensagem");
   definirCamposProtegidosCompraAutomatica(false);
+  document.getElementById("parcelasCampo").classList.add("hidden");
 
   if (!res.ok) {
     mensagem.textContent = compra.erro || "Não foi possível carregar a compra.";

@@ -61,12 +61,16 @@ CREATE TABLE IF NOT EXISTS compras_cartao (
   motivo TEXT,
   comprovante_url TEXT,
   observacao TEXT,
-  status TEXT NOT NULL DEFAULT 'registrada' CHECK (status IN ('registrada', 'aguardando_conferencia', 'conferida', 'divergente', 'sem_comprovante', 'resolvida', 'cancelada')),
+  status TEXT NOT NULL DEFAULT 'registrada' CHECK (status IN ('registrada', 'aguardando_conferencia', 'conferida', 'divergente', 'sem_comprovante', 'resolvida', 'cancelada', 'aguardando_fatura')),
+  parcela_atual INTEGER NOT NULL DEFAULT 1,
+  parcela_total INTEGER NOT NULL DEFAULT 1,
+  parcelamento_grupo_id INTEGER,
   criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
   FOREIGN KEY (departamento_id) REFERENCES setores(id),
-  FOREIGN KEY (responsavel_compra_id) REFERENCES usuarios(id)
+  FOREIGN KEY (responsavel_compra_id) REFERENCES usuarios(id),
+  FOREIGN KEY (parcelamento_grupo_id) REFERENCES compras_cartao(id)
 );
 
 CREATE TABLE IF NOT EXISTS faturas_cartao (

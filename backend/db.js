@@ -65,6 +65,7 @@ async function initDb() {
   await ensureComprasCartaoNullableFields();
   await ensureCategoriaSemListaFixa();
   await ensureCategoriasSeed();
+  await ensureParcelamentoCompras();
 }
 
 async function ensureUsuarioColumns() {
@@ -187,6 +188,55 @@ async function ensureCategoriasSeed() {
   for (const nome of padrao) {
     await run("INSERT OR IGNORE INTO categorias (nome) VALUES (?)", [nome]);
   }
+}
+
+async function ensureParcelamentoCompras() {
+  const columns = await all("PRAGMA table_info(compras_cartao)");
+  if (columns.some((column) => column.name === "parcela_total")) {
+    return;
+  }
+
+  await exec(`
+    PRAGMA foreign_keys = OFF;
+
+    CREATE TABLE compras_cartao_migracao (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cartao_id INTEGER NOT NULL,
+      departamento_id INTEGER NOT NULL,
+      responsavel_compra_id INTEGER,
+      data_compra TEXT NOT NULL,
+      valor REAL NOT NULL CHECK (valor > 0),
+      fornecedor TEXT NOT NULL,
+      categoria TEXT,
+      motivo TEXT,
+      comprovante_url TEXT,
+      observacao TEXT,
+      status TEXT NOT NULL DEFAULT 'registrada' CHECK (status IN ('registrada', 'aguardando_conferencia', 'conferida', 'divergente', 'sem_comprovante', 'resolvida', 'cancelada', 'aguardando_fatura')),
+      parcela_atual INTEGER NOT NULL DEFAULT 1,
+      parcela_total INTEGER NOT NULL DEFAULT 1,
+      parcelamento_grupo_id INTEGER,
+      criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
+      FOREIGN KEY (departamento_id) REFERENCES setores(id),
+      FOREIGN KEY (responsavel_compra_id) REFERENCES usuarios(id),
+      FOREIGN KEY (parcelamento_grupo_id) REFERENCES compras_cartao(id)
+    );
+
+    INSERT INTO compras_cartao_migracao (
+      id, cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor,
+      categoria, motivo, comprovante_url, observacao, status, criado_em, atualizado_em
+    )
+    SELECT
+      id, cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor,
+      categoria, motivo, comprovante_url, observacao, status, criado_em, atualizado_em
+    FROM compras_cartao;
+
+    DROP TABLE compras_cartao;
+    ALTER TABLE compras_cartao_migracao RENAME TO compras_cartao;
+
+    PRAGMA foreign_keys = ON;
+  `);
 }
 
 module.exports = {

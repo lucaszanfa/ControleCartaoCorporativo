@@ -191,6 +191,9 @@ function mapCompraCartao(row) {
     comprovanteUrl: row.comprovante_url || "",
     observacao: row.observacao || "",
     status: row.status,
+    parcelaAtual: row.parcela_atual || 1,
+    parcelaTotal: row.parcela_total || 1,
+    parcelamentoGrupoId: row.parcelamento_grupo_id || null,
     automatica: compraCartaoAutomatica(row)
   };
 }
@@ -213,6 +216,14 @@ function compraJoinSql() {
 
 function daysDiff(a, b) {
   return Math.round((new Date(a) - new Date(b)) / 86400000);
+}
+
+function somarMeses(dataISO, quantidadeMeses) {
+  const [ano, mes, dia] = dataISO.split("-").map(Number);
+  const primeiroDiaAlvo = new Date(Date.UTC(ano, mes - 1 + quantidadeMeses, 1));
+  const ultimoDiaMesAlvo = new Date(Date.UTC(primeiroDiaAlvo.getUTCFullYear(), primeiroDiaAlvo.getUTCMonth() + 1, 0)).getUTCDate();
+  const diaFinal = Math.min(dia, ultimoDiaMesAlvo);
+  return `${primeiroDiaAlvo.getUTCFullYear()}-${String(primeiroDiaAlvo.getUTCMonth() + 1).padStart(2, "0")}-${String(diaFinal).padStart(2, "0")}`;
 }
 
 function similarText(a, b) {
@@ -938,7 +949,7 @@ function pendenciasCadastroCompra(compra) {
   if (!compra.responsavelCompraId) pendencias.push("Responsavel");
   if (!String(compra.categoria || "").trim()) pendencias.push("Categoria");
   if (!String(compra.motivo || "").trim()) pendencias.push("Motivo");
-  if (!String(compra.comprovanteUrl || "").trim()) pendencias.push("Comprovante");
+  if (compra.status !== "aguardando_fatura" && !String(compra.comprovanteUrl || "").trim()) pendencias.push("Comprovante");
   if (compra.status === "aguardando_conferencia") pendencias.push("Conferencia");
   if (compra.status === "divergente") pendencias.push("Divergencia");
   return [...new Set(pendencias)];
@@ -948,7 +959,7 @@ app.get("/api/compras-cartao/pendentes", async (request, response) => {
   try {
     const where = [
       `(cc.status IN ('aguardando_conferencia', 'divergente', 'sem_comprovante')
-          OR ifnull(trim(cc.comprovante_url), '') = ''
+          OR (cc.status != 'aguardando_fatura' AND ifnull(trim(cc.comprovante_url), '') = '')
           OR ifnull(trim(cc.motivo), '') = ''
           OR ifnull(trim(cc.categoria), '') = ''
           OR cc.responsavel_compra_id IS NULL)`
@@ -1263,7 +1274,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
 
 app.post("/api/compras-cartao", async (request, response) => {
   try {
-    const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, vincularPendencia, transacaoFaturaId, usuarioLogadoId } = request.body;
+    const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, vincularPendencia, transacaoFaturaId, usuarioLogadoId, parcelas } = request.body;
     if (!cartaoId || !departamentoId || !responsavelCompraId || !dataCompra || !valor || !fornecedor || !categoria || !motivo) return response.status(400).json({ erro: "Preencha todos os campos obrigatórios." });
     if (Number(valor) <= 0) return response.status(400).json({ erro: "Valor deve ser maior que zero." });
     const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
@@ -1272,16 +1283,35 @@ app.post("/api/compras-cartao", async (request, response) => {
     if (cartoesPermitidos !== null && !cartoesPermitidos.includes(Number(cartaoId))) {
       return response.status(403).json({ erro: "Você não tem permissão para cadastrar compras neste cartão." });
     }
+
+    const totalParcelas = Math.max(1, Math.min(60, Math.trunc(Number(parcelas)) || 1));
     const status = comprovanteUrl ? "registrada" : "sem_comprovante";
+    const valorTotal = Number(valor);
+    const valorParcela = totalParcelas > 1 ? Number((valorTotal / totalParcelas).toFixed(2)) : valorTotal;
+
     const result = await run(
-      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", status]
+      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valorParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", status, 1, totalParcelas]
     );
+
+    if (totalParcelas > 1) {
+      await run("UPDATE compras_cartao SET parcelamento_grupo_id = ? WHERE id = ?", [result.id, result.id]);
+      const valorUltimaParcela = Number((valorTotal - valorParcela * (totalParcelas - 1)).toFixed(2));
+      for (let parcela = 2; parcela <= totalParcelas; parcela += 1) {
+        const dataParcela = somarMeses(dataCompra, parcela - 1);
+        const valorDestaParcela = parcela === totalParcelas ? valorUltimaParcela : valorParcela;
+        await run(
+          "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, parcelamento_grupo_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [cartaoId, departamentoId, responsavelCompraId, dataParcela, valorDestaParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", "aguardando_fatura", parcela, totalParcelas, result.id]
+        );
+      }
+    }
+
     const pendencia = vincularPendencia ? await tentarAtualizarPendenciaPorCompra(result.id, transacaoFaturaId) : { atualizada: false };
     if (!pendencia.atualizada && status === "sem_comprovante") {
       await criarAlertaCompraSemComprovante(result.id);
     }
-    response.status(201).json({ id: result.id, pendenciaAtualizada: pendencia.atualizada, statusConciliacao: pendencia.status || null });
+    response.status(201).json({ id: result.id, pendenciaAtualizada: pendencia.atualizada, statusConciliacao: pendencia.status || null, parcelas: totalParcelas });
   } catch (error) {
     response.status(500).json({ erro: "Erro ao registrar compra.", detalhe: error.message });
   }
