@@ -153,6 +153,24 @@
     </main>
   </div>
 
+  <div id="permissoesCartaoModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="permissoesCartaoTitulo">
+    <div class="modal-card">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Permissões por cartão</span>
+          <h2 id="permissoesCartaoTitulo">Permissões de cartão</h2>
+          <p id="permissoesCartaoUsuarioNome"></p>
+        </div>
+        <button class="btn btn-secondary" type="button" id="fecharPermissoesCartaoBtn">Fechar</button>
+      </div>
+      <p class="field-hint">Se nenhum cartão for marcado, o usuário mantém acesso a todos. Ao marcar pelo menos um, ele passa a ver/cadastrar só nos cartões selecionados abaixo.</p>
+      <div id="permissoesCartaoLista" class="permissoes-cartao-lista"></div>
+      <div class="form-actions full-width modal-actions">
+        <button class="btn btn-primary" type="button" id="salvarPermissoesCartaoBtn">Salvar permissões</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/dados.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/usuarios.js?v=20260715-2"></script>

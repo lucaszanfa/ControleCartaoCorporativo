@@ -9375,6 +9375,51 @@ body.sidebar-collapsed .sidebar-brand {
   color: var(--texto-forte);
 }
 
+.permissoes-cartao-lista {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.permissoes-cartao-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 12px 14px;
+  border: 1px solid rgba(96, 165, 250, .25);
+  border-radius: 10px;
+  background: rgba(14, 165, 233, .07);
+}
+
+.permissoes-cartao-item strong {
+  display: block;
+  color: var(--texto-forte);
+}
+
+.permissoes-cartao-item small {
+  color: var(--texto-suave);
+}
+
+.permissoes-cartao-item-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.permissoes-cartao-item-checks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--texto-forte);
+  white-space: nowrap;
+}
+
 .users-department-pill,
 .users-department-empty {
   display: inline-flex;

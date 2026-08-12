@@ -2,7 +2,7 @@ let csvFaturaSelecionada = "";
 let transacoesFaturaSelecionadas = [];
 
 async function initFaturas() {
-  const cartoes = await (await fetch("/api/cartoes?status=ativo")).json();
+  const cartoes = await (await fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
   preencherSelect(document.getElementById("cartaoId"), cartoes, "id", "nomeCartao");
   document.getElementById("mesReferencia").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
   document.getElementById("mesReferencia").value = new Date().getMonth() + 1;

@@ -221,6 +221,35 @@ function similarText(a, b) {
   return left.includes(right.slice(0, 5)) || right.includes(left.slice(0, 5));
 }
 
+async function usuarioEhAdmin(usuarioId) {
+  if (!usuarioId) return false;
+  const usuario = await get("SELECT perfil, pode_administrar_usuarios FROM usuarios WHERE id = ?", [usuarioId]);
+  return usuario?.perfil === "admin" || Boolean(usuario?.pode_administrar_usuarios);
+}
+
+async function cartoesDoDepartamentoUsuario(usuarioId) {
+  const usuario = await get("SELECT setor FROM usuarios WHERE id = ?", [usuarioId]);
+  if (!usuario?.setor) return [];
+  const cartoes = await all(
+    `SELECT c.id FROM cartoes_corporativos c JOIN setores s ON s.id = c.departamento_id WHERE lower(s.nome) = lower(?)`,
+    [usuario.setor]
+  );
+  return cartoes.map((cartao) => cartao.id);
+}
+
+async function cartoesPermitidosParaUsuario(usuarioId, tipo) {
+  if (await usuarioEhAdmin(usuarioId)) return null;
+  const coluna = tipo === "ver" ? "pode_ver_compras" : "pode_cadastrar_compra";
+  const permissoes = await all(
+    "SELECT cartao_id, pode_cadastrar_compra, pode_ver_compras FROM permissoes_cartao_usuario WHERE usuario_id = ?",
+    [usuarioId]
+  );
+  if (permissoes.length) {
+    return permissoes.filter((linha) => linha[coluna]).map((linha) => linha.cartao_id);
+  }
+  return await cartoesDoDepartamentoUsuario(usuarioId);
+}
+
 function calcularAvisoPeriodoFatura(transacoes, mesReferencia, anoReferencia) {
   if (!transacoes.length) return null;
 
@@ -544,6 +573,54 @@ app.put("/api/usuarios/:id/permissoes", async (request, response) => {
     response.status(500).json({ erro: "Erro ao atualizar permissões.", detalhe: error.message });
   }
 });
+
+app.get("/api/usuarios/:id/permissoes-cartao", async (request, response) => {
+  try {
+    const cartoes = await all(
+      `SELECT c.id AS cartaoId, c.nome_cartao AS nomeCartao, c.ultimos_4_digitos AS ultimos4Digitos, s.nome AS departamento,
+              ifnull(p.pode_cadastrar_compra, 0) AS podeCadastrarCompra,
+              ifnull(p.pode_ver_compras, 0) AS podeVerCompras
+       FROM cartoes_corporativos c
+       JOIN setores s ON s.id = c.departamento_id
+       LEFT JOIN permissoes_cartao_usuario p ON p.cartao_id = c.id AND p.usuario_id = ?
+       WHERE c.status = 'ativo'
+       ORDER BY c.nome_cartao`,
+      [request.params.id]
+    );
+    response.json(cartoes.map((cartao) => ({
+      ...cartao,
+      podeCadastrarCompra: Boolean(cartao.podeCadastrarCompra),
+      podeVerCompras: Boolean(cartao.podeVerCompras)
+    })));
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao carregar permissões de cartão.", detalhe: error.message });
+  }
+});
+
+app.put("/api/usuarios/:id/permissoes-cartao", async (request, response) => {
+  try {
+    const adminEmail = String(request.body?.adminEmail || "").trim();
+    const admin = await get("SELECT perfil, status, pode_administrar_usuarios FROM usuarios WHERE lower(email) = lower(?)", [adminEmail]);
+    if (!admin || admin.status !== "ativo" || (admin.perfil !== "admin" && !admin.pode_administrar_usuarios)) {
+      response.status(403).json({ erro: "Apenas administradores podem alterar permissões de cartão." });
+      return;
+    }
+
+    const permissoes = Array.isArray(request.body?.permissoes) ? request.body.permissoes : [];
+    await run("DELETE FROM permissoes_cartao_usuario WHERE usuario_id = ?", [request.params.id]);
+    for (const item of permissoes) {
+      if (!item.podeCadastrarCompra && !item.podeVerCompras) continue;
+      await run(
+        "INSERT INTO permissoes_cartao_usuario (usuario_id, cartao_id, pode_cadastrar_compra, pode_ver_compras) VALUES (?, ?, ?, ?)",
+        [request.params.id, item.cartaoId, item.podeCadastrarCompra ? 1 : 0, item.podeVerCompras ? 1 : 0]
+      );
+    }
+    response.json({ mensagem: "Permissões de cartão atualizadas." });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao salvar permissões de cartão.", detalhe: error.message });
+  }
+});
+
 app.get("/api/setores", async (_request, response) => {
   response.json((await bootstrap()).setores);
 });
@@ -755,7 +832,16 @@ app.get("/api/cartoes", async (request, response) => {
       params.push(request.query.status);
     }
     const sql = `${cardJoinSql()} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY c.nome_cartao`;
-    response.json((await all(sql, params)).map(mapCartao));
+    let cartoes = (await all(sql, params)).map(mapCartao);
+
+    if (request.query.usuarioId && request.query.permissao) {
+      const permitidos = await cartoesPermitidosParaUsuario(request.query.usuarioId, request.query.permissao);
+      if (permitidos !== null) {
+        cartoes = cartoes.filter((cartao) => permitidos.includes(cartao.id));
+      }
+    }
+
+    response.json(cartoes);
   } catch (error) {
     response.status(500).json({ erro: "Erro ao listar cartões.", detalhe: error.message });
   }
@@ -1177,11 +1263,15 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
 
 app.post("/api/compras-cartao", async (request, response) => {
   try {
-    const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, vincularPendencia, transacaoFaturaId } = request.body;
+    const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, vincularPendencia, transacaoFaturaId, usuarioLogadoId } = request.body;
     if (!cartaoId || !departamentoId || !responsavelCompraId || !dataCompra || !valor || !fornecedor || !categoria || !motivo) return response.status(400).json({ erro: "Preencha todos os campos obrigatórios." });
     if (Number(valor) <= 0) return response.status(400).json({ erro: "Valor deve ser maior que zero." });
     const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
     if (!cartao || cartao.status !== "ativo") return response.status(400).json({ erro: "Selecione um cartão ativo." });
+    const cartoesPermitidos = await cartoesPermitidosParaUsuario(usuarioLogadoId, "cadastrar");
+    if (cartoesPermitidos !== null && !cartoesPermitidos.includes(Number(cartaoId))) {
+      return response.status(403).json({ erro: "Você não tem permissão para cadastrar compras neste cartão." });
+    }
     const status = comprovanteUrl ? "registrada" : "sem_comprovante";
     const result = await run(
       "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -1198,7 +1288,7 @@ app.post("/api/compras-cartao", async (request, response) => {
 });
 
 app.put("/api/compras-cartao/:id", async (request, response) => {
-  const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, status, vincularPendencia, transacaoFaturaId, alertaId } = request.body;
+  const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, status, vincularPendencia, transacaoFaturaId, alertaId, usuarioLogadoId } = request.body;
   const compraAtual = await get("SELECT * FROM compras_cartao WHERE id = ?", [request.params.id]);
   if (!compraAtual) {
     response.status(404).json({ erro: "Compra não encontrada." });
@@ -1216,6 +1306,12 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       observacao: compraAtual.observacao || "Compra cadastrada automaticamente."
     }
     : { cartaoId, departamentoId, dataCompra, valor, fornecedor, observacao: observacao || "" };
+
+  const cartoesPermitidos = await cartoesPermitidosParaUsuario(usuarioLogadoId, "cadastrar");
+  if (cartoesPermitidos !== null && !cartoesPermitidos.includes(Number(dadosProtegidos.cartaoId))) {
+    response.status(403).json({ erro: "Você não tem permissão para editar compras deste cartão." });
+    return;
+  }
 
   await run(
     "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
@@ -1327,6 +1423,11 @@ app.post("/api/faturas-cartao/importar", async (request, response) => {
   if (!cartaoId || !mesReferencia || !anoReferencia || !importadoPorId) return response.status(400).json({ erro: "Cartão, mês, ano e importador são obrigatórios." });
   const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
   if (!cartao) return response.status(404).json({ erro: "Cartão não encontrado." });
+
+  const cartoesPermitidos = await cartoesPermitidosParaUsuario(importadoPorId, "ver");
+  if (cartoesPermitidos !== null && !cartoesPermitidos.includes(Number(cartaoId))) {
+    return response.status(403).json({ erro: "Você não tem permissão para importar faturas deste cartão." });
+  }
 
   const listaTransacoes = transacoes || [];
   const transacoesDoCartao = listaTransacoes.filter((item) => String(item.ultimos4Digitos) === cartao.ultimos_4_digitos);

@@ -131,7 +131,7 @@ async function initCompraCartao() {
   let cartoes, setoresDetalhados, categorias, fornecedores, usuariosDisponiveis;
   try {
     [cartoes, setoresDetalhados, categorias, fornecedores, usuariosDisponiveis] = await Promise.all([
-      fetch("/api/cartoes?status=ativo").then((resposta) => resposta.json()),
+      fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=cadastrar`).then((resposta) => resposta.json()),
       fetch("/api/setores-detalhados").then((resposta) => resposta.json()),
       fetch("/api/categorias").then((resposta) => resposta.json()),
       fetch("/api/compras-cartao/fornecedores").then((resposta) => resposta.json()),
@@ -718,7 +718,8 @@ function getPayloadCompra() {
     categoria: document.getElementById("categoria").value,
     motivo: document.getElementById("motivo").value,
     comprovanteUrl: document.getElementById("comprovanteUrl").value,
-    observacao: document.getElementById("observacao").value
+    observacao: document.getElementById("observacao").value,
+    usuarioLogadoId: usuarioIdAtual()
   };
 }
 

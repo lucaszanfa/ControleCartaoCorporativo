@@ -13,10 +13,16 @@ const categoriasAdminPanel = document.getElementById("categoriasAdminPanel");
 const categoriaForm = document.getElementById("categoriaForm");
 const categoriaNome = document.getElementById("categoriaNome");
 const categoriasLista = document.getElementById("categoriasLista");
+const permissoesCartaoModal = document.getElementById("permissoesCartaoModal");
+const permissoesCartaoLista = document.getElementById("permissoesCartaoLista");
+const permissoesCartaoUsuarioNome = document.getElementById("permissoesCartaoUsuarioNome");
+const fecharPermissoesCartaoBtn = document.getElementById("fecharPermissoesCartaoBtn");
+const salvarPermissoesCartaoBtn = document.getElementById("salvarPermissoesCartaoBtn");
 
 let usuariosCache = [];
 let departamentosCache = [];
 let categoriasCache = [];
+let usuarioPermissoesCartaoAtual = null;
 
 function textoSeguro(valor) {
   return String(valor ?? "")
@@ -127,7 +133,75 @@ function renderizarUsuarios() {
   document.querySelectorAll(".salvar-permissoes").forEach((botao) => {
     botao.addEventListener("click", salvarPermissoes);
   });
+  document.querySelectorAll(".users-more").forEach((botao) => {
+    botao.addEventListener("click", (event) => {
+      const linha = event.target.closest("tr");
+      const usuario = usuariosCache.find((item) => String(item.id) === linha.dataset.id);
+      if (usuario) abrirPermissoesCartao(usuario);
+    });
+  });
 }
+
+async function abrirPermissoesCartao(usuario) {
+  if (!permissoesCartaoModal) return;
+  usuarioPermissoesCartaoAtual = usuario;
+  permissoesCartaoUsuarioNome.textContent = `${usuario.nome} · ${usuario.email}`;
+  permissoesCartaoLista.innerHTML = `<span class="users-department-empty">Carregando cartões...</span>`;
+  permissoesCartaoModal.classList.remove("hidden");
+
+  const cartoes = await (await fetch(`/api/usuarios/${usuario.id}/permissoes-cartao`)).json();
+  permissoesCartaoLista.innerHTML = cartoes.length
+    ? cartoes.map((cartao) => `
+        <article class="permissoes-cartao-item" data-cartao-id="${cartao.cartaoId}">
+          <div>
+            <strong>${textoSeguro(cartao.nomeCartao)}</strong>
+            <small>final ${textoSeguro(cartao.ultimos4Digitos)} · ${textoSeguro(cartao.departamento)}</small>
+          </div>
+          <div class="permissoes-cartao-item-checks">
+            <label><input type="checkbox" class="perm-cadastrar" ${cartao.podeCadastrarCompra ? "checked" : ""}> Cadastrar compras</label>
+            <label><input type="checkbox" class="perm-ver" ${cartao.podeVerCompras ? "checked" : ""}> Ver e importar faturas</label>
+          </div>
+        </article>
+      `).join("")
+    : `<span class="users-department-empty">Nenhum cartão ativo cadastrado.</span>`;
+}
+
+function fecharPermissoesCartao() {
+  permissoesCartaoModal.classList.add("hidden");
+  usuarioPermissoesCartaoAtual = null;
+}
+
+async function salvarPermissoesCartao() {
+  if (!usuarioPermissoesCartaoAtual) return;
+
+  const permissoes = [...permissoesCartaoLista.querySelectorAll(".permissoes-cartao-item")].map((item) => ({
+    cartaoId: Number(item.dataset.cartaoId),
+    podeCadastrarCompra: item.querySelector(".perm-cadastrar").checked,
+    podeVerCompras: item.querySelector(".perm-ver").checked
+  }));
+
+  salvarPermissoesCartaoBtn.disabled = true;
+  try {
+    const resposta = await fetch(`/api/usuarios/${usuarioPermissoesCartaoAtual.id}/permissoes-cartao`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ permissoes, adminEmail: usuarioLogado?.email || "" })
+    });
+    const dados = await resposta.json();
+
+    usuariosMensagem.textContent = dados.mensagem || dados.erro || "Permissões de cartão atualizadas.";
+    usuariosMensagem.classList.remove("hidden");
+    if (resposta.ok) fecharPermissoesCartao();
+  } finally {
+    salvarPermissoesCartaoBtn.disabled = false;
+  }
+}
+
+fecharPermissoesCartaoBtn?.addEventListener("click", fecharPermissoesCartao);
+salvarPermissoesCartaoBtn?.addEventListener("click", salvarPermissoesCartao);
+permissoesCartaoModal?.addEventListener("click", (event) => {
+  if (event.target === permissoesCartaoModal) fecharPermissoesCartao();
+});
 
 function criarToggle(classe, ativo) {
   return `

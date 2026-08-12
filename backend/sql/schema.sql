@@ -38,6 +38,17 @@ CREATE TABLE IF NOT EXISTS cartoes_corporativos (
   FOREIGN KEY (gerente_id) REFERENCES usuarios(id)
 );
 
+CREATE TABLE IF NOT EXISTS permissoes_cartao_usuario (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario_id INTEGER NOT NULL,
+  cartao_id INTEGER NOT NULL,
+  pode_cadastrar_compra INTEGER NOT NULL DEFAULT 0,
+  pode_ver_compras INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (usuario_id, cartao_id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+  FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id)
+);
+
 CREATE TABLE IF NOT EXISTS compras_cartao (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   cartao_id INTEGER NOT NULL,
