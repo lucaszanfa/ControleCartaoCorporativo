@@ -276,6 +276,9 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
         ? `Fatura importada e conciliada. ${resultado.pendencias.length} pendência(s) encontrada(s).`
         : `Fatura importada e conciliada. ${resultado.processadas || 0} transação(ões) processada(s), sem pendências.`;
     }
+    if (data.avisoPeriodo) {
+      mensagem.textContent += ` ⚠️ ${data.avisoPeriodo}`;
+    }
     event.target.reset();
     csvFaturaSelecionada = "";
     transacoesFaturaSelecionadas = [];

@@ -221,6 +221,27 @@ function similarText(a, b) {
   return left.includes(right.slice(0, 5)) || right.includes(left.slice(0, 5));
 }
 
+function calcularAvisoPeriodoFatura(transacoes, mesReferencia, anoReferencia) {
+  if (!transacoes.length) return null;
+
+  const mes = Number(mesReferencia);
+  const ano = Number(anoReferencia);
+  const primeiroDia = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const ultimoDiaNum = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  const ultimoDia = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDiaNum).padStart(2, "0")}`;
+  const TOLERANCIA_DIAS = 10;
+
+  const foraDoPeriodo = transacoes.filter((item) => {
+    if (!item.dataTransacao) return false;
+    const antesDoInicio = daysDiff(item.dataTransacao, primeiroDia) < -TOLERANCIA_DIAS;
+    const depoisDoFim = daysDiff(item.dataTransacao, ultimoDia) > TOLERANCIA_DIAS;
+    return antesDoInicio || depoisDoFim;
+  });
+
+  if (!foraDoPeriodo.length) return null;
+  return `${foraDoPeriodo.length} de ${transacoes.length} transação(ões) têm data fora do período esperado para ${String(mes).padStart(2, "0")}/${ano}. Confira se selecionou o cartão, o mês e o ano corretos.`;
+}
+
 async function criarAlertaCartao({ cartaoId, departamentoId, gerenteId, transacaoId, compraId, tipo, mensagem }) {
   const existente = await get(
     "SELECT id FROM alertas_cartao WHERE tipo_alerta = ? AND ifnull(transacao_fatura_id, 0) = ifnull(?, 0) AND ifnull(compra_cartao_id, 0) = ifnull(?, 0) AND status != 'resolvido'",
@@ -1305,14 +1326,23 @@ app.post("/api/faturas-cartao/importar", async (request, response) => {
   const { cartaoId, mesReferencia, anoReferencia, arquivoNome, importadoPorId, observacao, transacoes } = request.body;
   if (!cartaoId || !mesReferencia || !anoReferencia || !importadoPorId) return response.status(400).json({ erro: "Cartão, mês, ano e importador são obrigatórios." });
   const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
+  if (!cartao) return response.status(404).json({ erro: "Cartão não encontrado." });
+
+  const listaTransacoes = transacoes || [];
+  const transacoesDoCartao = listaTransacoes.filter((item) => String(item.ultimos4Digitos) === cartao.ultimos_4_digitos);
+  if (listaTransacoes.length && !transacoesDoCartao.length) {
+    return response.status(400).json({
+      erro: `Nenhuma transação deste arquivo pertence ao cartão selecionado (final ${cartao.ultimos_4_digitos}). Confira se escolheu o cartão certo.`
+    });
+  }
+
   const existente = await get("SELECT id FROM faturas_cartao WHERE cartao_id = ? AND mes_referencia = ? AND ano_referencia = ?", [cartaoId, mesReferencia, anoReferencia]);
   if (existente) return response.status(409).json({ erro: "Já existe fatura para este cartão/mês/ano." });
   const fatura = await run(
     "INSERT INTO faturas_cartao (cartao_id, mes_referencia, ano_referencia, arquivo_nome, importado_por_id, status, observacao) VALUES (?, ?, ?, ?, ?, 'importada', ?)",
     [cartaoId, mesReferencia, anoReferencia, arquivoNome || "lançamento manual", importadoPorId, observacao || ""]
   );
-  for (const item of transacoes || []) {
-    if (String(item.ultimos4Digitos) !== cartao.ultimos_4_digitos) continue;
+  for (const item of transacoesDoCartao) {
     const dup = await get(
       "SELECT id FROM transacoes_fatura WHERE cartao_id = ? AND data_transacao = ? AND valor = ? AND lower(estabelecimento) = lower(?)",
       [cartaoId, item.dataTransacao, item.valor, item.estabelecimento]
@@ -1324,7 +1354,7 @@ app.post("/api/faturas-cartao/importar", async (request, response) => {
       );
     }
   }
-  response.status(201).json({ id: fatura.id });
+  response.status(201).json({ id: fatura.id, avisoPeriodo: calcularAvisoPeriodoFatura(transacoesDoCartao, mesReferencia, anoReferencia) });
 });
 
 app.get("/api/faturas-cartao/:id/transacoes", async (request, response) => {
