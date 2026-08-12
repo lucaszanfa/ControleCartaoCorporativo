@@ -226,6 +226,18 @@ function somarMeses(dataISO, quantidadeMeses) {
   return `${primeiroDiaAlvo.getUTCFullYear()}-${String(primeiroDiaAlvo.getUTCMonth() + 1).padStart(2, "0")}-${String(diaFinal).padStart(2, "0")}`;
 }
 
+async function gerarParcelasFuturas({ compraOrigemId, cartaoId, departamentoId, responsavelCompraId, dataCompra, valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao }) {
+  const valorUltimaParcela = Number((valorTotal - valorParcela * (totalParcelas - 1)).toFixed(2));
+  for (let parcela = 2; parcela <= totalParcelas; parcela += 1) {
+    const dataParcela = somarMeses(dataCompra, parcela - 1);
+    const valorDestaParcela = parcela === totalParcelas ? valorUltimaParcela : valorParcela;
+    await run(
+      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, parcelamento_grupo_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [cartaoId, departamentoId, responsavelCompraId, dataParcela, valorDestaParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", "aguardando_fatura", parcela, totalParcelas, compraOrigemId]
+    );
+  }
+}
+
 function similarText(a, b) {
   const left = String(a || "").toLowerCase();
   const right = String(b || "").toLowerCase();
@@ -1159,11 +1171,13 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
       fornecedor,
       ultimos4Digitos,
       codigoAutorizacao,
-      emailOrigemId
+      emailOrigemId,
+      parcelas
     } = request.body;
     const dataNormalizada = normalizarDataCompraAutomatica(dataCompra);
     const valorNumerico = normalizarValorCompraAutomatica(valor);
     const finalCartao = String(ultimos4Digitos || "").replace(/\D/g, "").slice(-4);
+    const totalParcelas = Math.max(1, Math.min(60, Math.trunc(Number(parcelas)) || 1));
 
     if (!dataNormalizada || !valorNumerico || !fornecedor || !finalCartao) {
       response.status(400).json({ erro: "Informe dataCompra, valor, fornecedor e ultimos4Digitos." });
@@ -1188,10 +1202,10 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
       `SELECT id FROM compras_cartao
        WHERE cartao_id = ?
          AND data_compra = ?
-         AND valor = ?
          AND lower(fornecedor) = lower(?)
+         AND parcela_atual = 1
          AND status != 'cancelada'`,
-      [cartao.id, dataNormalizada, valorNumerico, fornecedor]
+      [cartao.id, dataNormalizada, fornecedor]
     );
 
     if (existente) {
@@ -1200,6 +1214,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
     }
 
     const observacao = "Compra cadastrada automaticamente.";
+    const valorParcela = totalParcelas > 1 ? Number((valorNumerico / totalParcelas).toFixed(2)) : valorNumerico;
 
     const result = await run(
       `INSERT INTO compras_cartao (
@@ -1213,18 +1228,40 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
         motivo,
         comprovante_url,
         observacao,
-        status
-      ) VALUES (?, ?, ?, ?, ?, ?, '', '', '', ?, 'sem_comprovante')`,
+        status,
+        parcela_atual,
+        parcela_total
+      ) VALUES (?, ?, ?, ?, ?, ?, '', '', '', ?, 'sem_comprovante', 1, ?)`,
       [
         cartao.id,
         cartao.departamento_id,
         null,
         dataNormalizada,
-        valorNumerico,
+        valorParcela,
         fornecedor,
-        observacao
+        observacao,
+        totalParcelas
       ]
     );
+
+    if (totalParcelas > 1) {
+      await run("UPDATE compras_cartao SET parcelamento_grupo_id = ? WHERE id = ?", [result.id, result.id]);
+      await gerarParcelasFuturas({
+        compraOrigemId: result.id,
+        cartaoId: cartao.id,
+        departamentoId: cartao.departamento_id,
+        responsavelCompraId: null,
+        dataCompra: dataNormalizada,
+        valorTotal: valorNumerico,
+        totalParcelas,
+        valorParcela,
+        fornecedor,
+        categoria: "",
+        motivo: "",
+        comprovanteUrl: "",
+        observacao
+      });
+    }
 
     await criarAlertaCompraSemComprovante(result.id);
     let envioTeams = null;
@@ -1296,15 +1333,10 @@ app.post("/api/compras-cartao", async (request, response) => {
 
     if (totalParcelas > 1) {
       await run("UPDATE compras_cartao SET parcelamento_grupo_id = ? WHERE id = ?", [result.id, result.id]);
-      const valorUltimaParcela = Number((valorTotal - valorParcela * (totalParcelas - 1)).toFixed(2));
-      for (let parcela = 2; parcela <= totalParcelas; parcela += 1) {
-        const dataParcela = somarMeses(dataCompra, parcela - 1);
-        const valorDestaParcela = parcela === totalParcelas ? valorUltimaParcela : valorParcela;
-        await run(
-          "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, parcelamento_grupo_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [cartaoId, departamentoId, responsavelCompraId, dataParcela, valorDestaParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", "aguardando_fatura", parcela, totalParcelas, result.id]
-        );
-      }
+      await gerarParcelasFuturas({
+        compraOrigemId: result.id, cartaoId, departamentoId, responsavelCompraId, dataCompra,
+        valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao
+      });
     }
 
     const pendencia = vincularPendencia ? await tentarAtualizarPendenciaPorCompra(result.id, transacaoFaturaId) : { atualizada: false };
@@ -1318,7 +1350,7 @@ app.post("/api/compras-cartao", async (request, response) => {
 });
 
 app.put("/api/compras-cartao/:id", async (request, response) => {
-  const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, status, vincularPendencia, transacaoFaturaId, alertaId, usuarioLogadoId } = request.body;
+  const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, status, vincularPendencia, transacaoFaturaId, alertaId, usuarioLogadoId, parcelas } = request.body;
   const compraAtual = await get("SELECT * FROM compras_cartao WHERE id = ?", [request.params.id]);
   if (!compraAtual) {
     response.status(404).json({ erro: "Compra não encontrada." });
@@ -1351,26 +1383,52 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
     }
   }
 
+  const totalParcelas = Math.max(1, Math.min(60, Math.trunc(Number(parcelas)) || 1));
+  const podeParcelarAgora = totalParcelas > 1 && compraAtual.parcela_total === 1 && !compraAtual.parcelamento_grupo_id;
+  const valorTotalOriginal = Number(dadosProtegidos.valor);
+  const valorFinal = podeParcelarAgora ? Number((valorTotalOriginal / totalParcelas).toFixed(2)) : dadosProtegidos.valor;
+
   await run(
-    "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+    "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, parcela_total = ?, parcelamento_grupo_id = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
     [
       dadosProtegidos.cartaoId,
       dadosProtegidos.departamentoId,
       responsavelCompraId || null,
       dadosProtegidos.dataCompra,
-      dadosProtegidos.valor,
+      valorFinal,
       dadosProtegidos.fornecedor,
       categoria || "",
       motivo || "",
       comprovanteUrl || "",
       dadosProtegidos.observacao,
       status || "registrada",
+      podeParcelarAgora ? totalParcelas : compraAtual.parcela_total,
+      podeParcelarAgora ? request.params.id : compraAtual.parcelamento_grupo_id,
       request.params.id
     ]
   );
+
+  if (podeParcelarAgora) {
+    await gerarParcelasFuturas({
+      compraOrigemId: Number(request.params.id),
+      cartaoId: dadosProtegidos.cartaoId,
+      departamentoId: dadosProtegidos.departamentoId,
+      responsavelCompraId,
+      dataCompra: dadosProtegidos.dataCompra,
+      valorTotal: valorTotalOriginal,
+      totalParcelas,
+      valorParcela: valorFinal,
+      fornecedor: dadosProtegidos.fornecedor,
+      categoria,
+      motivo,
+      comprovanteUrl,
+      observacao: dadosProtegidos.observacao
+    });
+  }
+
   const pendencia = vincularPendencia ? await tentarAtualizarPendenciaPorCompra(request.params.id, transacaoFaturaId) : { atualizada: false };
   const alerta = await resolverAlertaAposAtualizarCompra(request.params.id, alertaId);
-  response.json({ mensagem: "Compra atualizada.", pendenciaAtualizada: pendencia.atualizada, statusConciliacao: pendencia.status || null, alertaResolvido: alerta.resolvido, motivoAlerta: alerta.motivo || null });
+  response.json({ mensagem: "Compra atualizada.", pendenciaAtualizada: pendencia.atualizada, statusConciliacao: pendencia.status || null, alertaResolvido: alerta.resolvido, motivoAlerta: alerta.motivo || null, parcelas: podeParcelarAgora ? totalParcelas : compraAtual.parcela_total });
 });
 
 app.patch("/api/compras-cartao/:id/status", async (request, response) => {

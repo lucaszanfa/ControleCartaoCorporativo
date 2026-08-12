@@ -168,10 +168,11 @@ O fluxo deve:
 1. Receber o e-mail da compra.
 2. Extrair os dados do corpo do e-mail:
    - data da compra;
-   - valor;
+   - valor (valor total da compra, mesmo se for parcelada);
    - fornecedor;
    - ultimos 4 digitos do cartao;
-   - codigo de autorizacao, se existir.
+   - codigo de autorizacao, se existir;
+   - numero de parcelas, se o e-mail informar (ex.: "Parcelamento: 5x").
 3. Enviar uma requisicao HTTP para o sistema.
 
 Use a acao:
@@ -212,9 +213,12 @@ Body:
   "fornecedor": "@{variables('fornecedor')}",
   "ultimos4Digitos": "@{variables('ultimos4Digitos')}",
   "codigoAutorizacao": "@{variables('codigoAutorizacao')}",
+  "parcelas": "@{variables('parcelas')}",
   "emailOrigemId": "@{triggerOutputs()?['body/id']}"
 }
 ```
+
+O campo `parcelas` e opcional. Se o e-mail nao informar parcelamento (ou o campo vier vazio/1), a compra e cadastrada normalmente, como uma unica parcela.
 
 Ao receber essa chamada, o sistema:
 
@@ -222,7 +226,8 @@ Ao receber essa chamada, o sistema:
 - cadastra a compra automaticamente;
 - deixa responsavel, categoria, motivo e comprovante para conclusao posterior;
 - registra a observacao `Compra cadastrada automaticamente.`;
-- envia alerta para o Teams, se a variavel de Power Automate estiver configurada.
+- envia alerta para o Teams, se a variavel de Power Automate estiver configurada;
+- **se `parcelas` for maior que 1**, divide o valor total pelo numero de parcelas e ja cadastra as parcelas dos meses seguintes (status `aguardando_fatura`), para a conciliacao reconhecer cada fatura mensal automaticamente. Se o e-mail nao informar o parcelamento, quem for concluir o cadastro em Compras Pendentes tambem pode informar "Parcelado em quantas vezes?" naquela tela.
 
 ### Alerta Teams Apos Compra Automatica
 

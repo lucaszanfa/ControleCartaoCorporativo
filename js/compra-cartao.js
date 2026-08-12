@@ -806,9 +806,18 @@ async function carregarCompraParaEdicao(id) {
   atualizarContadorCompra();
   atualizarResumoCartao();
 
+  if (compra.parcelaTotal > 1) {
+    document.getElementById("parcelasCampo").classList.add("hidden");
+  } else {
+    document.getElementById("parcelasCampo").classList.remove("hidden");
+    document.getElementById("parcelas").value = "";
+  }
+
   if (compraCadastradaAutomaticamente(compra)) {
     definirCamposProtegidosCompraAutomatica(true);
-    mensagem.textContent = "Esta compra foi cadastrada automaticamente. Complete apenas os campos faltantes: responsavel, categoria, motivo e comprovante.";
+    mensagem.textContent = compra.parcelaTotal > 1
+      ? "Esta compra foi cadastrada automaticamente. Complete apenas os campos faltantes: responsavel, categoria, motivo e comprovante."
+      : "Esta compra foi cadastrada automaticamente. Complete os campos faltantes e, se foi parcelada, informe em quantas vezes para o sistema já cadastrar as parcelas seguintes.";
   }
 }
 
