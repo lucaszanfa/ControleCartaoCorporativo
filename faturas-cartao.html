@@ -15,9 +15,14 @@
           </div>
         </div>
         <div id="faturaMensagem" class="alert-success hidden"></div>
+        <div id="arquivosPorCartao" class="conciliation-result hidden"></div>
         <div id="resultadoConciliacao" class="conciliation-result hidden"></div>
         <form id="faturaForm" class="form-grid form-grid-two">
-          <label>Cartão <select id="cartaoId" required></select></label>
+          <div class="full-width">
+            <span class="fatura-cartoes-titulo">Cartão(ões) <em>*</em></span>
+            <p class="field-hint">Marque mais de um se a fatura reunir compras de vários cartões — o sistema separa cada transação pelo cartão certo automaticamente.</p>
+            <div id="cartaoIdLista" class="fatura-cartoes-lista"></div>
+          </div>
           <label>Mês <select id="mesReferencia" required></select></label>
           <label>Ano <input id="anoReferencia" type="number" value="2026" required></label>
           <label class="purchase-upload-label">Arquivo CSV ou PDF

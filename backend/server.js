@@ -1419,43 +1419,91 @@ app.post("/api/faturas-cartao/extrair-pdf", async (request, response) => {
 });
 
 app.post("/api/faturas-cartao/importar", async (request, response) => {
-  const { cartaoId, mesReferencia, anoReferencia, arquivoNome, importadoPorId, observacao, transacoes } = request.body;
-  if (!cartaoId || !mesReferencia || !anoReferencia || !importadoPorId) return response.status(400).json({ erro: "Cartão, mês, ano e importador são obrigatórios." });
-  const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
-  if (!cartao) return response.status(404).json({ erro: "Cartão não encontrado." });
+  const { cartaoId, cartaoIds, mesReferencia, anoReferencia, arquivoNome, importadoPorId, observacao, transacoes } = request.body;
+  const idsSelecionados = [...new Set(
+    (Array.isArray(cartaoIds) && cartaoIds.length ? cartaoIds : (cartaoId ? [cartaoId] : [])).map(Number)
+  )];
+
+  if (!idsSelecionados.length || !mesReferencia || !anoReferencia || !importadoPorId) {
+    return response.status(400).json({ erro: "Cartão, mês, ano e importador são obrigatórios." });
+  }
+
+  const cartoes = await all(
+    `SELECT * FROM cartoes_corporativos WHERE id IN (${idsSelecionados.map(() => "?").join(",")})`,
+    idsSelecionados
+  );
+  if (cartoes.length !== idsSelecionados.length) {
+    return response.status(404).json({ erro: "Um ou mais cartões selecionados não foram encontrados." });
+  }
 
   const cartoesPermitidos = await cartoesPermitidosParaUsuario(importadoPorId, "ver");
-  if (cartoesPermitidos !== null && !cartoesPermitidos.includes(Number(cartaoId))) {
-    return response.status(403).json({ erro: "Você não tem permissão para importar faturas deste cartão." });
+  if (cartoesPermitidos !== null) {
+    const semPermissao = cartoes.filter((cartao) => !cartoesPermitidos.includes(cartao.id));
+    if (semPermissao.length) {
+      return response.status(403).json({
+        erro: `Você não tem permissão para importar faturas destes cartões: ${semPermissao.map((cartao) => cartao.nome_cartao).join(", ")}.`
+      });
+    }
   }
 
   const listaTransacoes = transacoes || [];
-  const transacoesDoCartao = listaTransacoes.filter((item) => String(item.ultimos4Digitos) === cartao.ultimos_4_digitos);
-  if (listaTransacoes.length && !transacoesDoCartao.length) {
+  const grupoPorCartao = new Map(cartoes.map((cartao) => [cartao.ultimos_4_digitos, { cartao, transacoes: [] }]));
+  let naoReconhecidas = 0;
+  for (const item of listaTransacoes) {
+    const grupo = grupoPorCartao.get(String(item.ultimos4Digitos));
+    if (grupo) grupo.transacoes.push(item);
+    else naoReconhecidas += 1;
+  }
+
+  if (listaTransacoes.length && naoReconhecidas === listaTransacoes.length) {
     return response.status(400).json({
-      erro: `Nenhuma transação deste arquivo pertence ao cartão selecionado (final ${cartao.ultimos_4_digitos}). Confira se escolheu o cartão certo.`
+      erro: "Nenhuma transação deste arquivo pertence aos cartões selecionados. Confira se escolheu o(s) cartão(ões) certo(s)."
     });
   }
 
-  const existente = await get("SELECT id FROM faturas_cartao WHERE cartao_id = ? AND mes_referencia = ? AND ano_referencia = ?", [cartaoId, mesReferencia, anoReferencia]);
-  if (existente) return response.status(409).json({ erro: "Já existe fatura para este cartão/mês/ano." });
-  const fatura = await run(
-    "INSERT INTO faturas_cartao (cartao_id, mes_referencia, ano_referencia, arquivo_nome, importado_por_id, status, observacao) VALUES (?, ?, ?, ?, ?, 'importada', ?)",
-    [cartaoId, mesReferencia, anoReferencia, arquivoNome || "lançamento manual", importadoPorId, observacao || ""]
-  );
-  for (const item of transacoesDoCartao) {
-    const dup = await get(
-      "SELECT id FROM transacoes_fatura WHERE cartao_id = ? AND data_transacao = ? AND valor = ? AND lower(estabelecimento) = lower(?)",
-      [cartaoId, item.dataTransacao, item.valor, item.estabelecimento]
-    );
-    if (!dup) {
-      await run(
-        "INSERT INTO transacoes_fatura (fatura_id, cartao_id, data_transacao, estabelecimento, valor, ultimos_4_digitos, codigo_autorizacao, categoria_detectada) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [fatura.id, cartaoId, item.dataTransacao, item.estabelecimento, item.valor, item.ultimos4Digitos, item.codigoAutorizacao || "", item.categoriaDetectada || ""]
-      );
+  const resultados = [];
+  for (const grupo of grupoPorCartao.values()) {
+    if (!grupo.transacoes.length) {
+      resultados.push({ cartaoId: grupo.cartao.id, cartao: grupo.cartao.nome_cartao, importado: false, motivo: "Nenhuma transação deste arquivo pertence a este cartão." });
+      continue;
     }
+
+    const existente = await get(
+      "SELECT id FROM faturas_cartao WHERE cartao_id = ? AND mes_referencia = ? AND ano_referencia = ?",
+      [grupo.cartao.id, mesReferencia, anoReferencia]
+    );
+    if (existente) {
+      resultados.push({ cartaoId: grupo.cartao.id, cartao: grupo.cartao.nome_cartao, importado: false, motivo: "Já existe fatura para este cartão/mês/ano." });
+      continue;
+    }
+
+    const fatura = await run(
+      "INSERT INTO faturas_cartao (cartao_id, mes_referencia, ano_referencia, arquivo_nome, importado_por_id, status, observacao) VALUES (?, ?, ?, ?, ?, 'importada', ?)",
+      [grupo.cartao.id, mesReferencia, anoReferencia, arquivoNome || "lançamento manual", importadoPorId, observacao || ""]
+    );
+    for (const item of grupo.transacoes) {
+      const dup = await get(
+        "SELECT id FROM transacoes_fatura WHERE cartao_id = ? AND data_transacao = ? AND valor = ? AND lower(estabelecimento) = lower(?)",
+        [grupo.cartao.id, item.dataTransacao, item.valor, item.estabelecimento]
+      );
+      if (!dup) {
+        await run(
+          "INSERT INTO transacoes_fatura (fatura_id, cartao_id, data_transacao, estabelecimento, valor, ultimos_4_digitos, codigo_autorizacao, categoria_detectada) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          [fatura.id, grupo.cartao.id, item.dataTransacao, item.estabelecimento, item.valor, item.ultimos4Digitos, item.codigoAutorizacao || "", item.categoriaDetectada || ""]
+        );
+      }
+    }
+    resultados.push({
+      cartaoId: grupo.cartao.id,
+      cartao: grupo.cartao.nome_cartao,
+      importado: true,
+      faturaId: fatura.id,
+      transacoes: grupo.transacoes.length,
+      avisoPeriodo: calcularAvisoPeriodoFatura(grupo.transacoes, mesReferencia, anoReferencia)
+    });
   }
-  response.status(201).json({ id: fatura.id, avisoPeriodo: calcularAvisoPeriodoFatura(transacoesDoCartao, mesReferencia, anoReferencia) });
+
+  response.status(201).json({ faturas: resultados, transacoesNaoReconhecidas: naoReconhecidas });
 });
 
 app.get("/api/faturas-cartao/:id/transacoes", async (request, response) => {

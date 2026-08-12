@@ -1,12 +1,28 @@
 let csvFaturaSelecionada = "";
 let transacoesFaturaSelecionadas = [];
+let cartoesFaturaCache = [];
 
 async function initFaturas() {
-  const cartoes = await (await fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
-  preencherSelect(document.getElementById("cartaoId"), cartoes, "id", "nomeCartao");
+  cartoesFaturaCache = await (await fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
+  document.getElementById("cartaoIdLista").innerHTML = cartoesFaturaCache.map((cartao) => `
+    <label class="fatura-cartao-opcao">
+      <input type="checkbox" value="${cartao.id}">
+      ${escapeHtml(cartao.nomeCartao)} <small>final ${escapeHtml(cartao.ultimos4Digitos)}</small>
+    </label>
+  `).join("");
+  document.querySelectorAll("#cartaoIdLista input[type=checkbox]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      checkbox.closest(".fatura-cartao-opcao").classList.toggle("selecionado", checkbox.checked);
+      renderPreviaFatura();
+    });
+  });
   document.getElementById("mesReferencia").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
   document.getElementById("mesReferencia").value = new Date().getMonth() + 1;
   await carregarFaturas();
+}
+
+function cartoesSelecionados() {
+  return [...document.querySelectorAll("#cartaoIdLista input[type=checkbox]:checked")].map((input) => Number(input.value));
 }
 
 function parseCsv(texto) {
@@ -25,15 +41,27 @@ function renderPreviaFatura() {
     previa.classList.add("hidden");
     return;
   }
+
+  const idsSelecionados = new Set(cartoesSelecionados());
+  const nomePorDigitos = new Map(
+    cartoesFaturaCache.filter((cartao) => idsSelecionados.has(cartao.id)).map((cartao) => [cartao.ultimos4Digitos, cartao.nomeCartao])
+  );
+
   previa.classList.remove("hidden");
   previa.innerHTML = `
     <div class="section-header">
-      <div><h2>Prévia das transações</h2><p>Confira os dados reconhecidos antes de importar.</p></div>
+      <div><h2>Prévia das transações</h2><p>Confira os dados reconhecidos e o cartão de destino antes de importar.</p></div>
       <strong>${transacoesFaturaSelecionadas.length} transação(ões)</strong>
     </div>
     <div class="table-wrapper"><table>
-      <thead><tr><th>Data</th><th>Estabelecimento</th><th>Valor</th><th>Final</th><th>Categoria</th></tr></thead>
-      <tbody>${transacoesFaturaSelecionadas.map((item) => `<tr><td>${escapeHtml(item.dataTransacao)}</td><td>${escapeHtml(item.estabelecimento)}</td><td>${moeda(item.valor)}</td><td>${escapeHtml(item.ultimos4Digitos)}</td><td>${escapeHtml(item.categoriaDetectada || "outros")}</td></tr>`).join("")}</tbody>
+      <thead><tr><th>Data</th><th>Estabelecimento</th><th>Valor</th><th>Final</th><th>Cartão</th><th>Categoria</th></tr></thead>
+      <tbody>${transacoesFaturaSelecionadas.map((item) => {
+        const nomeCartao = nomePorDigitos.get(String(item.ultimos4Digitos));
+        const celulaCartao = nomeCartao
+          ? escapeHtml(nomeCartao)
+          : `<span class="status status-pending">Não corresponde a um cartão marcado</span>`;
+        return `<tr><td>${escapeHtml(item.dataTransacao)}</td><td>${escapeHtml(item.estabelecimento)}</td><td>${moeda(item.valor)}</td><td>${escapeHtml(item.ultimos4Digitos)}</td><td>${celulaCartao}</td><td>${escapeHtml(item.categoriaDetectada || "outros")}</td></tr>`;
+      }).join("")}</tbody>
     </table></div>
   `;
 }
@@ -94,6 +122,15 @@ async function carregarArquivoFatura(event) {
     return;
   }
 
+  const cartaoIdsPdf = cartoesSelecionados();
+  if (!cartaoIdsPdf.length) {
+    event.target.value = "";
+    arquivoNome.value = "";
+    mensagem.textContent = "Marque ao menos um cartão antes de anexar um PDF.";
+    mensagem.classList.remove("hidden");
+    return;
+  }
+
   arquivoAtual.textContent = `Processando PDF: ${file.name}...`;
   mensagem.textContent = "Extraindo as transações do PDF...";
   const resposta = await fetch("/api/faturas-cartao/extrair-pdf", {
@@ -102,7 +139,7 @@ async function carregarArquivoFatura(event) {
     body: JSON.stringify({
       fileName: file.name,
       base64: await arquivoComoDataUrl(file),
-      cartaoId: document.getElementById("cartaoId").value,
+      cartaoId: cartaoIdsPdf[0],
       anoReferencia: document.getElementById("anoReferencia").value
     })
   });
@@ -120,7 +157,9 @@ async function carregarArquivoFatura(event) {
   csvFaturaSelecionada = "";
   transacoesFaturaSelecionadas = dados.transacoes || [];
   arquivoAtual.textContent = `PDF processado: ${file.name} (${transacoesFaturaSelecionadas.length} transação(ões))`;
-  mensagem.textContent = "PDF convertido. Confira a prévia antes de importar.";
+  mensagem.textContent = cartaoIdsPdf.length > 1
+    ? "PDF convertido usando os dados do primeiro cartão marcado (um PDF representa a fatura de um único cartão). Confira a prévia antes de importar."
+    : "PDF convertido. Confira a prévia antes de importar.";
   renderPreviaFatura();
 }
 
@@ -173,6 +212,67 @@ function detalheCompraEncontrada(pendencia) {
   ].filter(Boolean).join(" - ");
 
   return `Compra encontrada: ${detalhes || "dados incompletos"}.`;
+}
+
+function gerarCsvTransacoes(transacoes) {
+  const linhas = transacoes.map((item) => [
+    item.data_transacao,
+    item.estabelecimento,
+    Number(item.valor || 0).toFixed(2).replace(".", ","),
+    item.ultimos_4_digitos,
+    item.codigo_autorizacao || "",
+    item.categoria_detectada || "outros"
+  ].join(";"));
+  return ["data_transacao;estabelecimento;valor;ultimos_4_digitos;codigo_autorizacao;categoria", ...linhas].join("\n");
+}
+
+function baixarArquivoTexto(nomeArquivo, conteudo) {
+  const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nomeArquivo;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function renderArquivosPorCartao(itensImportados, mesReferencia, anoReferencia) {
+  const container = document.getElementById("arquivosPorCartao");
+  if (itensImportados.length < 2) {
+    container.classList.add("hidden");
+    container.innerHTML = "";
+    return;
+  }
+
+  const porCartao = await Promise.all(itensImportados.map(async (item) => ({
+    ...item,
+    transacoes: await (await fetch(`/api/faturas-cartao/${item.faturaId}/transacoes`)).json()
+  })));
+
+  container.classList.remove("hidden");
+  container.innerHTML = `
+    <div class="section-header">
+      <div>
+        <h2>Arquivos separados por cartão</h2>
+        <p>Baixe um CSV só com as transações de cada cartão desta importação.</p>
+      </div>
+    </div>
+    <div class="fatura-cartoes-lista">
+      ${porCartao.map((item, index) => `
+        <button class="btn btn-secondary" type="button" data-indice="${index}">Baixar CSV - ${escapeHtml(item.cartao)} (${item.transacoes.length})</button>
+      `).join("")}
+    </div>
+  `;
+
+  container.querySelectorAll("button[data-indice]").forEach((botao) => {
+    botao.addEventListener("click", () => {
+      const item = porCartao[Number(botao.dataset.indice)];
+      const nomeArquivo = `fatura-${item.cartao.toLowerCase().replaceAll(" ", "-")}-${anoReferencia}-${String(mesReferencia).padStart(2, "0")}.csv`;
+      baixarArquivoTexto(nomeArquivo, gerarCsvTransacoes(item.transacoes));
+    });
+  });
 }
 
 function renderResultadoConciliacao(data) {
@@ -229,17 +329,21 @@ async function carregarFaturas() {
   `).join("");
 }
 
-async function rodarConciliacao(id) {
+async function rodarConciliacao(id, opcoes = {}) {
   const res = await fetch(`/api/conciliacoes-cartao/rodar/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conciliadoPorId: usuarioIdAtual() }) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const mensagem = document.getElementById("faturaMensagem");
-    mensagem.textContent = data.erro || "Não foi possível rodar a conciliação.";
-    mensagem.classList.remove("hidden");
+    if (!opcoes.silencioso) {
+      const mensagem = document.getElementById("faturaMensagem");
+      mensagem.textContent = data.erro || "Não foi possível rodar a conciliação.";
+      mensagem.classList.remove("hidden");
+    }
     return null;
   }
-  await carregarFaturas();
-  renderResultadoConciliacao(data);
+  if (!opcoes.silencioso) {
+    await carregarFaturas();
+    renderResultadoConciliacao(data);
+  }
   return data;
 }
 
@@ -254,8 +358,15 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
     return;
   }
 
+  const cartaoIds = cartoesSelecionados();
+  if (!cartaoIds.length) {
+    mensagem.textContent = "Marque pelo menos um cartão.";
+    mensagem.classList.remove("hidden");
+    return;
+  }
+
   const payload = {
-    cartaoId: document.getElementById("cartaoId").value,
+    cartaoIds,
     mesReferencia: document.getElementById("mesReferencia").value,
     anoReferencia: document.getElementById("anoReferencia").value,
     arquivoNome: document.getElementById("arquivoNome").value,
@@ -266,28 +377,63 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
 
   const res = await fetch("/api/faturas-cartao/importar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   const data = await res.json();
-  mensagem.textContent = data.erro || "Fatura importada. Rodando conciliação automática...";
-  mensagem.classList.remove("hidden");
 
-  if (res.ok) {
-    const resultado = await rodarConciliacao(data.id);
-    if (resultado) {
-      mensagem.textContent = resultado.pendencias?.length
-        ? `Fatura importada e conciliada. ${resultado.pendencias.length} pendência(s) encontrada(s).`
-        : `Fatura importada e conciliada. ${resultado.processadas || 0} transação(ões) processada(s), sem pendências.`;
-    }
-    if (data.avisoPeriodo) {
-      mensagem.textContent += ` ⚠️ ${data.avisoPeriodo}`;
-    }
-    event.target.reset();
-    csvFaturaSelecionada = "";
-    transacoesFaturaSelecionadas = [];
-    renderPreviaFatura();
-    document.getElementById("arquivoNome").value = "";
-    document.getElementById("arquivoFaturaAtual").textContent = "Nenhum arquivo selecionado.";
-    document.getElementById("mesReferencia").value = new Date().getMonth() + 1;
-    await carregarFaturas();
+  if (!res.ok) {
+    mensagem.textContent = data.erro || "Não foi possível importar a fatura.";
+    mensagem.classList.remove("hidden");
+    return;
   }
+
+  const faturas = data.faturas || [];
+  const importadas = faturas.filter((item) => item.importado);
+  const ignoradas = faturas.filter((item) => !item.importado);
+
+  if (!importadas.length) {
+    mensagem.textContent = ignoradas.length
+      ? ignoradas.map((item) => `${item.cartao}: ${item.motivo}`).join(" ")
+      : "Nenhuma fatura foi importada.";
+    mensagem.classList.remove("hidden");
+    return;
+  }
+
+  const pendenciasTotais = [];
+  const resumoPorCartao = [];
+  for (const item of importadas) {
+    const resultado = await rodarConciliacao(item.faturaId, { silencioso: true });
+    if (resultado) {
+      pendenciasTotais.push(...(resultado.pendencias || []));
+      resumoPorCartao.push(`${item.cartao}: ${resultado.pendencias?.length ? `${resultado.pendencias.length} pendência(s)` : "sem pendências"}`);
+    }
+  }
+
+  let textoMensagem = `Fatura(s) importada(s) e conciliada(s). ${resumoPorCartao.join(" · ")}.`;
+  if (ignoradas.length) {
+    textoMensagem += ` Não importado(s): ${ignoradas.map((item) => `${item.cartao} (${item.motivo})`).join(", ")}.`;
+  }
+  if (data.transacoesNaoReconhecidas) {
+    textoMensagem += ` ⚠️ ${data.transacoesNaoReconhecidas} transação(ões) do arquivo não correspondem a nenhum cartão marcado.`;
+  }
+  const avisosPeriodo = [...new Set(importadas.map((item) => item.avisoPeriodo).filter(Boolean))];
+  if (avisosPeriodo.length) {
+    textoMensagem += ` ⚠️ ${avisosPeriodo.join(" ")}`;
+  }
+  mensagem.textContent = textoMensagem;
+  mensagem.classList.remove("hidden");
+  await renderArquivosPorCartao(importadas, payload.mesReferencia, payload.anoReferencia);
+  renderResultadoConciliacao({ pendencias: pendenciasTotais });
+
+  event.target.reset();
+  csvFaturaSelecionada = "";
+  transacoesFaturaSelecionadas = [];
+  renderPreviaFatura();
+  document.getElementById("arquivoNome").value = "";
+  document.getElementById("arquivoFaturaAtual").textContent = "Nenhum arquivo selecionado.";
+  document.getElementById("mesReferencia").value = new Date().getMonth() + 1;
+  document.querySelectorAll("#cartaoIdLista input[type=checkbox]").forEach((checkbox) => {
+    checkbox.checked = false;
+    checkbox.closest(".fatura-cartao-opcao").classList.remove("selecionado");
+  });
+  await carregarFaturas();
 });
 
 document.getElementById("arquivoFatura").addEventListener("change", carregarArquivoFatura);
