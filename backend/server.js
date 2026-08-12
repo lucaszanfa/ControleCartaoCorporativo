@@ -1360,8 +1360,8 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
   let gerados = 0;
 
   for (const transacao of transacoes) {
-    const jaConciliada = await get("SELECT id FROM conciliacoes_cartao WHERE transacao_fatura_id = ?", [transacao.id]);
-    if (jaConciliada) continue;
+    const conciliacaoExistente = await get("SELECT id, status FROM conciliacoes_cartao WHERE transacao_fatura_id = ?", [transacao.id]);
+    if (conciliacaoExistente && ["conciliada", "resolvida"].includes(conciliacaoExistente.status)) continue;
 
     const compras = await all(
       "SELECT * FROM compras_cartao WHERE cartao_id = ? AND status != 'cancelada'",
@@ -1388,10 +1388,17 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
       diferencaDias = daysDiff(transacao.data_transacao, compra.data_compra);
     }
 
-    await run(
-      "INSERT INTO conciliacoes_cartao (transacao_fatura_id, compra_cartao_id, cartao_id, status, diferenca_valor, diferenca_dias, observacao, conciliado_por_id, conciliado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-      [transacao.id, compra?.id || null, transacao.cartao_id, status, diferencaValor, diferencaDias, "Conciliação automática", request.body.conciliadoPorId || null]
-    );
+    if (conciliacaoExistente) {
+      await run(
+        "UPDATE conciliacoes_cartao SET compra_cartao_id = ?, status = ?, diferenca_valor = ?, diferenca_dias = ?, observacao = ?, conciliado_por_id = ?, conciliado_em = CURRENT_TIMESTAMP WHERE id = ?",
+        [compra?.id || null, status, diferencaValor, diferencaDias, "Conciliação automática", request.body.conciliadoPorId || null, conciliacaoExistente.id]
+      );
+    } else {
+      await run(
+        "INSERT INTO conciliacoes_cartao (transacao_fatura_id, compra_cartao_id, cartao_id, status, diferenca_valor, diferenca_dias, observacao, conciliado_por_id, conciliado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        [transacao.id, compra?.id || null, transacao.cartao_id, status, diferencaValor, diferencaDias, "Conciliação automática", request.body.conciliadoPorId || null]
+      );
+    }
     await run("UPDATE transacoes_fatura SET status_conciliacao = ? WHERE id = ?", [status, transacao.id]);
     if (compra && status === "conciliada") await run("UPDATE compras_cartao SET status = 'conferida' WHERE id = ?", [compra.id]);
     if (compra && status !== "conciliada") await run("UPDATE compras_cartao SET status = ? WHERE id = ?", [status === "aguardando_comprovante" ? "sem_comprovante" : "divergente", compra.id]);
@@ -1402,6 +1409,17 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
       data_divergente: "data_divergente",
       aguardando_comprovante: "compra_sem_comprovante"
     };
+
+    await run(
+      `UPDATE alertas_cartao
+       SET status = 'resolvido', resolvido_em = CURRENT_TIMESTAMP, observacao_resolucao = 'Resolvido automaticamente ao reprocessar a conciliação.'
+       WHERE transacao_fatura_id = ?
+         AND status != 'resolvido'
+         AND tipo_alerta IN ('compra_sem_registro', 'valor_divergente', 'data_divergente', 'compra_sem_comprovante')
+         AND tipo_alerta != ?`,
+      [transacao.id, alertTypes[status] || ""]
+    );
+
     if (alertTypes[status]) {
       await criarAlertaCartao({
         cartaoId: transacao.cartao_id,
