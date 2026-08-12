@@ -1343,6 +1343,14 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
     return;
   }
 
+  if (Number(dadosProtegidos.cartaoId) !== compraAtual.cartao_id) {
+    const novoCartao = await get("SELECT status FROM cartoes_corporativos WHERE id = ?", [dadosProtegidos.cartaoId]);
+    if (!novoCartao || novoCartao.status !== "ativo") {
+      response.status(400).json({ erro: "Selecione um cartão ativo." });
+      return;
+    }
+  }
+
   await run(
     "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
     [
@@ -1464,6 +1472,13 @@ app.post("/api/faturas-cartao/importar", async (request, response) => {
   );
   if (cartoes.length !== idsSelecionados.length) {
     return response.status(404).json({ erro: "Um ou mais cartões selecionados não foram encontrados." });
+  }
+
+  const cartoesInativos = cartoes.filter((cartao) => cartao.status !== "ativo");
+  if (cartoesInativos.length) {
+    return response.status(400).json({
+      erro: `Não é possível importar fatura para cartão inativo: ${cartoesInativos.map((cartao) => cartao.nome_cartao).join(", ")}.`
+    });
   }
 
   const cartoesPermitidos = await cartoesPermitidosParaUsuario(importadoPorId, "ver");
