@@ -997,7 +997,7 @@ app.get("/api/compras-cartao/pendentes", async (request, response) => {
       params
     );
 
-    const pendentes = rows.map((row) => {
+    let pendentes = rows.map((row) => {
       const compra = mapCompraCartao(row);
 
       return {
@@ -1005,6 +1005,13 @@ app.get("/api/compras-cartao/pendentes", async (request, response) => {
         pendencias: pendenciasCadastroCompra(compra)
       };
     });
+
+    if (request.query.usuarioId) {
+      const permitidos = await cartoesPermitidosParaUsuario(request.query.usuarioId, "ver");
+      if (permitidos !== null) {
+        pendentes = pendentes.filter((compra) => permitidos.includes(compra.cartaoId));
+      }
+    }
 
     response.json(pendentes);
   } catch (error) {
@@ -1814,7 +1821,16 @@ app.get("/api/alertas-cartao", async (request, response) => {
                LEFT JOIN compras_cartao cc ON cc.id = a.compra_cartao_id
                ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
                ORDER BY a.criado_em DESC`;
-  response.json(await all(sql, params));
+  let alertas = await all(sql, params);
+
+  if (request.query.usuarioId) {
+    const permitidos = await cartoesPermitidosParaUsuario(request.query.usuarioId, "ver");
+    if (permitidos !== null) {
+      alertas = alertas.filter((alerta) => permitidos.includes(alerta.cartao_id));
+    }
+  }
+
+  response.json(alertas);
 });
 
 app.get("/api/alertas-cartao/:id", async (request, response) => {

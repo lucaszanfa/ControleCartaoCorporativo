@@ -198,7 +198,7 @@ function fecharConfirmacaoTeams() {
 }
 
 async function carregarCartoesFiltro() {
-  const cartoes = await fetch("/api/cartoes").then((resposta) => resposta.json());
+  const cartoes = await fetch(`/api/cartoes?usuarioId=${usuarioIdAtual()}&permissao=ver`).then((resposta) => resposta.json());
   filtroCartao.innerHTML = [
     '<option value="">Todos os cartões</option>',
     ...cartoes.map((cartao) => `<option value="${cartao.id}">${cartao.nomeCartao}</option>`)
@@ -210,7 +210,7 @@ async function carregarComprasPendentes() {
   let alertas = [];
 
   try {
-    const resposta = await fetch("/api/compras-cartao/pendentes");
+    const resposta = await fetch(`/api/compras-cartao/pendentes?usuarioId=${usuarioIdAtual()}`);
     dados = await resposta.json();
     if (!resposta.ok || !Array.isArray(dados)) {
       throw new Error(dados.erro || "Rota de pendentes indisponível.");
@@ -232,7 +232,7 @@ async function carregarComprasPendentes() {
   }
 
   try {
-    const respostaAlertas = await fetch("/api/alertas-cartao?status=abertos");
+    const respostaAlertas = await fetch(`/api/alertas-cartao?status=abertos&usuarioId=${usuarioIdAtual()}`);
     const dadosAlertas = await respostaAlertas.json();
     alertas = Array.isArray(dadosAlertas)
       ? dadosAlertas

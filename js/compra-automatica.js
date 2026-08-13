@@ -4,7 +4,7 @@ const cartaoTeste = document.getElementById("cartaoTeste");
 let cartoesAutomaticos = [];
 
 async function carregarCartoesAutomaticos() {
-  cartoesAutomaticos = await fetch("/api/cartoes?status=ativo").then((resposta) => resposta.json());
+  cartoesAutomaticos = await fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=cadastrar`).then((resposta) => resposta.json());
   cartaoTeste.innerHTML = cartoesAutomaticos.map((cartao) => `
     <option value="${cartao.id}" data-final="${cartao.ultimos4Digitos}">
       ${cartao.nomeCartao} - ${cartao.departamento}
