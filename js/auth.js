@@ -34,6 +34,28 @@ function ehAdminOuGerente() {
   return usuarioLogado?.perfil === "admin" || usuarioLogado?.perfil === "gerente" || temPermissao("administrarUsuarios");
 }
 
+const cachePermissoesCartaoUsuario = {};
+function usuarioTemCartaoComPermissao(tipo) {
+  if (!usuarioLogado?.id) return false;
+  if (tipo in cachePermissoesCartaoUsuario) return cachePermissoesCartaoUsuario[tipo];
+
+  let resultado = false;
+  try {
+    const requisicao = new XMLHttpRequest();
+    requisicao.open("GET", `/api/cartoes?status=ativo&usuarioId=${usuarioLogado.id}&permissao=${tipo}`, false);
+    requisicao.send();
+    if (requisicao.status >= 200 && requisicao.status < 300) {
+      const cartoes = JSON.parse(requisicao.responseText);
+      resultado = Array.isArray(cartoes) && cartoes.length > 0;
+    }
+  } catch (error) {
+    console.warn("Nao foi possivel verificar permissoes de cartao do usuario.", error);
+  }
+
+  cachePermissoesCartaoUsuario[tipo] = resultado;
+  return resultado;
+}
+
 function criarLinkMenu(item, paginaAtual) {
   const ativo = item.href === paginaAtual ? " active" : "";
   const extraClass = item.adminOnly ? " admin-only" : "";
@@ -323,13 +345,14 @@ function aplicarMenuPrincipal() {
   if (!sidebar) return;
   const paginaAtual = window.location.pathname.split("/").pop() || "relatorios-cartao.html";
   const podeVerCartoesGerenciais = ehAdminOuGerente();
+  const podeVerFaturas = podeVerCartoesGerenciais || usuarioTemCartaoComPermissao("ver");
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra", icon: "compra" },
     { href: "compra-automatica.html", label: "Compra automática", icon: "automatica" },
     { href: "compras-pendentes.html", label: "Compras pendentes", icon: "pendentes" },
+    ...(podeVerFaturas ? [{ href: "faturas-cartao.html", label: "Faturas", icon: "faturas" }] : []),
     ...(podeVerCartoesGerenciais ? [
       { href: "cartoes.html", label: "Cartões cadastrados", icon: "cartoes" },
-      { href: "faturas-cartao.html", label: "Faturas", icon: "faturas" },
       { href: "conciliacao-cartao.html", label: "Conciliação", icon: "conciliacao" },
       { href: "relatorios-cartao.html", label: "Relatórios de cartão", icon: "relatorios" }
     ] : [])
@@ -406,13 +429,18 @@ function aplicarPermissoes() {
 
   const paginasCartaoGerenciais = [
     "cartoes.html",
-    "faturas-cartao.html",
     "conciliacao-cartao.html",
     "relatorios-cartao.html"
   ];
 
   if (paginasCartaoGerenciais.includes(pagina) && !ehAdminOuGerente()) {
     alert("Seu usuario nao tem permissao para acessar esta pagina do modulo de cartoes.");
+    window.location.href = "compra-cartao.html";
+    return;
+  }
+
+  if (pagina === "faturas-cartao.html" && !ehAdminOuGerente() && !usuarioTemCartaoComPermissao("ver")) {
+    alert("Seu usuario nao tem permissao para ver faturas de nenhum cartao.");
     window.location.href = "compra-cartao.html";
   }
 }
