@@ -401,6 +401,33 @@ async function buscarPendenciasCompativeisCompra(compra) {
   }));
 }
 
+async function buscarComprasSemelhantes(compra) {
+  const candidatas = await all(
+    `SELECT cc.*, c.nome_cartao AS cartao
+     FROM compras_cartao cc
+     JOIN cartoes_corporativos c ON c.id = cc.cartao_id
+     WHERE cc.cartao_id = ?
+       AND cc.parcela_atual = 1
+       AND cc.status != 'cancelada'
+     ORDER BY ABS(julianday(cc.data_compra) - julianday(?)) ASC, cc.id DESC`,
+    [compra.cartao_id, compra.data_compra]
+  );
+
+  return candidatas.filter((candidata) => (
+    Number(candidata.valor) === Number(compra.valor)
+    && Math.abs(daysDiff(candidata.data_compra, compra.data_compra)) <= 2
+    && similarText(candidata.fornecedor, compra.fornecedor)
+  )).map((candidata) => ({
+    id: candidata.id,
+    dataCompra: candidata.data_compra,
+    fornecedor: candidata.fornecedor,
+    valor: candidata.valor,
+    cartao: candidata.cartao,
+    status: candidata.status,
+    cadastradaAutomaticamente: (candidata.observacao || "").includes("Compra cadastrada automaticamente")
+  }));
+}
+
 async function tentarAtualizarPendenciaPorCompra(compraId, transacaoId = null) {
   const compra = await get(
     `SELECT cc.*, c.gerente_id
@@ -1111,6 +1138,26 @@ app.post("/api/compras-cartao/pendencias-compativeis", async (request, response)
   }
 });
 
+app.post("/api/compras-cartao/semelhantes", async (request, response) => {
+  try {
+    const { cartaoId, dataCompra, valor, fornecedor } = request.body;
+    if (!cartaoId || !dataCompra || !valor || !fornecedor) {
+      response.json([]);
+      return;
+    }
+
+    const semelhantes = await buscarComprasSemelhantes({
+      cartao_id: cartaoId,
+      data_compra: dataCompra,
+      valor: Number(valor),
+      fornecedor
+    });
+    response.json(semelhantes);
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao buscar compras semelhantes.", detalhe: error.message });
+  }
+});
+
 function normalizarDataCompraAutomatica(valor) {
   const texto = String(valor || "").trim();
   const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -1125,7 +1172,7 @@ function normalizarValorCompraAutomatica(valor) {
     return valor;
   }
 
-  const textoOriginal = String(valor || "").trim();
+  const textoOriginal = String(valor || "").trim().split("\n")[0];
   const texto = textoOriginal
     .replace("R$", "")
     .replace(/\s/g, "")
@@ -1143,6 +1190,11 @@ function normalizarValorCompraAutomatica(valor) {
 
   if (texto.includes(",")) {
     return Number(texto.replace(/\./g, "").replace(",", "."));
+  }
+
+  if (/^\d{1,3}(\.\d{3})+$/.test(texto)) {
+    // ponto usado como separador de milhar (ex: "6.000" = seis mil), sem vírgula de centavos
+    return Number(texto.replace(/\./g, ""));
   }
 
   return Number(texto);
@@ -1181,6 +1233,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
       emailOrigemId,
       parcelas
     } = request.body;
+    console.log("Compra automatica recebida:", JSON.stringify({ dataCompra, valor, fornecedor, ultimos4Digitos, codigoAutorizacao, emailOrigemId, parcelas }));
     const dataNormalizada = normalizarDataCompraAutomatica(dataCompra);
     const valorNumerico = normalizarValorCompraAutomatica(valor);
     const finalCartao = String(ultimos4Digitos || "").replace(/\D/g, "").slice(-4);

@@ -888,6 +888,52 @@ function escolherPendenciaCompativelModal(pendencias) {
   });
 }
 
+async function buscarComprasSemelhantesCadastradas(payload) {
+  const res = await fetch("/api/compras-cartao/semelhantes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+function confirmarCompraSemelhanteModal(semelhantes) {
+  if (!semelhantes.length) return Promise.resolve(false);
+  const primeira = semelhantes[0];
+  const modal = document.getElementById("compraSemelhanteModal");
+  const conteudo = document.getElementById("compraSemelhanteConteudo");
+  const simBtn = document.getElementById("compraSemelhanteSimBtn");
+  const naoBtn = document.getElementById("compraSemelhanteNaoBtn");
+
+  conteudo.innerHTML = `
+    ${detalheItem("Data", formatarData(primeira.dataCompra))}
+    ${detalheItem("Cartão", primeira.cartao)}
+    ${detalheItem("Fornecedor", primeira.fornecedor)}
+    ${detalheItem("Valor", moeda(primeira.valor))}
+    ${detalheItem("Status", primeira.status, "full-width")}
+    <div class="detail-item full-width">
+      <span>Decisão</span>
+      <strong>Confira se a compra que você está cadastrando agora é a mesma que já está no sistema.</strong>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+
+  return new Promise((resolve) => {
+    const finalizar = (ehAMesma) => {
+      modal.classList.add("hidden");
+      simBtn.removeEventListener("click", clicouSim);
+      naoBtn.removeEventListener("click", clicouNao);
+      resolve(ehAMesma);
+    };
+    const clicouSim = () => finalizar(true);
+    const clicouNao = () => finalizar(false);
+
+    simBtn.addEventListener("click", clicouSim);
+    naoBtn.addEventListener("click", clicouNao);
+  });
+}
+
 document.getElementById("compraCartaoForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const mensagem = document.getElementById("compraMensagem");
@@ -930,6 +976,14 @@ document.getElementById("compraCartaoForm").addEventListener("submit", async (ev
     } else {
       payload.vincularPendencia = false;
     }
+  }
+
+  const semelhantes = await buscarComprasSemelhantesCadastradas(payload);
+  const ehCompraDuplicada = await confirmarCompraSemelhanteModal(semelhantes);
+  if (ehCompraDuplicada) {
+    mensagem.textContent = "Cadastro cancelado: você confirmou que essa compra já está cadastrada no sistema.";
+    mensagem.classList.remove("hidden");
+    return;
   }
 
   const res = await fetch("/api/compras-cartao", {

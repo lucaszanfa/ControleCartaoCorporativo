@@ -165,6 +165,22 @@
     </div>
   </div>
 
+  <div id="compraSemelhanteModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="compraSemelhanteTitulo">
+    <div class="modal-card">
+      <div class="section-header">
+        <div>
+          <span class="eyebrow">Possível compra duplicada</span>
+          <h2 id="compraSemelhanteTitulo">Já existe uma compra parecida cadastrada</h2>
+        </div>
+      </div>
+      <div id="compraSemelhanteConteudo" class="detail-grid"></div>
+      <div class="form-actions full-width modal-actions">
+        <button id="compraSemelhanteNaoBtn" class="btn btn-secondary" type="button">Não, é outra compra</button>
+        <button id="compraSemelhanteSimBtn" class="btn btn-primary" type="button">Sim, é a mesma compra</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/dados.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/cartoes-utils.js"></script>
