@@ -2433,6 +2433,10 @@ body {
   font-weight: 800;
 }
 
+.pending-page .pending-summary-grid .metric-card::before {
+  display: none;
+}
+
 .pending-filter-card {
   padding: 0;
   overflow: hidden;
@@ -4263,7 +4267,7 @@ textarea {
 
 .corporate-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
   margin-bottom: 24px;
 }

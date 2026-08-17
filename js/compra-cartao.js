@@ -189,19 +189,48 @@ function preencherDepartamentoPorCartao() {
 }
 
 async function carregarComprasCartao() {
-  const compras = await (await fetch("/api/compras-cartao")).json();
+  const compras = await (await fetch(`/api/compras-cartao?usuarioId=${usuarioIdAtual()}`)).json();
   comprasCartaoCache = compras;
   renderizarComprasCartao();
   atualizarResumoCartao();
 }
 
+const LIMITE_COMPRAS_RECENTES = 5;
+let mostrandoTodasComprasCartao = false;
+
+function atualizarModoListaComprasCartao() {
+  const busca = document.getElementById("comprasCartaoBusca");
+  const botao = document.getElementById("alternarComprasCartaoBtn");
+  const titulo = document.getElementById("comprasCartaoTitulo");
+  const subtitulo = document.getElementById("comprasCartaoSubtitulo");
+
+  if (mostrandoTodasComprasCartao) {
+    busca?.classList.remove("hidden");
+    if (botao) botao.textContent = "Ver só as últimas 5";
+    if (titulo) titulo.textContent = "Todas as compras registradas";
+    if (subtitulo) subtitulo.textContent = "Histórico completo dos cartões que você tem permissão de ver.";
+  } else {
+    if (busca) busca.value = "";
+    busca?.classList.add("hidden");
+    if (botao) botao.textContent = "Ver todas as compras";
+    if (titulo) titulo.textContent = "Últimas compras registradas";
+    if (subtitulo) subtitulo.textContent = "As 5 compras mais recentes deste histórico.";
+  }
+}
+
 function renderizarComprasCartao() {
-  const termo = String(document.getElementById("comprasCartaoBusca")?.value || "").trim().toLowerCase();
-  const compras = comprasCartaoCache.filter((compra) => {
-    if (!termo) return true;
-    return [compra.cartao, compra.fornecedor, compra.categoria, compra.status, compra.responsavel]
-      .some((valor) => String(valor || "").toLowerCase().includes(termo));
-  });
+  let compras = comprasCartaoCache;
+
+  if (mostrandoTodasComprasCartao) {
+    const termo = String(document.getElementById("comprasCartaoBusca")?.value || "").trim().toLowerCase();
+    if (termo) {
+      compras = compras.filter((compra) => [compra.cartao, compra.fornecedor, compra.categoria, compra.status, compra.responsavel]
+        .some((valor) => String(valor || "").toLowerCase().includes(termo)));
+    }
+  } else {
+    compras = compras.slice(0, LIMITE_COMPRAS_RECENTES);
+  }
+
   const podeVerDetalhes = typeof ehAdminOuGerente === "function" ? ehAdminOuGerente() : false;
   document.getElementById("comprasCartaoTabela").innerHTML = compras.map((compra) => `
     <tr class="report-data-row purchase-row">
@@ -234,13 +263,6 @@ function comprasDoMesAtual() {
   });
 }
 
-function proximaFaturaLabel() {
-  const hoje = new Date();
-  const data = new Date(hoje.getFullYear(), hoje.getMonth(), 10);
-  if (hoje.getDate() > 10) data.setMonth(data.getMonth() + 1);
-  return data.toLocaleDateString("pt-BR");
-}
-
 function atualizarResumoCartao() {
   const cartaoId = Number(document.getElementById("cartaoId")?.value || 0);
   const cartao = cartoesAtivosCache.find((item) => item.id === cartaoId);
@@ -248,19 +270,13 @@ function atualizarResumoCartao() {
 
   const comprasMesCartao = comprasDoMesAtual().filter((compra) => Number(compra.cartaoId) === cartaoId);
   const totalMes = comprasMesCartao.reduce((total, compra) => total + Number(compra.valor || 0), 0);
-  const limite = Number(cartao.limiteMensal || 0);
-  const disponivel = Math.max(0, limite - totalMes);
-  const percentualUso = limite > 0 ? Math.min(100, (totalMes / limite) * 100) : 0;
 
   document.getElementById("resumoCartaoNome").textContent = cartao.nomeCartao || "Cartão corporativo";
   document.getElementById("resumoCartaoFinal").textContent = `.... .... .... ${cartao.ultimos4Digitos || "----"}`;
   document.getElementById("resumoCartaoStatus").textContent = cartao.status || "ativo";
   document.getElementById("resumoCartaoTitular").textContent = cartao.responsavel || "-";
   document.getElementById("resumoCartaoDepartamento").textContent = cartao.departamento || "-";
-  document.getElementById("resumoCartaoDisponivel").textContent = limite ? moeda(disponivel) : "Sem limite";
   document.getElementById("resumoCartaoMes").textContent = moeda(totalMes);
-  document.getElementById("resumoCartaoFatura").textContent = proximaFaturaLabel();
-  document.getElementById("resumoCartaoBarra").style.width = `${percentualUso}%`;
 }
 
 function atualizarContadorCompra() {
@@ -287,8 +303,13 @@ function atualizarComprovanteVisual() {
 function prepararInteracoesCompraCartao() {
   document.getElementById("observacao")?.addEventListener("input", atualizarContadorCompra);
   document.getElementById("valor")?.addEventListener("input", atualizarResumoCartao);
-  document.getElementById("comprasCartaoBusca")?.addEventListener("input", renderizarComprasCartao);
   document.getElementById("comprovanteArquivo")?.addEventListener("change", atualizarComprovanteVisual);
+  document.getElementById("comprasCartaoBusca")?.addEventListener("input", renderizarComprasCartao);
+  document.getElementById("alternarComprasCartaoBtn")?.addEventListener("click", () => {
+    mostrandoTodasComprasCartao = !mostrandoTodasComprasCartao;
+    atualizarModoListaComprasCartao();
+    renderizarComprasCartao();
+  });
   atualizarContadorCompra();
   atualizarComprovanteVisual();
 }

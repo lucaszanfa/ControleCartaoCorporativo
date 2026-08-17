@@ -163,7 +163,6 @@ function mapCartao(row) {
     gerenteId: row.gerente_id,
     gerente: row.gerente,
     ultimos4Digitos: row.ultimos_4_digitos,
-    limiteMensal: row.limite_mensal,
     status: row.status,
     observacao: row.observacao || ""
   };
@@ -307,22 +306,6 @@ async function criarAlertaCartao({ cartaoId, departamentoId, gerenteId, transaca
   return result.id;
 }
 
-function mensagemAlerta(tipo, departamento, cartao, ultimos4, data, estabelecimento, valor) {
-  return `⚠️ Alerta de inconsistência em cartão corporativo
-
-Foi identificada uma inconsistência relacionada a uma compra no cartão corporativo.
-
-Tipo: ${tipo}
-Departamento: ${departamento}
-Cartão: ${cartao} final ${ultimos4}
-Data da compra: ${data}
-Estabelecimento: ${estabelecimento}
-Valor: ${valor}
-
-Ação sugerida:
-Verificar com o responsável pelo cartão e solicitar registro, justificativa ou comprovante.`;
-}
-
 async function criarAlertaCompraSemComprovante(compraId) {
   const compra = await get(
     `SELECT cc.*, c.nome_cartao, c.ultimos_4_digitos, c.gerente_id, s.nome AS departamento
@@ -341,16 +324,7 @@ async function criarAlertaCompraSemComprovante(compraId) {
     gerenteId: compra.gerente_id,
     transacaoId: null,
     compraId: compra.id,
-    tipo: "compra_sem_comprovante",
-    mensagem: mensagemAlerta(
-      "compra_sem_comprovante",
-      compra.departamento,
-      compra.nome_cartao,
-      compra.ultimos_4_digitos,
-      compra.data_compra,
-      compra.fornecedor,
-      compra.valor
-    )
+    tipo: "compra_sem_comprovante"
   });
 }
 
@@ -413,8 +387,12 @@ async function buscarComprasSemelhantes(compra) {
     [compra.cartao_id, compra.data_compra]
   );
 
+  const TOLERANCIA_VALOR_PERCENTUAL = 0.01;
+  const valorCompra = Number(compra.valor);
+  const toleranciaValor = valorCompra * TOLERANCIA_VALOR_PERCENTUAL;
+
   return candidatas.filter((candidata) => (
-    Number(candidata.valor) === Number(compra.valor)
+    Math.abs(Number(candidata.valor) - valorCompra) <= toleranciaValor
     && Math.abs(daysDiff(candidata.data_compra, compra.data_compra)) <= 2
     && similarText(candidata.fornecedor, compra.fornecedor)
   )).map((candidata) => ({
@@ -906,13 +884,12 @@ app.get("/api/cartoes/:id", async (request, response) => {
 app.post("/api/cartoes", async (request, response) => {
   try {
     assertNoSensitiveCardData(request.body);
-    const { nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, limiteMensal, status, observacao } = request.body;
+    const { nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status, observacao } = request.body;
     if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável e gerente." });
     if (!validateLast4(ultimos4Digitos)) return response.status(400).json({ erro: "Últimos 4 dígitos devem conter exatamente 4 números." });
-    if (limiteMensal !== null && limiteMensal !== "" && Number(limiteMensal) < 0) return response.status(400).json({ erro: "Limite mensal deve ser maior ou igual a zero." });
     const result = await run(
-      "INSERT INTO cartoes_corporativos (nome_cartao, departamento_id, responsavel_id, gerente_id, ultimos_4_digitos, limite_mensal, status, observacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, limiteMensal || null, status || "ativo", observacao || ""]
+      "INSERT INTO cartoes_corporativos (nome_cartao, departamento_id, responsavel_id, gerente_id, ultimos_4_digitos, status, observacao) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status || "ativo", observacao || ""]
     );
     response.status(201).json({ id: result.id });
   } catch (error) {
@@ -923,12 +900,12 @@ app.post("/api/cartoes", async (request, response) => {
 app.put("/api/cartoes/:id", async (request, response) => {
   try {
     assertNoSensitiveCardData(request.body);
-    const { nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, limiteMensal, status, observacao } = request.body;
+    const { nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status, observacao } = request.body;
     if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável e gerente." });
     if (!validateLast4(ultimos4Digitos)) return response.status(400).json({ erro: "Últimos 4 dígitos devem conter exatamente 4 números." });
     await run(
-      "UPDATE cartoes_corporativos SET nome_cartao = ?, departamento_id = ?, responsavel_id = ?, gerente_id = ?, ultimos_4_digitos = ?, limite_mensal = ?, status = ?, observacao = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
-      [nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, limiteMensal || null, status || "ativo", observacao || "", request.params.id]
+      "UPDATE cartoes_corporativos SET nome_cartao = ?, departamento_id = ?, responsavel_id = ?, gerente_id = ?, ultimos_4_digitos = ?, status = ?, observacao = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+      [nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status || "ativo", observacao || "", request.params.id]
     );
     response.json({ mensagem: "Cartão atualizado." });
   } catch (error) {
@@ -969,7 +946,16 @@ app.get("/api/compras-cartao", async (request, response) => {
     params.push(`%${request.query.fornecedor}%`);
   }
   const sql = `${compraJoinSql()} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY cc.data_compra DESC, cc.id DESC`;
-  response.json((await all(sql, params)).map(mapCompraCartao));
+  let compras = (await all(sql, params)).map(mapCompraCartao);
+
+  if (request.query.usuarioId) {
+    const permitidos = await cartoesPermitidosParaUsuario(request.query.usuarioId, "ver");
+    if (permitidos !== null) {
+      compras = compras.filter((compra) => permitidos.includes(compra.cartaoId));
+    }
+  }
+
+  response.json(compras);
 });
 
 app.get("/api/compras-cartao/fornecedores", async (_request, response) => {
@@ -1769,8 +1755,7 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
         gerenteId: transacao.gerente_id,
         transacaoId: transacao.id,
         compraId: compra?.id || null,
-        tipo: alertTypes[status],
-        mensagem: mensagemAlerta(alertTypes[status], transacao.departamento, transacao.nome_cartao, transacao.ultimos_4_digitos, transacao.data_transacao, transacao.estabelecimento, transacao.valor)
+        tipo: alertTypes[status]
       });
     }
     gerados += 1;

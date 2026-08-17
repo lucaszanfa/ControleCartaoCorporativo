@@ -38,14 +38,12 @@ async function initCartoes() {
 function atualizarResumoCartoes() {
   const total = cartoes.length;
   const ativos = cartoes.filter((cartao) => cartao.status === "ativo").length;
-  const limiteTotal = cartoes.reduce((soma, cartao) => soma + Number(cartao.limiteMensal || 0), 0);
   const departamentos = new Set(cartoes.map((cartao) => cartao.departamento).filter(Boolean)).size;
   const percentualAtivos = total ? Math.round((ativos / total) * 100) : 0;
 
   document.getElementById("cartoesResumoTotal").textContent = total;
   document.getElementById("cartoesResumoAtivos").textContent = ativos;
   document.getElementById("cartoesResumoAtivosPercentual").textContent = `${percentualAtivos}% do total`;
-  document.getElementById("cartoesResumoLimite").textContent = moeda(limiteTotal);
   document.getElementById("cartoesResumoDepartamentos").textContent = departamentos;
   document.getElementById("cartoesTabelaResumo").textContent = `Exibindo ${total} de ${total} cartões`;
 }
@@ -69,7 +67,6 @@ async function carregarCartoes() {
         <td>${cartao.responsavel}</td>
         <td>${cartao.gerente}</td>
         <td><span class="corporate-card-final">•••• ${cartao.ultimos4Digitos}</span></td>
-        <td>${moeda(cartao.limiteMensal)}</td>
         <td><span class="${classeStatus(cartao.status)}">${cartao.status}</span></td>
         <td>
           <div class="actions corporate-card-actions">
@@ -94,7 +91,6 @@ function editarCartao(id) {
   document.getElementById("responsavelId").value = cartao.responsavelId;
   document.getElementById("gerenteId").value = cartao.gerenteId;
   document.getElementById("ultimos4Digitos").value = cartao.ultimos4Digitos;
-  document.getElementById("limiteMensal").value = cartao.limiteMensal || "";
   document.getElementById("status").value = cartao.status;
   document.getElementById("observacao").value = cartao.observacao;
   formCard.querySelector(".section-header h2").textContent = "Editar cartão";
@@ -117,7 +113,6 @@ form.addEventListener("submit", async (event) => {
     responsavelId: document.getElementById("responsavelId").value,
     gerenteId: document.getElementById("gerenteId").value,
     ultimos4Digitos: document.getElementById("ultimos4Digitos").value,
-    limiteMensal: document.getElementById("limiteMensal").value,
     status: document.getElementById("status").value,
     observacao: document.getElementById("observacao").value
   };

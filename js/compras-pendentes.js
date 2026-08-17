@@ -216,7 +216,7 @@ async function carregarComprasPendentes() {
       throw new Error(dados.erro || "Rota de pendentes indisponível.");
     }
   } catch (error) {
-    const respostaFallback = await fetch("/api/compras-cartao");
+    const respostaFallback = await fetch(`/api/compras-cartao?usuarioId=${usuarioIdAtual()}`);
     const todasCompras = await respostaFallback.json();
     dados = Array.isArray(todasCompras)
       ? todasCompras.filter(compraEstaPendente).map((compra) => ({

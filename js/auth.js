@@ -246,7 +246,7 @@ function escaparBuscaGlobal(texto) {
 async function carregarBuscaGlobal() {
   if (buscaGlobalCache && Date.now() - buscaGlobalCacheCriadoEm < 10000) return buscaGlobalCache;
   const [comprasRes, cartoesRes] = await Promise.allSettled([
-    fetch("/api/compras-cartao").then((res) => res.ok ? res.json() : []),
+    fetch(`/api/compras-cartao?usuarioId=${usuarioIdAtual()}`).then((res) => res.ok ? res.json() : []),
     fetch("/api/cartoes").then((res) => res.ok ? res.json() : [])
   ]);
   const compras = comprasRes.status === "fulfilled" ? comprasRes.value : [];

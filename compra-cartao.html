@@ -91,17 +91,8 @@
               <strong id="resumoCartaoDepartamento">-</strong>
             </div>
             <div>
-              <span>Limite disponível</span>
-              <strong id="resumoCartaoDisponivel">R$ 0,00</strong>
-            </div>
-            <div class="purchase-limit-bar"><span id="resumoCartaoBarra"></span></div>
-            <div>
               <span>Compras no mês</span>
               <strong id="resumoCartaoMes">R$ 0,00</strong>
-            </div>
-            <div>
-              <span>Próxima fatura</span>
-              <strong id="resumoCartaoFatura">-</strong>
             </div>
           </div>
         </aside>
@@ -110,12 +101,12 @@
       <section class="purchase-table-card">
         <div class="section-header">
           <div>
-            <h2>Compras registradas</h2>
-            <p>Acompanhe os lançamentos recentes do cartão corporativo.</p>
+            <h2 id="comprasCartaoTitulo">Últimas compras registradas</h2>
+            <p id="comprasCartaoSubtitulo">As 5 compras mais recentes deste histórico.</p>
           </div>
           <div class="purchase-table-tools">
-            <button class="btn btn-secondary" type="button">Filtros</button>
-            <input id="comprasCartaoBusca" type="search" placeholder="Buscar compras...">
+            <input id="comprasCartaoBusca" type="search" placeholder="Buscar compras..." class="hidden">
+            <button id="alternarComprasCartaoBtn" class="btn btn-secondary" type="button">Ver todas as compras</button>
           </div>
         </div>
         <div class="table-wrapper">

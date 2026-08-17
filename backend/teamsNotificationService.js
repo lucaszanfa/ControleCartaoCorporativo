@@ -54,7 +54,6 @@ function buildTeamsMessageHtml(payload) {
     </ul>
     <p><strong>A\u00e7\u00e3o sugerida:</strong><br>
     Verificar com o respons\u00e1vel pelo cart\u00e3o e solicitar registro, justificativa ou comprovante.</p>
-    ${payload.mensagem ? `<p><strong>Detalhe:</strong><br>${escapeHtml(payload.mensagem)}</p>` : ""}
     ${payload.url_resolucao ? `<p><a href="${escapeHtml(payload.url_resolucao)}">Abrir compra no sistema</a></p>` : ""}
   `.trim();
 }
@@ -88,7 +87,6 @@ function buildTeamsMessageText(payload) {
     "",
     "A\u00e7\u00e3o sugerida:",
     "Verificar com o respons\u00e1vel pelo cart\u00e3o e solicitar registro, justificativa ou comprovante.",
-    ...(payload.mensagem ? ["", `Detalhe: ${payload.mensagem}`] : []),
     ...(payload.url_resolucao ? ["", `Abrir compra no sistema: ${payload.url_resolucao}`] : [])
   ].join("\n");
 }
@@ -139,7 +137,6 @@ async function sendTeamsAlert(alerta) {
 
   payload.mensagem_texto = buildTeamsMessageText(payload);
   payload.mensagem_html = buildTeamsMessageHtml(payload);
-  payload.mensagem = payload.mensagem_texto;
 
   const powerAutomateUrl = isCompraSemRegistro
     ? process.env.POWER_AUTOMATE_COMPRA_SEM_REGISTRO_URL

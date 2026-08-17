@@ -41,12 +41,6 @@
           <small id="cartoesResumoAtivosPercentual">0% do total</small>
         </article>
         <article>
-          <i class="corporate-summary-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><path d="M6 9v.01M18 15v.01"></path></svg></i>
-          <span>Limite total</span>
-          <strong id="cartoesResumoLimite">R$ 0,00</strong>
-          <small>Limite disponível</small>
-        </article>
-        <article>
           <i class="corporate-summary-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"></rect><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01"></path><path d="M10 21v-4h4v4"></path></svg></i>
           <span>Departamentos atendidos</span>
           <strong id="cartoesResumoDepartamentos">0</strong>
@@ -69,7 +63,6 @@
           <label>Responsável <select id="responsavelId" required></select></label>
           <label>Gerente <select id="gerenteId" required></select></label>
           <label>Últimos 4 dígitos <input id="ultimos4Digitos" maxlength="4" pattern="[0-9]{4}" required></label>
-          <label>Limite mensal <input id="limiteMensal" type="number" min="0" step="0.01"></label>
           <label>Status
             <select id="status">
               <option value="ativo">Ativo</option>
@@ -108,7 +101,6 @@
                 <th>Responsável</th>
                 <th>Gerente</th>
                 <th>Final</th>
-                <th>Limite</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
