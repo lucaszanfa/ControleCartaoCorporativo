@@ -301,7 +301,7 @@ async function criarAlertaCartao({ cartaoId, departamentoId, gerenteId, transaca
   if (existente) return existente.id;
   const result = await run(
     "INSERT INTO alertas_cartao (cartao_id, departamento_id, gerente_id, transacao_fatura_id, compra_cartao_id, tipo_alerta, mensagem) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [cartaoId, departamentoId, gerenteId, transacaoId || null, compraId || null, tipo, mensagem]
+    [cartaoId, departamentoId, gerenteId, transacaoId || null, compraId || null, tipo, mensagem || ""]
   );
   return result.id;
 }
