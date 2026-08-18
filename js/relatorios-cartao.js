@@ -437,6 +437,16 @@ function configurarEventos() {
 
   document.getElementById("baixarPdfCartao").addEventListener("click", baixarPdfRelatorioCartao);
 
+  document.getElementById("alternarFiltrosAvancados").addEventListener("click", () => {
+    const painel = document.getElementById("filtrosAvancados");
+    const botao = document.getElementById("alternarFiltrosAvancados");
+    const expandido = painel.classList.toggle("hidden") === false;
+    botao.setAttribute("aria-expanded", String(expandido));
+    botao.innerHTML = expandido
+      ? 'Menos filtros <span aria-hidden="true">⌃</span>'
+      : 'Mais filtros <span aria-hidden="true">⌄</span>';
+  });
+
   document.querySelectorAll(".report-tabs button").forEach((button) => {
     button.addEventListener("click", () => {
       document.querySelectorAll(".report-tabs button").forEach((item) => item.classList.remove("active"));

@@ -193,7 +193,11 @@ function mapCompraCartao(row) {
     parcelaAtual: row.parcela_atual || 1,
     parcelaTotal: row.parcela_total || 1,
     parcelamentoGrupoId: row.parcelamento_grupo_id || null,
-    automatica: compraCartaoAutomatica(row)
+    automatica: compraCartaoAutomatica(row),
+    criadoPorId: row.criado_por_id || null,
+    criadoPor: row.criado_por || null,
+    atualizadoPorId: row.atualizado_por_id || null,
+    atualizadoPor: row.atualizado_por || null
   };
 }
 
@@ -206,11 +210,14 @@ function cardJoinSql() {
 }
 
 function compraJoinSql() {
-  return `SELECT cc.*, c.nome_cartao AS cartao, c.ultimos_4_digitos, s.nome AS departamento, u.nome AS responsavel
+  return `SELECT cc.*, c.nome_cartao AS cartao, c.ultimos_4_digitos, s.nome AS departamento, u.nome AS responsavel,
+                 cp.nome AS criado_por, ap.nome AS atualizado_por
           FROM compras_cartao cc
           JOIN cartoes_corporativos c ON c.id = cc.cartao_id
           JOIN setores s ON s.id = cc.departamento_id
-          LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id`;
+          LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id
+          LEFT JOIN usuarios cp ON cp.id = cc.criado_por_id
+          LEFT JOIN usuarios ap ON ap.id = cc.atualizado_por_id`;
 }
 
 function daysDiff(a, b) {
@@ -225,14 +232,14 @@ function somarMeses(dataISO, quantidadeMeses) {
   return `${primeiroDiaAlvo.getUTCFullYear()}-${String(primeiroDiaAlvo.getUTCMonth() + 1).padStart(2, "0")}-${String(diaFinal).padStart(2, "0")}`;
 }
 
-async function gerarParcelasFuturas({ compraOrigemId, cartaoId, departamentoId, responsavelCompraId, dataCompra, valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao }) {
+async function gerarParcelasFuturas({ compraOrigemId, cartaoId, departamentoId, responsavelCompraId, dataCompra, valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao, criadoPorId }) {
   const valorUltimaParcela = Number((valorTotal - valorParcela * (totalParcelas - 1)).toFixed(2));
   for (let parcela = 2; parcela <= totalParcelas; parcela += 1) {
     const dataParcela = somarMeses(dataCompra, parcela - 1);
     const valorDestaParcela = parcela === totalParcelas ? valorUltimaParcela : valorParcela;
     await run(
-      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, parcelamento_grupo_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [cartaoId, departamentoId, responsavelCompraId, dataParcela, valorDestaParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", "aguardando_fatura", parcela, totalParcelas, compraOrigemId]
+      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, parcelamento_grupo_id, criado_por_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [cartaoId, departamentoId, responsavelCompraId, dataParcela, valorDestaParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", "aguardando_fatura", parcela, totalParcelas, compraOrigemId, criadoPorId || null]
     );
   }
 }
@@ -1373,15 +1380,16 @@ app.post("/api/compras-cartao", async (request, response) => {
     const valorParcela = totalParcelas > 1 ? Number((valorTotal / totalParcelas).toFixed(2)) : valorTotal;
 
     const result = await run(
-      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valorParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", status, 1, totalParcelas]
+      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, criado_por_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valorParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", status, 1, totalParcelas, usuarioLogadoId || null]
     );
 
     if (totalParcelas > 1) {
       await run("UPDATE compras_cartao SET parcelamento_grupo_id = ? WHERE id = ?", [result.id, result.id]);
       await gerarParcelasFuturas({
         compraOrigemId: result.id, cartaoId, departamentoId, responsavelCompraId, dataCompra,
-        valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao
+        valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao,
+        criadoPorId: usuarioLogadoId || null
       });
     }
 
@@ -1435,7 +1443,7 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
   const valorFinal = podeParcelarAgora ? Number((valorTotalOriginal / totalParcelas).toFixed(2)) : dadosProtegidos.valor;
 
   await run(
-    "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, parcela_total = ?, parcelamento_grupo_id = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+    "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, parcela_total = ?, parcelamento_grupo_id = ?, atualizado_em = CURRENT_TIMESTAMP, atualizado_por_id = ? WHERE id = ?",
     [
       dadosProtegidos.cartaoId,
       dadosProtegidos.departamentoId,
@@ -1450,6 +1458,7 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       status || "registrada",
       podeParcelarAgora ? totalParcelas : compraAtual.parcela_total,
       podeParcelarAgora ? request.params.id : compraAtual.parcelamento_grupo_id,
+      usuarioLogadoId || null,
       request.params.id
     ]
   );
@@ -1468,7 +1477,8 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       categoria,
       motivo,
       comprovanteUrl,
-      observacao: dadosProtegidos.observacao
+      observacao: dadosProtegidos.observacao,
+      criadoPorId: usuarioLogadoId || null
     });
   }
 

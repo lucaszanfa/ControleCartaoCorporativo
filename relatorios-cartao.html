@@ -52,14 +52,28 @@
           </div>
 
           <div class="card-report-filter-grid">
-            <label>Departamento
-              <select id="filtroDepartamento">
-                <option value="">Todos os departamentos</option>
-              </select>
-            </label>
             <label>Cartão
               <select id="filtroCartao">
                 <option value="">Todos os cartões</option>
+              </select>
+            </label>
+            <label>Data inicial
+              <input id="filtroDataInicial" type="date">
+            </label>
+            <label>Data final
+              <input id="filtroDataFinal" type="date">
+            </label>
+          </div>
+
+          <button class="btn btn-secondary card-report-filter-toggle" id="alternarFiltrosAvancados" type="button" aria-expanded="false" aria-controls="filtrosAvancados">
+            Mais filtros
+            <span aria-hidden="true">⌄</span>
+          </button>
+
+          <div class="card-report-filter-grid card-report-filter-advanced hidden" id="filtrosAvancados">
+            <label>Departamento
+              <select id="filtroDepartamento">
+                <option value="">Todos os departamentos</option>
               </select>
             </label>
             <label>Categoria
@@ -77,12 +91,6 @@
                 <option value="resolvida">Resolvida</option>
                 <option value="conciliada">Conciliada</option>
               </select>
-            </label>
-            <label>Data inicial
-              <input id="filtroDataInicial" type="date">
-            </label>
-            <label>Data final
-              <input id="filtroDataFinal" type="date">
             </label>
           </div>
         </div>

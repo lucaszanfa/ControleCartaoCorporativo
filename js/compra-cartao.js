@@ -229,7 +229,8 @@ function renderizarComprasCartao() {
     compras = compras.slice(0, LIMITE_COMPRAS_RECENTES);
   }
 
-  const podeVerDetalhes = typeof ehAdminOuGerente === "function" ? ehAdminOuGerente() : false;
+  const podeVerDetalhes = (typeof ehAdminOuGerente === "function" && ehAdminOuGerente())
+    || (typeof usuarioTemCartaoComPermissao === "function" && usuarioTemCartaoComPermissao("ver"));
   document.getElementById("comprasCartaoTabela").innerHTML = compras.map((compra) => `
     <tr class="report-data-row purchase-row">
       <td><strong>${formatarData(compra.dataCompra)}</strong></td>
@@ -330,6 +331,22 @@ function detalheItem(rotulo, valor, extraClass = "") {
   `;
 }
 
+function autorCompraTexto(compra, campo) {
+  const nome = campo === "editado" ? compra.atualizadoPor : compra.criadoPor;
+  if (nome) return nome;
+  return compraCadastradaAutomaticamente(compra) ? "Importação automática" : "-";
+}
+
+function detalheCompraCampoAutoria(compra) {
+  if (typeof ehAdminOuGerente !== "function" || !ehAdminOuGerente()) return "";
+
+  const editadoPorOutraPessoa = compra.atualizadoPor && compra.atualizadoPor !== compra.criadoPor;
+  return `
+    ${detalheCompraCampo("Registrado por", autorCompraTexto(compra, "criado"), "usuarios")}
+    ${editadoPorOutraPessoa ? detalheCompraCampo("Última edição por", autorCompraTexto(compra, "editado"), "usuarios") : ""}
+  `;
+}
+
 function detalheCompraCampo(rotulo, valor, icone, extraClass = "") {
   return `
     <article class="purchase-detail-field ${extraClass}">
@@ -356,80 +373,6 @@ function linkComprovanteAtual(comprovanteUrl, prefixo = "Comprovante atual") {
   }
   const url = escapeHtml(comprovanteUrl);
   return `${prefixo}: <a href="${url}" target="_blank" rel="noopener">abrir arquivo</a>`;
-}
-
-function renderComprovante(comprovanteUrl) {
-  if (!comprovanteUrl) {
-    return `
-      <div class="detail-item full-width">
-        <span>Comprovante</span>
-        <strong>Nenhum comprovante anexado.</strong>
-      </div>
-    `;
-  }
-
-  if (!comprovanteUrlValido(comprovanteUrl)) {
-    return `
-      <div class="detail-item full-width">
-        <span>Comprovante</span>
-        <strong>Comprovante antigo inválido.</strong>
-        <p class="field-hint">Edite a compra e anexe o arquivo novamente.</p>
-      </div>
-    `;
-  }
-
-  const url = escapeHtml(comprovanteUrl);
-  const isImagem = /\.(png|jpe?g|webp)$/i.test(comprovanteUrl);
-  const preview = isImagem
-    ? `<img src="${url}" alt="Comprovante da compra">`
-    : `<p class="field-hint">Arquivo anexado. Use o botao abaixo para abrir o comprovante.</p>`;
-
-  return `
-    <div class="detail-item full-width">
-      <span>Comprovante</span>
-      <div class="attachment-preview">
-        ${preview}
-        <a class="btn btn-primary" href="${url}" target="_blank" rel="noopener">Abrir comprovante</a>
-      </div>
-    </div>
-  `;
-}
-
-async function abrirDetalheCompra(id) {
-  const modal = document.getElementById("detalheCompraModal");
-  const conteudo = document.getElementById("detalheCompraConteudo");
-  const titulo = document.getElementById("detalheCompraTitulo");
-
-  titulo.textContent = "Carregando compra...";
-  conteudo.innerHTML = "";
-  modal.classList.remove("hidden");
-
-  const res = await fetch(`/api/compras-cartao/${id}`);
-  const compra = await res.json();
-
-  if (!res.ok) {
-    titulo.textContent = "Nao foi possivel abrir a compra";
-    conteudo.innerHTML = detalheItem("Erro", compra.erro || "Tente novamente.", "full-width");
-    return;
-  }
-
-  titulo.textContent = `${compra.fornecedor || "Compra"} - ${moeda(compra.valor)}`;
-  conteudo.innerHTML = `
-    ${detalheItem("Data da compra", formatarData(compra.dataCompra))}
-    ${detalheItem("Status", compra.status)}
-    ${detalheItem("Cartao", compra.cartao)}
-    ${detalheItem("Departamento", compra.departamento)}
-    ${detalheItem("Responsavel", compra.responsavelCompra || compra.responsavel)}
-    ${detalheItem("Categoria", compra.categoria)}
-    ${detalheItem("Fornecedor", compra.fornecedor)}
-    ${detalheItem("Valor", moeda(compra.valor))}
-    ${detalheItem("Motivo", compra.motivo, "full-width")}
-    ${detalheItem("Observacao", compra.observacao, "full-width")}
-    ${renderComprovante(compra.comprovanteUrl)}
-    <div class="form-actions full-width">
-      <a class="btn btn-secondary" href="compra-cartao.html?compraId=${compra.id}">Editar compra</a>
-    </div>
-  `;
 }
 
 function fecharDetalheCompra() {
@@ -464,8 +407,9 @@ function renderHistoricoCompra(compra) {
   const possuiComprovante = comprovanteUrlValido(compra.comprovanteUrl);
   const statusTexto = String(compra.status || "").toLowerCase();
   const importada = compraCadastradaAutomaticamente(compra);
-  const concluida = ["conferida", "conciliada", "resolvida"].some((status) => statusTexto.includes(status));
-  const conciliada = statusTexto.includes("conferida");
+  const concluidaPorConciliacao = statusTexto.includes("conferida");
+  const concluidaManualmente = statusTexto.includes("resolvida");
+  const concluida = concluidaPorConciliacao || concluidaManualmente;
   const eventos = [
     eventoTimeline(
       importada ? "Compra registrada automaticamente" : "Compra registrada no sistema",
@@ -505,21 +449,16 @@ function renderHistoricoCompra(compra) {
 
   eventos.push(eventoTimeline(
     "Compra concluída",
-    concluida ? "Compra marcada como conferida." : "A compra ainda aguarda conclusão.",
+    concluidaPorConciliacao
+      ? "Compra conferida automaticamente com a fatura do cartão."
+      : concluidaManualmente
+        ? "Compra resolvida e marcada como concluída."
+        : "A compra ainda aguarda conclusão e conciliação com a fatura.",
     concluida ? dataHoraTimeline(compra, "14:25") : "-",
-    concluida ? responsavel : "Pendente",
-    "check",
-    concluida
-  ));
-
-  eventos.push(eventoTimeline(
-    "Conciliada com fatura",
-    conciliada ? "A compra foi conciliada com uma fatura importada." : "A compra ainda não foi conciliada com fatura.",
-    conciliada ? dataHoraTimeline(compra, "14:30") : "-",
-    conciliada ? "Sistema" : "Pendente",
+    concluida ? (concluidaPorConciliacao ? "Sistema" : responsavel) : "Pendente",
     "recibo",
-    conciliada,
-    conciliada
+    concluida,
+    concluida
   ));
 
   return `
@@ -714,9 +653,8 @@ async function abrirDetalheCompra(id) {
         ${detalheCompraCampo("Data da compra", formatarData(compra.dataCompra), "calendario")}
         ${detalheCompraCampo("Responsável", compra.responsavelCompra || compra.responsavel, "pessoa")}
         ${detalheCompraCampo("Fornecedor", compra.fornecedor, "loja")}
-        ${detalheCompraCampo("Categoria", String(compra.categoria || "-").replaceAll("_", " "), "etiqueta")}
         ${detalheCompraCampo("Motivo", compra.motivo, "chat")}
-        ${detalheCompraCampo("Observação", compra.observacao, "nota")}
+        ${detalheCompraCampoAutoria(compra)}
       </section>
       ${renderHistoricoCompra(compra)}
     </div>

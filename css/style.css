@@ -5487,6 +5487,21 @@ textarea {
   font-weight: 800;
 }
 
+.card-report-filter-toggle {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-report-filter-advanced {
+  margin-top: 14px;
+}
+
+.card-report-filter-advanced.hidden {
+  display: none;
+}
+
 .card-report-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(210px, 1fr));

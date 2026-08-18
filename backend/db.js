@@ -66,6 +66,7 @@ async function initDb() {
   await ensureCategoriaSemListaFixa();
   await ensureCategoriasSeed();
   await ensureParcelamentoCompras();
+  await ensureComprasCartaoAutoriaColumns();
 }
 
 async function ensureUsuarioColumns() {
@@ -237,6 +238,21 @@ async function ensureParcelamentoCompras() {
 
     PRAGMA foreign_keys = ON;
   `);
+}
+
+async function ensureComprasCartaoAutoriaColumns() {
+  const columns = await all("PRAGMA table_info(compras_cartao)");
+  const names = columns.map((column) => column.name);
+  const additions = [
+    ["criado_por_id", "INTEGER"],
+    ["atualizado_por_id", "INTEGER"]
+  ];
+
+  for (const [name, definition] of additions) {
+    if (!names.includes(name)) {
+      await run(`ALTER TABLE compras_cartao ADD COLUMN ${name} ${definition}`);
+    }
+  }
 }
 
 module.exports = {
