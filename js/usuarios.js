@@ -159,7 +159,7 @@ async function abrirPermissoesCartao(usuario) {
           </div>
           <div class="permissoes-cartao-item-checks">
             <label><input type="checkbox" class="perm-cadastrar" ${cartao.podeCadastrarCompra ? "checked" : ""}> Cadastrar compras</label>
-            <label><input type="checkbox" class="perm-ver" ${cartao.podeVerCompras ? "checked" : ""}> Ver e importar faturas</label>
+            <label><input type="checkbox" class="perm-ver" ${cartao.podeVerCompras ? "checked" : ""}> Ver compras, faturas e relatórios</label>
           </div>
         </article>
       `).join("")

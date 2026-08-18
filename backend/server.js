@@ -1487,8 +1487,16 @@ app.patch("/api/compras-cartao/:id/anexar-comprovante", async (request, response
   response.json({ mensagem: "Comprovante anexado." });
 });
 
-app.get("/api/faturas-cartao", async (_request, response) => {
-  response.json(await all(`SELECT f.*, c.nome_cartao AS cartao FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id ORDER BY f.ano_referencia DESC, f.mes_referencia DESC`));
+app.get("/api/faturas-cartao", async (request, response) => {
+  const where = [];
+  const params = [];
+  await aplicarFiltroCartoesPermitidos(where, params, request.query.usuarioId, "f.cartao_id");
+  response.json(await all(
+    `SELECT f.*, c.nome_cartao AS cartao FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id
+     ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+     ORDER BY f.ano_referencia DESC, f.mes_referencia DESC`,
+    params
+  ));
 });
 
 
@@ -2019,7 +2027,7 @@ app.get("/api/dashboard/cartoes", async (_request, response) => {
   });
 });
 
-function filtrosRelatorioComprasCartao(query) {
+async function filtrosRelatorioComprasCartao(query) {
   const where = [];
   const params = [];
   if (query.departamentoId) {
@@ -2053,10 +2061,11 @@ function filtrosRelatorioComprasCartao(query) {
     where.push("cc.data_compra <= ?");
     params.push(query.dataFinal);
   }
+  await aplicarFiltroCartoesPermitidos(where, params, query.usuarioId, "cc.cartao_id");
   return { where, params };
 }
 
-function filtrosRelatorioPendenciasCartao(query) {
+async function filtrosRelatorioPendenciasCartao(query) {
   const where = [];
   const params = [];
   if (query.departamentoId) {
@@ -2079,11 +2088,24 @@ function filtrosRelatorioPendenciasCartao(query) {
     where.push("t.data_transacao <= ?");
     params.push(query.dataFinal);
   }
+  await aplicarFiltroCartoesPermitidos(where, params, query.usuarioId, "co.cartao_id");
   return { where, params };
 }
 
+async function aplicarFiltroCartoesPermitidos(where, params, usuarioId, coluna) {
+  if (!usuarioId) return;
+  const permitidos = await cartoesPermitidosParaUsuario(usuarioId, "ver");
+  if (permitidos === null) return;
+  if (!permitidos.length) {
+    where.push("1 = 0");
+    return;
+  }
+  where.push(`${coluna} IN (${permitidos.map(() => "?").join(",")})`);
+  params.push(...permitidos);
+}
+
 app.get("/api/relatorios-cartao/gastos-por-cartao", async (request, response) => {
-  const { where, params } = filtrosRelatorioComprasCartao(request.query);
+  const { where, params } = await filtrosRelatorioComprasCartao(request.query);
   response.json(await all(`SELECT c.nome_cartao AS cartao, s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*) AS quantidade_compras, AVG(cc.valor) AS media_compra
                            FROM compras_cartao cc JOIN cartoes_corporativos c ON c.id = cc.cartao_id JOIN setores s ON s.id = cc.departamento_id
                            ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -2091,7 +2113,7 @@ app.get("/api/relatorios-cartao/gastos-por-cartao", async (request, response) =>
 });
 
 app.get("/api/relatorios-cartao/gastos-por-departamento", async (request, response) => {
-  const { where, params } = filtrosRelatorioComprasCartao(request.query);
+  const { where, params } = await filtrosRelatorioComprasCartao(request.query);
   const rows = await all(`SELECT s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*) AS quantidade_compras
                           FROM compras_cartao cc JOIN setores s ON s.id = cc.departamento_id
                           ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -2101,7 +2123,7 @@ app.get("/api/relatorios-cartao/gastos-por-departamento", async (request, respon
 });
 
 app.get("/api/relatorios-cartao/gastos-por-categoria", async (request, response) => {
-  const { where, params } = filtrosRelatorioComprasCartao(request.query);
+  const { where, params } = await filtrosRelatorioComprasCartao(request.query);
   response.json(await all(`SELECT categoria, SUM(valor) AS total_gasto, COUNT(*) AS quantidade_compras
                            FROM compras_cartao cc
                            ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -2109,7 +2131,7 @@ app.get("/api/relatorios-cartao/gastos-por-categoria", async (request, response)
 });
 
 app.get("/api/relatorios-cartao/pendencias", async (request, response) => {
-  const { where, params } = filtrosRelatorioPendenciasCartao(request.query);
+  const { where, params } = await filtrosRelatorioPendenciasCartao(request.query);
   response.json(await all(`SELECT co.status, COUNT(*) AS total
                            FROM conciliacoes_cartao co
                            JOIN cartoes_corporativos c ON c.id = co.cartao_id
@@ -2119,7 +2141,7 @@ app.get("/api/relatorios-cartao/pendencias", async (request, response) => {
 });
 
 app.get("/api/relatorios-cartao/compras", async (request, response) => {
-  const { where, params } = filtrosRelatorioComprasCartao(request.query);
+  const { where, params } = await filtrosRelatorioComprasCartao(request.query);
   response.json(await all(`SELECT cc.id, cc.data_compra, cc.valor, cc.fornecedor, cc.categoria, cc.status,
                                   c.nome_cartao AS cartao, s.nome AS departamento, u.nome AS responsavel
                            FROM compras_cartao cc

@@ -27,6 +27,7 @@ function qsRelatorio() {
   if (status) qs.set("status", status);
   if (dataInicial) qs.set("dataInicial", dataInicial);
   if (dataFinal) qs.set("dataFinal", dataFinal);
+  qs.set("usuarioId", usuarioIdAtual());
   return qs.toString();
 }
 
@@ -37,7 +38,7 @@ function qsComprasPeriodo() {
 async function carregarFiltros() {
   const [departamentos, cartoes, categorias] = await Promise.all([
     fetch("/api/setores-detalhados").then((r) => r.json()),
-    fetch("/api/cartoes").then((r) => r.json()),
+    fetch(`/api/cartoes?usuarioId=${usuarioIdAtual()}&permissao=ver`).then((r) => r.json()),
     fetch("/api/categorias").then((r) => r.json())
   ]);
 

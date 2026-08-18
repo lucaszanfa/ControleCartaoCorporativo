@@ -317,7 +317,7 @@ function renderResultadoConciliacao(data) {
 }
 
 async function carregarFaturas() {
-  const faturas = await (await fetch("/api/faturas-cartao")).json();
+  const faturas = await (await fetch(`/api/faturas-cartao?usuarioId=${usuarioIdAtual()}`)).json();
   document.getElementById("faturasTabela").innerHTML = faturas.map((fatura) => `
     <tr class="report-data-row">
       <td><strong>${fatura.cartao}</strong></td>
