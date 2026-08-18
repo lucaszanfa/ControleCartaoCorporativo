@@ -467,7 +467,7 @@ function renderHistoricoCompra(compra) {
   const statusTexto = String(compra.status || "").toLowerCase();
   const importada = compraCadastradaAutomaticamente(compra);
   const concluida = ["conferida", "conciliada", "resolvida"].some((status) => statusTexto.includes(status));
-  const conciliada = statusTexto.includes("conciliada") || Boolean(compra.faturaId || compra.fatura_id || compra.numeroFatura);
+  const conciliada = statusTexto.includes("conferida");
   const eventos = [
     eventoTimeline(
       importada ? "Compra registrada automaticamente" : "Compra registrada no sistema",
