@@ -1,5 +1,5 @@
 async function initConciliacao() {
-  const cartoes = await (await fetch("/api/cartoes")).json();
+  const cartoes = await (await fetch(`/api/cartoes?usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
   preencherSelect(document.getElementById("filtroCartao"), cartoes, "id", "nomeCartao", "Todos");
   await carregarConciliacoes();
 }
@@ -8,6 +8,7 @@ async function carregarConciliacoes() {
   const qs = new URLSearchParams();
   if (document.getElementById("filtroStatus").value) qs.set("status", document.getElementById("filtroStatus").value);
   if (document.getElementById("filtroCartao").value) qs.set("cartaoId", document.getElementById("filtroCartao").value);
+  qs.set("usuarioId", usuarioIdAtual());
   const rows = await (await fetch(`/api/conciliacoes-cartao?${qs}`)).json();
   document.getElementById("conciliacoesTabela").innerHTML = rows.map((row) => `
     <tr class="report-data-row ${row.status === "sem_registro" || row.status.includes("divergente") ? "row-inactive" : ""}">

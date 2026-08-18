@@ -1824,6 +1824,7 @@ app.get("/api/conciliacoes-cartao", async (request, response) => {
     where.push("co.cartao_id = ?");
     params.push(request.query.cartaoId);
   }
+  await aplicarFiltroCartoesPermitidos(where, params, request.query.usuarioId, "co.cartao_id");
   const sql = `SELECT co.*, t.data_transacao, t.estabelecimento, t.valor AS valor_fatura, t.categoria_detectada, c.nome_cartao AS cartao, c.departamento_id,
                       cc.fornecedor AS compra_fornecedor, cc.responsavel_compra_id, u.nome AS responsavel
                FROM conciliacoes_cartao co

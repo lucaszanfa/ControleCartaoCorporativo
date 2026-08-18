@@ -352,9 +352,9 @@ function aplicarMenuPrincipal() {
     { href: "compras-pendentes.html", label: "Compras pendentes", icon: "pendentes" },
     ...(podeVerFaturas ? [{ href: "faturas-cartao.html", label: "Faturas", icon: "faturas" }] : []),
     ...(podeVerFaturas ? [{ href: "relatorios-cartao.html", label: "Relatórios de cartão", icon: "relatorios" }] : []),
+    ...(podeVerFaturas ? [{ href: "conciliacao-cartao.html", label: "Conciliação", icon: "conciliacao" }] : []),
     ...(podeVerCartoesGerenciais ? [
-      { href: "cartoes.html", label: "Cartões cadastrados", icon: "cartoes" },
-      { href: "conciliacao-cartao.html", label: "Conciliação", icon: "conciliacao" }
+      { href: "cartoes.html", label: "Cartões cadastrados", icon: "cartoes" }
     ] : [])
   ];
   sidebar.innerHTML = `
@@ -428,8 +428,7 @@ function aplicarPermissoes() {
   }
 
   const paginasCartaoGerenciais = [
-    "cartoes.html",
-    "conciliacao-cartao.html"
+    "cartoes.html"
   ];
 
   if (paginasCartaoGerenciais.includes(pagina) && !ehAdminOuGerente()) {
@@ -446,6 +445,12 @@ function aplicarPermissoes() {
 
   if (pagina === "relatorios-cartao.html" && !ehAdminOuGerente() && !usuarioTemCartaoComPermissao("ver")) {
     alert("Seu usuario nao tem permissao para ver relatorios de nenhum cartao.");
+    window.location.href = "compra-cartao.html";
+    return;
+  }
+
+  if (pagina === "conciliacao-cartao.html" && !ehAdminOuGerente() && !usuarioTemCartaoComPermissao("ver")) {
+    alert("Seu usuario nao tem permissao para ver conciliacao de nenhum cartao.");
     window.location.href = "compra-cartao.html";
   }
 }
