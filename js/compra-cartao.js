@@ -120,7 +120,7 @@ function configurarSugestaoFornecedor() {
 
 function exibirErroCarregamentoCompraCartao() {
   const mensagem = document.getElementById("compraMensagem");
-  mensagem.textContent = "Não foi possível carregar os dados necessários (cartões, departamentos, usuários ou categorias). Verifique sua conexão e recarregue a página antes de registrar a compra.";
+  mensagem.textContent = "Não foi possível carregar os dados necessários (cartões, departamentos ou usuários). Verifique sua conexão e recarregue a página antes de registrar a compra.";
   mensagem.classList.remove("hidden");
   document.querySelectorAll("#compraCartaoForm input, #compraCartaoForm select, #compraCartaoForm textarea, #compraCartaoForm button").forEach((campo) => {
     campo.disabled = true;
@@ -243,7 +243,6 @@ function renderizarComprasCartao() {
         ${compra.parcelaTotal > 1 ? `<small class="field-hint">Parcela ${compra.parcelaAtual}/${compra.parcelaTotal}</small>` : ""}
       </td>
       <td><span class="report-money-pill">${moeda(compra.valor)}</span></td>
-      <td>${compra.categoria}</td>
       <td><span class="${classeStatus(compra.status)}">${compra.status === "aguardando_fatura" ? "aguardando fatura" : compra.status}</span></td>
       <td>
         ${podeVerDetalhes
@@ -773,7 +772,7 @@ async function carregarCompraParaEdicao(id) {
   if (compraCadastradaAutomaticamente(compra)) {
     definirCamposProtegidosCompraAutomatica(true);
     mensagem.textContent = compra.parcelaTotal > 1
-      ? "Esta compra foi cadastrada automaticamente. Complete apenas os campos faltantes: responsavel, categoria, motivo e comprovante."
+      ? "Esta compra foi cadastrada automaticamente. Complete apenas os campos faltantes: responsavel, motivo e comprovante."
       : "Esta compra foi cadastrada automaticamente. Complete os campos faltantes e, se foi parcelada, informe em quantas vezes para o sistema já cadastrar as parcelas seguintes.";
   }
 }

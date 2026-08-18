@@ -30,7 +30,6 @@ function teamsIconHtml() {
 function identificarPendencias(compra) {
   const pendencias = [];
   if (!compra.responsavelCompraId && !compra.responsavel) pendencias.push("Responsável");
-  if (!String(compra.categoria || "").trim()) pendencias.push("Categoria");
   if (!String(compra.motivo || "").trim()) pendencias.push("Motivo");
   if (!String(compra.comprovanteUrl || "").trim()) pendencias.push("Comprovante");
   if (compra.status === "aguardando_conferencia") pendencias.push("Conferência");

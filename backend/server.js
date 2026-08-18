@@ -735,76 +735,6 @@ app.delete("/api/setores/:id", async (request, response) => {
   }
 });
 
-app.get("/api/categorias", async (_request, response) => {
-  try {
-    response.json(await all("SELECT id, nome FROM categorias ORDER BY nome"));
-  } catch (error) {
-    response.status(500).json({ erro: "Erro ao listar categorias.", detalhe: error.message });
-  }
-});
-
-app.post("/api/categorias", async (request, response) => {
-  try {
-    const nome = String(request.body?.nome || "").trim();
-    const adminEmail = String(request.body?.adminEmail || "").trim();
-
-    if (!nome) {
-      response.status(400).json({ erro: "Informe o nome da categoria." });
-      return;
-    }
-
-    const admin = await get("SELECT perfil, status FROM usuarios WHERE lower(email) = lower(?)", [adminEmail]);
-    if (!admin || admin.status !== "ativo" || admin.perfil !== "admin") {
-      response.status(403).json({ erro: "Apenas administradores podem cadastrar categorias." });
-      return;
-    }
-
-    const existente = await get("SELECT id FROM categorias WHERE lower(nome) = lower(?)", [nome]);
-    if (existente) {
-      response.status(409).json({ erro: "Esta categoria já está cadastrada." });
-      return;
-    }
-
-    const result = await run("INSERT INTO categorias (nome) VALUES (?)", [nome]);
-    response.status(201).json({ id: result.id, nome, mensagem: "Categoria cadastrada com sucesso." });
-  } catch (error) {
-    response.status(500).json({ erro: "Erro ao cadastrar categoria.", detalhe: error.message });
-  }
-});
-
-app.delete("/api/categorias/:id", async (request, response) => {
-  try {
-    const adminEmail = String(request.body?.adminEmail || "").trim();
-    const admin = await get("SELECT perfil, status FROM usuarios WHERE lower(email) = lower(?)", [adminEmail]);
-
-    if (!admin || admin.status !== "ativo" || admin.perfil !== "admin") {
-      response.status(403).json({ erro: "Apenas administradores podem excluir categorias." });
-      return;
-    }
-
-    const categoria = await get("SELECT id, nome FROM categorias WHERE id = ?", [request.params.id]);
-    if (!categoria) {
-      response.status(404).json({ erro: "Categoria não encontrada." });
-      return;
-    }
-
-    const vinculos = await get("SELECT COUNT(*) AS total FROM compras_cartao WHERE lower(categoria) = lower(?)", [categoria.nome]);
-
-    if (Number(vinculos.total) > 0) {
-      response.status(409).json({
-        erro: "Não é possível excluir esta categoria porque ela está em uso.",
-        vinculos: vinculos.total
-      });
-      return;
-    }
-
-    await run("DELETE FROM categorias WHERE id = ?", [categoria.id]);
-    response.json({ mensagem: `Categoria ${categoria.nome} excluída com sucesso.` });
-  } catch (error) {
-    response.status(500).json({ erro: "Erro ao excluir categoria.", detalhe: error.message });
-  }
-});
-
 app.post("/api/uploads/comprovante", async (request, response) => {
   try {
     const { fileName, mimeType, base64, departamentoId, dataCompra } = request.body;
@@ -933,8 +863,8 @@ app.patch("/api/cartoes/:id/ativar", async (request, response) => {
 app.get("/api/compras-cartao", async (request, response) => {
   const where = [];
   const params = [];
-  ["cartaoId", "departamentoId", "responsavelId", "categoria", "status"].forEach((key) => {
-    const column = { cartaoId: "cc.cartao_id", departamentoId: "cc.departamento_id", responsavelId: "cc.responsavel_compra_id", categoria: "cc.categoria", status: "cc.status" }[key];
+  ["cartaoId", "departamentoId", "responsavelId", "status"].forEach((key) => {
+    const column = { cartaoId: "cc.cartao_id", departamentoId: "cc.departamento_id", responsavelId: "cc.responsavel_compra_id", status: "cc.status" }[key];
     if (request.query[key]) {
       where.push(`${column} = ?`);
       params.push(request.query[key]);
@@ -979,7 +909,6 @@ app.get("/api/compras-cartao/fornecedores", async (_request, response) => {
 function pendenciasCadastroCompra(compra) {
   const pendencias = [];
   if (!compra.responsavelCompraId) pendencias.push("Responsavel");
-  if (!String(compra.categoria || "").trim()) pendencias.push("Categoria");
   if (!String(compra.motivo || "").trim()) pendencias.push("Motivo");
   if (compra.status !== "aguardando_fatura" && !String(compra.comprovanteUrl || "").trim()) pendencias.push("Comprovante");
   if (compra.status === "aguardando_conferencia") pendencias.push("Conferencia");
@@ -993,7 +922,6 @@ app.get("/api/compras-cartao/pendentes", async (request, response) => {
       `(cc.status IN ('aguardando_conferencia', 'divergente', 'sem_comprovante')
           OR (cc.status != 'aguardando_fatura' AND ifnull(trim(cc.comprovante_url), '') = '')
           OR ifnull(trim(cc.motivo), '') = ''
-          OR ifnull(trim(cc.categoria), '') = ''
           OR cc.responsavel_compra_id IS NULL)`
     ];
     const params = [];
@@ -2052,10 +1980,6 @@ async function filtrosRelatorioComprasCartao(query) {
     where.push("cc.cartao_id = ?");
     params.push(query.cartaoId);
   }
-  if (query.categoria) {
-    where.push("cc.categoria = ?");
-    params.push(query.categoria);
-  }
   if (query.status) {
     const statusCompra = {
       aguardando_comprovante: "sem_comprovante",
@@ -2136,14 +2060,6 @@ app.get("/api/relatorios-cartao/gastos-por-departamento", async (request, respon
   response.json(rows.map((row) => ({ ...row, percentual: total ? (row.total_gasto / total) * 100 : 0 })));
 });
 
-app.get("/api/relatorios-cartao/gastos-por-categoria", async (request, response) => {
-  const { where, params } = await filtrosRelatorioComprasCartao(request.query);
-  response.json(await all(`SELECT categoria, SUM(valor) AS total_gasto, COUNT(*) AS quantidade_compras
-                           FROM compras_cartao cc
-                           ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-                           GROUP BY categoria ORDER BY total_gasto DESC`, params));
-});
-
 app.get("/api/relatorios-cartao/pendencias", async (request, response) => {
   const { where, params } = await filtrosRelatorioPendenciasCartao(request.query);
   response.json(await all(`SELECT co.status, COUNT(*) AS total
@@ -2156,7 +2072,7 @@ app.get("/api/relatorios-cartao/pendencias", async (request, response) => {
 
 app.get("/api/relatorios-cartao/compras", async (request, response) => {
   const { where, params } = await filtrosRelatorioComprasCartao(request.query);
-  response.json(await all(`SELECT cc.id, cc.data_compra, cc.valor, cc.fornecedor, cc.categoria, cc.status,
+  response.json(await all(`SELECT cc.id, cc.data_compra, cc.valor, cc.fornecedor, cc.status,
                                   c.nome_cartao AS cartao, s.nome AS departamento, u.nome AS responsavel
                            FROM compras_cartao cc
                            JOIN cartoes_corporativos c ON c.id = cc.cartao_id

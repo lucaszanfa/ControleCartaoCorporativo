@@ -16,14 +16,12 @@ function qsRelatorio() {
   const qs = new URLSearchParams();
   const departamentoId = document.getElementById("filtroDepartamento").value;
   const cartaoId = document.getElementById("filtroCartao").value;
-  const categoria = document.getElementById("filtroCategoria").value;
   const status = document.getElementById("filtroStatus").value;
   const dataInicial = document.getElementById("filtroDataInicial").value;
   const dataFinal = document.getElementById("filtroDataFinal").value;
 
   if (departamentoId) qs.set("departamentoId", departamentoId);
   if (cartaoId) qs.set("cartaoId", cartaoId);
-  if (categoria) qs.set("categoria", categoria);
   if (status) qs.set("status", status);
   if (dataInicial) qs.set("dataInicial", dataInicial);
   if (dataFinal) qs.set("dataFinal", dataFinal);
@@ -36,18 +34,13 @@ function qsComprasPeriodo() {
 }
 
 async function carregarFiltros() {
-  const [departamentos, cartoes, categorias] = await Promise.all([
+  const [departamentos, cartoes] = await Promise.all([
     fetch("/api/setores-detalhados").then((r) => r.json()),
-    fetch(`/api/cartoes?usuarioId=${usuarioIdAtual()}&permissao=ver`).then((r) => r.json()),
-    fetch("/api/categorias").then((r) => r.json())
+    fetch(`/api/cartoes?usuarioId=${usuarioIdAtual()}&permissao=ver`).then((r) => r.json())
   ]);
 
   preencherSelect(document.getElementById("filtroDepartamento"), departamentos, "id", "nome", "Todos os departamentos");
   preencherSelect(document.getElementById("filtroCartao"), cartoes, "id", "nomeCartao", "Todos os cartões");
-  document.getElementById("filtroCategoria").innerHTML = [
-    '<option value="">Todas as categorias</option>',
-    ...categorias.map((categoria) => `<option value="${categoria.nome}">${categoria.nome.replaceAll("_", " ")}</option>`)
-  ].join("");
 }
 
 function definirPeriodoPadraoMesAtual() {
@@ -150,12 +143,6 @@ function dadosDistribuicaoAtual(relatorio) {
       itens: relatorio.porDepartamento.map((item) => ({ nome: item.departamento, total: Number(item.total_gasto || 0) }))
     };
   }
-  if (abaRelatorioCartaoAtiva === "categoria") {
-    return {
-      titulo: "Por categoria",
-      itens: relatorio.porCategoria.map((item) => ({ nome: String(item.categoria || "-").replaceAll("_", " "), total: Number(item.total_gasto || 0) }))
-    };
-  }
   return {
     titulo: "Por cartão",
     itens: relatorio.porCartao.map((item) => ({ nome: item.cartao, total: Number(item.total_gasto || 0) }))
@@ -252,7 +239,7 @@ function renderVisualRelatorioCartao() {
   renderInsightsRelatorioCartao(ultimoRelatorioCartao);
 }
 
-function renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, comprasPeriodo }) {
+function renderTabelas({ porCartao, porDepartamento, pendencias, comprasPeriodo }) {
   document.getElementById("gastosCartaoTabela").innerHTML = porCartao.length
     ? porCartao.map((r) => linha([
         `<strong>${r.cartao}</strong>`,
@@ -272,14 +259,6 @@ function renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, c
       ])).join("")
     : vazio(4);
 
-  document.getElementById("gastosCategoriaTabela").innerHTML = porCategoria.length
-    ? porCategoria.map((r) => linha([
-        String(r.categoria || "-").replaceAll("_", " "),
-        `<span class="report-money-pill">${moeda(r.total_gasto)}</span>`,
-        `<span class="report-number-pill">${r.quantidade_compras}</span>`
-      ])).join("")
-    : vazio(3);
-
   document.getElementById("comprasPeriodoTabela").innerHTML = comprasPeriodo.length
     ? comprasPeriodo.map((r) => linha([
         formatarData(r.data_compra),
@@ -287,11 +266,10 @@ function renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, c
         r.departamento,
         r.responsavel,
         r.fornecedor,
-        String(r.categoria || "-").replaceAll("_", " "),
         `<span class="report-money-pill">${moeda(r.valor)}</span>`,
         `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`
       ])).join("")
-    : vazio(8, "Nenhuma compra encontrada para o período selecionado.");
+    : vazio(7, "Nenhuma compra encontrada para o período selecionado.");
 
   document.getElementById("pendenciasTabela").innerHTML = pendencias.length
     ? pendencias.map((r) => linha([
@@ -309,10 +287,9 @@ async function carregarRelatoriosCartao() {
     ? Promise.resolve({ blocked: comprasFiltro.blocked, rows: [] })
     : fetch(`/api/relatorios-cartao/compras${comprasFiltro.query ? `?${comprasFiltro.query}` : ""}`).then((r) => r.json()).then((rows) => ({ blocked: "", rows }));
 
-  const [porCartao, porDepartamento, porCategoria, pendencias, comprasResultado] = await Promise.all([
+  const [porCartao, porDepartamento, pendencias, comprasResultado] = await Promise.all([
     fetch(`/api/relatorios-cartao/gastos-por-cartao${suffix}`).then((r) => r.json()),
     fetch(`/api/relatorios-cartao/gastos-por-departamento${suffix}`).then((r) => r.json()),
-    fetch(`/api/relatorios-cartao/gastos-por-categoria${suffix}`).then((r) => r.json()),
     fetch(`/api/relatorios-cartao/pendencias${suffix}`).then((r) => r.json()),
     comprasPromise
   ]);
@@ -320,13 +297,12 @@ async function carregarRelatoriosCartao() {
   ultimoRelatorioCartao = {
     porCartao,
     porDepartamento,
-    porCategoria,
     pendencias,
     comprasPeriodo: comprasResultado.rows,
     comprasBloqueadas: comprasResultado.blocked || ""
   };
   renderResumo({ porCartao, porDepartamento, pendencias });
-  renderTabelas({ porCartao, porDepartamento, porCategoria, pendencias, comprasPeriodo: comprasResultado.rows });
+  renderTabelas({ porCartao, porDepartamento, pendencias, comprasPeriodo: comprasResultado.rows });
   renderVisualRelatorioCartao();
   if (comprasResultado.blocked) {
     document.getElementById("comprasPeriodoTabela").innerHTML = vazio(8, comprasResultado.blocked);
@@ -341,7 +317,7 @@ function textoSelecionadoCartao(id) {
 function baixarPdfRelatorioCartao() {
   if (!ultimoRelatorioCartao) return;
 
-  const { porCartao, porDepartamento, porCategoria, pendencias, comprasPeriodo, comprasBloqueadas } = ultimoRelatorioCartao;
+  const { porCartao, porDepartamento, pendencias, comprasPeriodo, comprasBloqueadas } = ultimoRelatorioCartao;
   const total = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
   const compras = porCartao.reduce((sum, item) => sum + Number(item.quantidade_compras || 0), 0);
   const totalPendencias = pendencias
@@ -357,7 +333,6 @@ function baixarPdfRelatorioCartao() {
   pdf.keyValues([
     { label: "Departamento", value: textoSelecionadoCartao("filtroDepartamento") },
     { label: "Cartao", value: textoSelecionadoCartao("filtroCartao") },
-    { label: "Categoria", value: textoSelecionadoCartao("filtroCategoria") },
     { label: "Status da pendencia", value: textoSelecionadoCartao("filtroStatus") },
     { label: "Data inicial", value: document.getElementById("filtroDataInicial").value || "-" },
     { label: "Data final", value: document.getElementById("filtroDataFinal").value || "-" },
@@ -386,13 +361,6 @@ function baixarPdfRelatorioCartao() {
     [260, 130, 90, 110]
   );
 
-  pdf.section("Compras por categoria");
-  pdf.table(
-    ["Categoria", "Total", "Compras"],
-    porCategoria.map((r) => [String(r.categoria || "-").replaceAll("_", " "), moeda(r.total_gasto), r.quantidade_compras]),
-    [260, 130, 90]
-  );
-
   pdf.section("Pendencias de conciliacao");
   pdf.table(
     ["Status", "Total"],
@@ -405,18 +373,17 @@ function baixarPdfRelatorioCartao() {
     pdf.text(comprasBloqueadas, pdf.margin, pdf.y, { size: 10 });
   } else {
     pdf.table(
-      ["Data", "Cartao", "Departamento", "Responsavel", "Fornecedor", "Categoria", "Valor", "Status"],
+      ["Data", "Cartao", "Departamento", "Responsavel", "Fornecedor", "Valor", "Status"],
       comprasPeriodo.map((r) => [
         formatarData(r.data_compra),
         r.cartao,
         r.departamento,
         r.responsavel,
         r.fornecedor,
-        String(r.categoria || "-").replaceAll("_", " "),
         moeda(r.valor),
         String(r.status || "-").replaceAll("_", " ")
       ]),
-      [62, 115, 100, 95, 125, 85, 70, 85]
+      [70, 130, 110, 105, 145, 80, 90]
     );
   }
 
@@ -424,12 +391,12 @@ function baixarPdfRelatorioCartao() {
 }
 
 function configurarEventos() {
-  ["filtroDepartamento", "filtroCartao", "filtroCategoria", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
+  ["filtroDepartamento", "filtroCartao", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
     document.getElementById(id).addEventListener("change", carregarRelatoriosCartao);
   });
 
   document.getElementById("limparFiltros").addEventListener("click", () => {
-    ["filtroDepartamento", "filtroCartao", "filtroCategoria", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
+    ["filtroDepartamento", "filtroCartao", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
       document.getElementById(id).value = "";
     });
     carregarRelatoriosCartao();

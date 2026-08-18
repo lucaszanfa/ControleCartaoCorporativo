@@ -14,7 +14,7 @@
       <header class="topbar">
         <div>
           <span class="eyebrow">Análise de cartões</span>
-          <h1>Relatórios de cartão</h1><p class="topbar-subtitle">Analise os gastos dos cartões por período, categoria e departamento.</p>
+          <h1>Relatórios de cartão</h1><p class="topbar-subtitle">Analise os gastos dos cartões por período e departamento.</p>
         </div>
         <span class="user-chip">Usuário</span>
       </header>
@@ -24,7 +24,7 @@
         <div>
           <span>Análise de cartões</span>
           <h2>Relatórios SM&A Cartões</h2>
-          <p>Acompanhe gastos, pendências, categorias e compras do período com uma leitura mais executiva.</p>
+          <p>Acompanhe gastos, pendências e compras do período com uma leitura mais executiva.</p>
         </div>
         <div class="card-reports-hero-art" aria-hidden="true">
           <i></i>
@@ -76,11 +76,6 @@
                 <option value="">Todos os departamentos</option>
               </select>
             </label>
-            <label>Categoria
-              <select id="filtroCategoria">
-                <option value="">Todas as categorias</option>
-              </select>
-            </label>
             <label>Status da pendência
               <select id="filtroStatus">
                 <option value="">Todos os status</option>
@@ -127,7 +122,6 @@
         <div class="report-tabs" role="tablist">
           <button class="active" data-tab="cartao" type="button">Por cartão</button>
           <button data-tab="departamento" type="button">Por departamento</button>
-          <button data-tab="categoria" type="button">Por categoria</button>
           <button data-tab="compras" type="button">Compras do período</button>
           <button data-tab="pendencias" type="button">Pendências</button>
         </div>
@@ -184,21 +178,6 @@
               </div>
             </div>
 
-            <div class="report-panel" id="tab-categoria">
-              <div class="section-header">
-                <div>
-                  <h2>Compras por categoria</h2>
-                  <p>Entenda para quais finalidades o cartão foi usado.</p>
-                </div>
-              </div>
-              <div class="table-wrapper">
-                <table>
-                  <thead><tr><th>Categoria</th><th>Total</th><th>Compras</th></tr></thead>
-                  <tbody id="gastosCategoriaTabela"></tbody>
-                </table>
-              </div>
-            </div>
-
             <div class="report-panel" id="tab-compras">
               <div class="section-header">
                 <div>
@@ -208,7 +187,7 @@
               </div>
               <div class="table-wrapper">
                 <table>
-                  <thead><tr><th>Data</th><th>Cartão</th><th>Departamento</th><th>Responsável</th><th>Fornecedor</th><th>Categoria</th><th>Valor</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Data</th><th>Cartão</th><th>Departamento</th><th>Responsável</th><th>Fornecedor</th><th>Valor</th><th>Status</th></tr></thead>
                   <tbody id="comprasPeriodoTabela"></tbody>
                 </table>
               </div>

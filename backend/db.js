@@ -64,7 +64,6 @@ async function initDb() {
   await ensureUsuarioColumns();
   await ensureComprasCartaoNullableFields();
   await ensureCategoriaSemListaFixa();
-  await ensureCategoriasSeed();
   await ensureParcelamentoCompras();
   await ensureComprasCartaoAutoriaColumns();
 }
@@ -177,18 +176,6 @@ async function ensureCategoriaSemListaFixa() {
 
     PRAGMA foreign_keys = ON;
   `);
-}
-
-async function ensureCategoriasSeed() {
-  const existentes = await get("SELECT COUNT(*) AS total FROM categorias");
-  if (existentes.total > 0) {
-    return;
-  }
-
-  const padrao = ["material_administrativo", "copa", "limpeza", "manutencao", "transporte", "servicos", "outros"];
-  for (const nome of padrao) {
-    await run("INSERT OR IGNORE INTO categorias (nome) VALUES (?)", [nome]);
-  }
 }
 
 async function ensureParcelamentoCompras() {

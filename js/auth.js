@@ -252,9 +252,9 @@ async function carregarBuscaGlobal() {
   const compras = comprasRes.status === "fulfilled" ? comprasRes.value : [];
   const cartoes = cartoesRes.status === "fulfilled" ? cartoesRes.value : [];
   buscaGlobalCache = [
-    ...compras.map((compra) => ({ tipo: "Compra", titulo: compra.fornecedor || "Compra sem fornecedor", detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "), href: `compra-cartao.html?compraId=${compra.id}`, texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""} ${compra.categoria || ""}` })),
+    ...compras.map((compra) => ({ tipo: "Compra", titulo: compra.fornecedor || "Compra sem fornecedor", detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "), href: `compra-cartao.html?compraId=${compra.id}`, texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""}` })),
     ...cartoes.map((cartao) => ({ tipo: "Cartão", titulo: cartao.nomeCartao || cartao.nome || "Cartão", detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "), href: "cartoes.html", texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}` })),
-    { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos, pendências e categorias", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias categoria pdf" },
+    { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos e pendências", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias pdf" },
     { tipo: "Página", titulo: "Compra automática", detalhe: "Registrar ou testar compra recebida pela automação", href: "compra-automatica.html", texto: "compra automatica email power automate registrar testar" },
     { tipo: "Página", titulo: "Pendências", detalhe: "Compras aguardando conclusão e conciliação com fatura", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams conciliacao fatura divergencia" },
     { tipo: "Página", titulo: "Faturas do cartão", detalhe: "Importar fatura e rodar conciliação", href: "faturas-cartao.html", texto: "faturas cartao importacao conciliacao csv" }
