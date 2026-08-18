@@ -13,117 +13,177 @@
       <header class="topbar pending-topbar">
         <div>
           <span class="eyebrow">Conclus&atilde;o de cadastro</span>
-          <h1>Compras pendentes</h1><p class="topbar-subtitle">Veja as compras que ainda precisam de informações ou conferência.</p>
+          <h1>Pend&ecirc;ncias</h1><p class="topbar-subtitle">Compras que ainda precisam de informa&ccedil;&otilde;es e transa&ccedil;&otilde;es da fatura que ainda n&atilde;o bateram com nenhuma compra.</p>
         </div>
         <span class="user-chip">Usu&aacute;rio</span>
       </header>
 
-      <section class="card report-hero-card pending-hero-card">
-        <div class="pending-hero">
-          <div class="pending-hero-media">
-            <img src="img/smamateriais1.png" alt="SM&amp;A materiais">
-          </div>
-          <div class="pending-hero-copy">
-            <strong>Fila de compras para completar</strong>
-            <span>Revise compras que ainda precisam de respons&aacute;vel, categoria, motivo, comprovante ou confer&ecirc;ncia.</span>
-          </div>
-          <a class="btn btn-secondary pending-hero-action" href="#comprasPendentesTabela">
-            Ver todas as pend&ecirc;ncias
-            <span aria-hidden="true">&rsaquo;</span>
-          </a>
+      <section class="card pending-tabs-card">
+        <div class="pending-tabs" role="tablist">
+          <button id="abaPendentesBtn" class="pending-tab is-active" type="button" role="tab" aria-selected="true">Compras pendentes</button>
+          <button id="abaConciliacaoBtn" class="pending-tab hidden" type="button" role="tab" aria-selected="false">Concilia&ccedil;&atilde;o com fatura</button>
         </div>
       </section>
 
-      <section class="cards-grid report-summary-grid pending-summary-grid">
-        <article class="card metric-card pending-metric pending-metric-total">
-          <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 7h12l1 14H5Z"></path><path d="M9 7a3 3 0 0 1 6 0"></path></svg></span>
-          <div>
-            <span>Pendentes</span>
-            <strong id="resumoPendentes">0</strong>
-            <small>Compras aguardando conclus&atilde;o</small>
+      <div id="painelPendentes" class="pending-tab-panel">
+        <section class="card report-hero-card pending-hero-card">
+          <div class="pending-hero">
+            <div class="pending-hero-media">
+              <img src="img/smamateriais1.png" alt="SM&amp;A materiais">
+            </div>
+            <div class="pending-hero-copy">
+              <strong>Fila de compras para completar</strong>
+              <span>Revise compras que ainda precisam de respons&aacute;vel, categoria, motivo, comprovante ou confer&ecirc;ncia.</span>
+            </div>
+            <a class="btn btn-secondary pending-hero-action" href="#comprasPendentesTabela">
+              Ver todas as pend&ecirc;ncias
+              <span aria-hidden="true">&rsaquo;</span>
+            </a>
           </div>
-          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-        </article>
-        <article class="card metric-card pending-metric pending-metric-proof">
-          <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6"></path></svg></span>
-          <div>
-            <span>Sem comprovante</span>
-            <strong id="resumoSemComprovante">0</strong>
-            <small>Aguardando envio de comprovante</small>
-          </div>
-          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-        </article>
-        <article class="card metric-card pending-metric pending-metric-review">
-          <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
-          <div>
-            <span>Em confer&ecirc;ncia</span>
-            <strong id="resumoConferencia">0</strong>
-            <small>Em an&aacute;lise pela confer&ecirc;ncia</small>
-          </div>
-          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-        </article>
-        <article class="card metric-card pending-metric pending-metric-risk">
-          <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 2 2 20h20Z"></path><path d="M12 9v5M12 17v.01"></path></svg></span>
-          <div>
-            <span>Divergentes</span>
-            <strong id="resumoDivergentes">0</strong>
-            <small>Itens com diverg&ecirc;ncias</small>
-          </div>
-          <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-        </article>
-      </section>
+        </section>
 
-      <section class="card report-filter-card pending-filter-card">
-        <div id="pendentesMensagem" class="alert-success hidden"></div>
-        <div class="pending-filter-title">
-          <span aria-hidden="true">▽</span>
-          <strong>Filtros</strong>
-        </div>
-        <div class="filters-row filters-three">
-          <label>Status
-            <select id="filtroStatus">
-              <option value="">Todos</option>
-              <option value="sem_registro">Sem registro</option>
-              <option value="sem_comprovante">Sem comprovante</option>
-              <option value="aguardando_conferencia">Aguardando confer&ecirc;ncia</option>
-              <option value="divergente">Divergente</option>
-            </select>
-          </label>
-          <label>Cart&atilde;o
-            <select id="filtroCartao">
-              <option value="">Todos os cart&otilde;es</option>
-            </select>
-          </label>
-          <label>Fornecedor
-            <input id="filtroFornecedor" type="search" placeholder="Fornecedor">
-          </label>
-        </div>
-      </section>
+        <section class="cards-grid report-summary-grid pending-summary-grid">
+          <article class="card metric-card pending-metric pending-metric-total">
+            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 7h12l1 14H5Z"></path><path d="M9 7a3 3 0 0 1 6 0"></path></svg></span>
+            <div>
+              <span>Pendentes</span>
+              <strong id="resumoPendentes">0</strong>
+              <small>Compras aguardando conclus&atilde;o</small>
+            </div>
+            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
+          </article>
+          <article class="card metric-card pending-metric pending-metric-proof">
+            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6"></path></svg></span>
+            <div>
+              <span>Sem comprovante</span>
+              <strong id="resumoSemComprovante">0</strong>
+              <small>Aguardando envio de comprovante</small>
+            </div>
+            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
+          </article>
+          <article class="card metric-card pending-metric pending-metric-review">
+            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
+            <div>
+              <span>Em confer&ecirc;ncia</span>
+              <strong id="resumoConferencia">0</strong>
+              <small>Em an&aacute;lise pela confer&ecirc;ncia</small>
+            </div>
+            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
+          </article>
+          <article class="card metric-card pending-metric pending-metric-risk">
+            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 2 2 20h20Z"></path><path d="M12 9v5M12 17v.01"></path></svg></span>
+            <div>
+              <span>Divergentes</span>
+              <strong id="resumoDivergentes">0</strong>
+              <small>Itens com diverg&ecirc;ncias</small>
+            </div>
+            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
+          </article>
+        </section>
 
-      <section class="card report-workspace-card pending-table-card">
-        <div class="section-header">
-          <div>
-            <h2>Compras aguardando conclus&atilde;o</h2>
-            <p>Use o bot&atilde;o concluir para abrir a compra e preencher o que est&aacute; faltando.</p>
+        <section class="card report-filter-card pending-filter-card">
+          <div id="pendentesMensagem" class="alert-success hidden"></div>
+          <div class="pending-filter-title">
+            <span aria-hidden="true">▽</span>
+            <strong>Filtros</strong>
           </div>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Cart&atilde;o</th>
-                <th>Fornecedor</th>
-                <th>Valor</th>
-                <th>Status</th>
-                <th>Falta resolver</th>
-                <th>A&ccedil;&otilde;es</th>
-              </tr>
-            </thead>
-            <tbody id="comprasPendentesTabela"></tbody>
-          </table>
-        </div>
-      </section>
+          <div class="filters-row filters-three">
+            <label>Status
+              <select id="filtroStatus">
+                <option value="">Todos</option>
+                <option value="sem_registro">Sem registro</option>
+                <option value="sem_comprovante">Sem comprovante</option>
+                <option value="aguardando_conferencia">Aguardando confer&ecirc;ncia</option>
+                <option value="divergente">Divergente</option>
+              </select>
+            </label>
+            <label>Cart&atilde;o
+              <select id="filtroCartao">
+                <option value="">Todos os cart&otilde;es</option>
+              </select>
+            </label>
+            <label>Fornecedor
+              <input id="filtroFornecedor" type="search" placeholder="Fornecedor">
+            </label>
+          </div>
+        </section>
+
+        <section class="card report-workspace-card pending-table-card">
+          <div class="section-header">
+            <div>
+              <h2>Compras aguardando conclus&atilde;o</h2>
+              <p>Use o bot&atilde;o concluir para abrir a compra e preencher o que est&aacute; faltando.</p>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Cart&atilde;o</th>
+                  <th>Fornecedor</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Falta resolver</th>
+                  <th>A&ccedil;&otilde;es</th>
+                </tr>
+              </thead>
+              <tbody id="comprasPendentesTabela"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div id="painelConciliacao" class="pending-tab-panel hidden">
+        <section class="card report-filter-card pending-filter-card">
+          <div class="pending-filter-title">
+            <span aria-hidden="true">▽</span>
+            <strong>Filtros</strong>
+          </div>
+          <div class="filters-row filters-three">
+            <label>Status
+              <select id="filtroStatusConciliacao">
+                <option value="">Todas as pend&ecirc;ncias</option>
+                <option value="sem_registro">Sem registro</option>
+                <option value="valor_divergente">Valor divergente</option>
+                <option value="data_divergente">Data divergente</option>
+                <option value="aguardando_comprovante">Aguardando comprovante</option>
+              </select>
+            </label>
+            <label>Cart&atilde;o
+              <select id="filtroCartaoConciliacao">
+                <option value="">Todos os cart&otilde;es</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="card report-workspace-card pending-table-card">
+          <div class="section-header">
+            <div>
+              <h2>Transa&ccedil;&otilde;es da fatura</h2>
+              <p>Compare com as compras registradas e resolva as diverg&ecirc;ncias.</p>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data fatura</th>
+                  <th>Estabelecimento</th>
+                  <th>Valor</th>
+                  <th>Cart&atilde;o</th>
+                  <th>Compra encontrada</th>
+                  <th>Respons&aacute;vel</th>
+                  <th>Status</th>
+                  <th>A&ccedil;&otilde;es</th>
+                </tr>
+              </thead>
+              <tbody id="conciliacoesTabela"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 

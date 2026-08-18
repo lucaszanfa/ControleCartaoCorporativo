@@ -1,6 +1,7 @@
 let csvFaturaSelecionada = "";
 let transacoesFaturaSelecionadas = [];
 let cartoesFaturaCache = [];
+let faturasCache = [];
 
 async function initFaturas() {
   cartoesFaturaCache = await (await fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
@@ -298,7 +299,7 @@ function renderResultadoConciliacao(data) {
         <h2>Pendências encontradas</h2>
         <p>${pendencias.length} item(ns) precisam de revisão após a conciliação.</p>
       </div>
-      <a class="btn btn-secondary" href="conciliacao-cartao.html">Ver conciliação</a>
+      <a class="btn btn-secondary" href="compras-pendentes.html?tab=conciliacao">Ver conciliação</a>
     </div>
     <div class="pending-list">
       ${pendencias.map((pendencia) => `
@@ -318,15 +319,57 @@ function renderResultadoConciliacao(data) {
 
 async function carregarFaturas() {
   const faturas = await (await fetch(`/api/faturas-cartao?usuarioId=${usuarioIdAtual()}`)).json();
+  faturasCache = faturas;
   document.getElementById("faturasTabela").innerHTML = faturas.map((fatura) => `
     <tr class="report-data-row">
       <td><strong>${fatura.cartao}</strong></td>
       <td><span class="report-number-pill">${fatura.mes_referencia}/${fatura.ano_referencia}</span></td>
       <td>${fatura.arquivo_nome || "-"}</td>
       <td><span class="${classeStatus(fatura.status)}">${fatura.status}</span></td>
-      <td><button class="btn btn-primary" onclick="rodarConciliacao(${fatura.id})">Rodar novamente</button></td>
+      <td class="actions">
+        <button class="btn btn-secondary btn-compact" type="button" onclick="verTransacoesFatura(${fatura.id})">Ver</button>
+        ${fatura.status !== "conciliada"
+          ? `<button class="btn btn-primary btn-compact" type="button" onclick="rodarConciliacao(${fatura.id})">Rodar novamente</button>`
+          : ""}
+      </td>
     </tr>
   `).join("");
+}
+
+async function verTransacoesFatura(id) {
+  const fatura = faturasCache.find((item) => item.id === id);
+  if (!fatura) return;
+  const transacoes = await (await fetch(`/api/faturas-cartao/${id}/transacoes`)).json();
+
+  document.getElementById("faturaTransacoesConteudo").innerHTML = `
+    <div class="section-header">
+      <div>
+        <span class="eyebrow">${escapeHtml(fatura.cartao)} · ${fatura.mes_referencia}/${fatura.ano_referencia}</span>
+        <h2 id="faturaTransacoesTitulo">${escapeHtml(fatura.arquivo_nome || "Fatura")}</h2>
+        <p>${fatura.transacoes_conciliadas} de ${fatura.total_transacoes} transações já conciliadas com uma compra registrada.</p>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Data</th><th>Estabelecimento</th><th>Valor</th><th>Status</th></tr></thead>
+        <tbody>
+          ${transacoes.length ? transacoes.map((transacao) => `
+            <tr class="report-data-row">
+              <td>${formatarData(transacao.data_transacao)}</td>
+              <td>${escapeHtml(transacao.estabelecimento)}</td>
+              <td><span class="report-money-pill">${moeda(transacao.valor)}</span></td>
+              <td><span class="${classeStatus(transacao.status_conciliacao)}">${String(transacao.status_conciliacao || "-").replaceAll("_", " ")}</span></td>
+            </tr>
+          `).join("") : `<tr><td colspan="4" class="empty-state">Nenhuma transação nesta fatura.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById("faturaTransacoesModal").classList.remove("hidden");
+}
+
+function fecharFaturaTransacoesModal() {
+  document.getElementById("faturaTransacoesModal").classList.add("hidden");
 }
 
 async function rodarConciliacao(id, opcoes = {}) {

@@ -128,12 +128,11 @@ function exibirErroCarregamentoCompraCartao() {
 }
 
 async function initCompraCartao() {
-  let cartoes, setoresDetalhados, categorias, fornecedores, usuariosDisponiveis;
+  let cartoes, setoresDetalhados, fornecedores, usuariosDisponiveis;
   try {
-    [cartoes, setoresDetalhados, categorias, fornecedores, usuariosDisponiveis] = await Promise.all([
+    [cartoes, setoresDetalhados, fornecedores, usuariosDisponiveis] = await Promise.all([
       fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=cadastrar`).then((resposta) => resposta.json()),
       fetch("/api/setores-detalhados").then((resposta) => resposta.json()),
-      fetch("/api/categorias").then((resposta) => resposta.json()),
       fetch("/api/compras-cartao/fornecedores").then((resposta) => resposta.json()),
       fetch("/api/usuarios").then((resposta) => resposta.json())
     ]);
@@ -147,7 +146,6 @@ async function initCompraCartao() {
   preencherSelect(document.getElementById("departamentoId"), setoresDetalhados, "id", "nome");
   preencherSelect(document.getElementById("responsavelCompraId"), usuariosDisponiveis, "id", "nome");
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
-  document.getElementById("categoria").innerHTML = categorias.map((c) => `<option value="${c.nome}">${c.nome}</option>`).join("");
   fornecedoresConhecidosCache = fornecedores;
   configurarSugestaoFornecedor();
   document.getElementById("dataCompra").value = new Date().toISOString().slice(0, 10);

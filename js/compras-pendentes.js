@@ -311,4 +311,87 @@ teamsConfirmModal.addEventListener("click", (event) => {
   if (event.target === teamsConfirmModal) fecharConfirmacaoTeams();
 });
 
+// --- Aba "Conciliação com fatura" (antiga conciliacao-cartao.html) ---
+
+async function initConciliacao() {
+  const cartoes = await (await fetch(`/api/cartoes?usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
+  preencherSelect(document.getElementById("filtroCartaoConciliacao"), cartoes, "id", "nomeCartao", "Todos os cartões");
+  await carregarConciliacoes();
+}
+
+async function carregarConciliacoes() {
+  const qs = new URLSearchParams();
+  const status = document.getElementById("filtroStatusConciliacao").value;
+  const cartaoId = document.getElementById("filtroCartaoConciliacao").value;
+  if (status) qs.set("status", status);
+  if (cartaoId) qs.set("cartaoId", cartaoId);
+  qs.set("usuarioId", usuarioIdAtual());
+  const rows = await (await fetch(`/api/conciliacoes-cartao?${qs}`)).json();
+  document.getElementById("conciliacoesTabela").innerHTML = rows.map((row) => `
+    <tr class="report-data-row ${row.status === "sem_registro" || row.status.includes("divergente") ? "row-inactive" : ""}">
+      <td><strong>${formatarData(row.data_transacao)}</strong></td><td><strong>${row.estabelecimento}</strong></td><td><span class="report-money-pill">${moeda(row.valor_fatura)}</span></td><td>${row.cartao}</td>
+      <td>${row.compra_fornecedor || "-"}</td><td>${row.responsavel || "-"}</td><td><span class="${classeStatus(row.status)}">${row.status}</span></td>
+      <td><a class="btn btn-secondary" href="${linkResolverConciliacao(row)}">Resolver</a></td>
+    </tr>
+  `).join("");
+}
+
+function linkResolverConciliacao(row) {
+  if (row.compra_cartao_id) {
+    return `compra-cartao.html?compraId=${row.compra_cartao_id}`;
+  }
+
+  const params = new URLSearchParams({
+    transacaoId: row.transacao_fatura_id,
+    cartaoId: row.cartao_id,
+    departamentoId: row.departamento_id,
+    dataCompra: row.data_transacao || "",
+    valor: row.valor_fatura || "",
+    fornecedor: row.estabelecimento || "",
+    categoria: row.categoria_detectada || "outros"
+  });
+  return `compra-cartao.html?${params.toString()}`;
+}
+
+document.getElementById("filtroStatusConciliacao").addEventListener("change", carregarConciliacoes);
+document.getElementById("filtroCartaoConciliacao").addEventListener("change", carregarConciliacoes);
+
+// --- Abas ---
+
+const abaPendentesBtn = document.getElementById("abaPendentesBtn");
+const abaConciliacaoBtn = document.getElementById("abaConciliacaoBtn");
+const painelPendentes = document.getElementById("painelPendentes");
+const painelConciliacao = document.getElementById("painelConciliacao");
+
+let conciliacaoCarregada = false;
+
+function mostrarAba(aba) {
+  const conciliacaoPermitida = !abaConciliacaoBtn.classList.contains("hidden");
+  const abaFinal = aba === "conciliacao" && conciliacaoPermitida ? "conciliacao" : "pendentes";
+
+  abaPendentesBtn.classList.toggle("is-active", abaFinal === "pendentes");
+  abaPendentesBtn.setAttribute("aria-selected", String(abaFinal === "pendentes"));
+  abaConciliacaoBtn.classList.toggle("is-active", abaFinal === "conciliacao");
+  abaConciliacaoBtn.setAttribute("aria-selected", String(abaFinal === "conciliacao"));
+  painelPendentes.classList.toggle("hidden", abaFinal !== "pendentes");
+  painelConciliacao.classList.toggle("hidden", abaFinal !== "conciliacao");
+
+  if (abaFinal === "conciliacao" && !conciliacaoCarregada) {
+    conciliacaoCarregada = true;
+    initConciliacao();
+  }
+}
+
+abaPendentesBtn.addEventListener("click", () => mostrarAba("pendentes"));
+abaConciliacaoBtn.addEventListener("click", () => mostrarAba("conciliacao"));
+
+function inicializarAbas() {
+  if (ehAdminOuGerente() || usuarioTemCartaoComPermissao("ver")) {
+    abaConciliacaoBtn.classList.remove("hidden");
+  }
+  const abaSolicitada = new URLSearchParams(window.location.search).get("tab");
+  mostrarAba(abaSolicitada);
+}
+
+inicializarAbas();
 carregarCartoesFiltro().then(carregarComprasPendentes);

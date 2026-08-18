@@ -256,7 +256,7 @@ async function carregarBuscaGlobal() {
     ...cartoes.map((cartao) => ({ tipo: "Cartão", titulo: cartao.nomeCartao || cartao.nome || "Cartão", detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "), href: "cartoes.html", texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}` })),
     { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos, pendências e categorias", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias categoria pdf" },
     { tipo: "Página", titulo: "Compra automática", detalhe: "Registrar ou testar compra recebida pela automação", href: "compra-automatica.html", texto: "compra automatica email power automate registrar testar" },
-    { tipo: "Página", titulo: "Compras pendentes", detalhe: "Compras aguardando conclusão", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams" },
+    { tipo: "Página", titulo: "Pendências", detalhe: "Compras aguardando conclusão e conciliação com fatura", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams conciliacao fatura divergencia" },
     { tipo: "Página", titulo: "Faturas do cartão", detalhe: "Importar fatura e rodar conciliação", href: "faturas-cartao.html", texto: "faturas cartao importacao conciliacao csv" }
   ];
   buscaGlobalCacheCriadoEm = Date.now();
@@ -349,10 +349,9 @@ function aplicarMenuPrincipal() {
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra", icon: "compra" },
     { href: "compra-automatica.html", label: "Compra automática", icon: "automatica" },
-    { href: "compras-pendentes.html", label: "Compras pendentes", icon: "pendentes" },
+    { href: "compras-pendentes.html", label: "Pendências", icon: "pendentes" },
     ...(podeVerFaturas ? [{ href: "faturas-cartao.html", label: "Faturas", icon: "faturas" }] : []),
     ...(podeVerFaturas ? [{ href: "relatorios-cartao.html", label: "Relatórios de cartão", icon: "relatorios" }] : []),
-    ...(podeVerFaturas ? [{ href: "conciliacao-cartao.html", label: "Conciliação", icon: "conciliacao" }] : []),
     ...(podeVerCartoesGerenciais ? [
       { href: "cartoes.html", label: "Cartões cadastrados", icon: "cartoes" }
     ] : [])
@@ -449,10 +448,6 @@ function aplicarPermissoes() {
     return;
   }
 
-  if (pagina === "conciliacao-cartao.html" && !ehAdminOuGerente() && !usuarioTemCartaoComPermissao("ver")) {
-    alert("Seu usuario nao tem permissao para ver conciliacao de nenhum cartao.");
-    window.location.href = "compra-cartao.html";
-  }
 }
 
 aplicarTemaSalvo();

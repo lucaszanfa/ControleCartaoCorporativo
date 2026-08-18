@@ -1492,7 +1492,10 @@ app.get("/api/faturas-cartao", async (request, response) => {
   const params = [];
   await aplicarFiltroCartoesPermitidos(where, params, request.query.usuarioId, "f.cartao_id");
   response.json(await all(
-    `SELECT f.*, c.nome_cartao AS cartao FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id
+    `SELECT f.*, c.nome_cartao AS cartao,
+            (SELECT COUNT(*) FROM transacoes_fatura t WHERE t.fatura_id = f.id) AS total_transacoes,
+            (SELECT COUNT(*) FROM transacoes_fatura t WHERE t.fatura_id = f.id AND t.status_conciliacao = 'conciliada') AS transacoes_conciliadas
+     FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
      ORDER BY f.ano_referencia DESC, f.mes_referencia DESC`,
     params

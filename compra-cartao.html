@@ -50,7 +50,7 @@
               <div id="fornecedorAutocompleteLista" class="fornecedor-autocomplete-lista hidden"></div>
               <small id="fornecedorSugestao" class="field-hint hidden"></small>
             </label>
-            <label>Categoria <em>*</em><select id="categoria" required></select></label>
+            <input type="hidden" id="categoria" value="outros">
             <label class="purchase-upload-label">Comprovante
               <input id="comprovanteArquivo" type="file" accept="application/pdf,image/png,image/jpeg,image/webp">
               <input id="comprovanteUrl" type="hidden">
@@ -61,10 +61,7 @@
               <small id="comprovanteAtual" class="field-hint">Formatos aceitos: PDF, JPG, PNG. Máx. 10MB.</small>
             </label>
             <label class="full-width">Motivo <em>*</em><input id="motivo" placeholder="Informe o motivo da compra" required></label>
-            <label class="full-width">Observação
-              <textarea id="observacao" rows="3" maxlength="500" placeholder="Adicione informações complementares (opcional)"></textarea>
-              <small class="purchase-counter" id="observacaoCompraContador">0/500</small>
-            </label>
+            <input type="hidden" id="observacao" value="">
           </div>
 
           <div class="purchase-actions">
