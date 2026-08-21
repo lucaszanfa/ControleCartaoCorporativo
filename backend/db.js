@@ -67,6 +67,7 @@ async function initDb() {
   await ensureParcelamentoCompras();
   await ensureComprasCartaoAutoriaColumns();
   await ensureCartaoBancoColumn();
+  await ensureBancosSeed();
 }
 
 async function ensureUsuarioColumns() {
@@ -247,6 +248,16 @@ async function ensureCartaoBancoColumn() {
   const columns = await all("PRAGMA table_info(cartoes_corporativos)");
   if (columns.some((column) => column.name === "banco_id")) return;
   await run("ALTER TABLE cartoes_corporativos ADD COLUMN banco_id INTEGER");
+}
+
+async function ensureBancosSeed() {
+  const existentes = await get("SELECT COUNT(*) AS total FROM bancos");
+  if (existentes.total > 0) return;
+
+  const padrao = ["Inter", "Bradesco"];
+  for (const nome of padrao) {
+    await run("INSERT OR IGNORE INTO bancos (nome) VALUES (?)", [nome]);
+  }
 }
 
 module.exports = {
