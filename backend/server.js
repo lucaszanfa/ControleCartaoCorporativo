@@ -253,6 +253,22 @@ function similarText(a, b) {
   return left.includes(right.slice(0, 5)) || right.includes(left.slice(0, 5));
 }
 
+function paraTituloFornecedor(nome) {
+  return nome
+    .toLowerCase()
+    .replace(/(^|[\s-])\p{L}/gu, (letra) => letra.toUpperCase());
+}
+
+async function fornecedorCanonico(fornecedor) {
+  const nome = String(fornecedor || "").trim();
+  if (!nome) return nome;
+  const existente = await get(
+    "SELECT fornecedor FROM compras_cartao WHERE lower(trim(fornecedor)) = lower(?) AND trim(ifnull(fornecedor, '')) <> '' ORDER BY id ASC LIMIT 1",
+    [nome]
+  );
+  return existente ? existente.fornecedor.trim() : paraTituloFornecedor(nome);
+}
+
 async function usuarioEhAdmin(usuarioId) {
   if (!usuarioId) return false;
   const usuario = await get("SELECT perfil, pode_administrar_usuarios FROM usuarios WHERE id = ?", [usuarioId]);
@@ -1287,6 +1303,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
 
     const observacao = "Compra cadastrada automaticamente.";
     const valorParcela = totalParcelas > 1 ? Number((valorNumerico / totalParcelas).toFixed(2)) : valorNumerico;
+    const fornecedorFinal = await fornecedorCanonico(fornecedor);
 
     const result = await run(
       `INSERT INTO compras_cartao (
@@ -1310,7 +1327,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
         null,
         dataNormalizada,
         valorParcela,
-        fornecedor,
+        fornecedorFinal,
         observacao,
         totalParcelas
       ]
@@ -1327,7 +1344,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
         valorTotal: valorNumerico,
         totalParcelas,
         valorParcela,
-        fornecedor,
+        fornecedor: fornecedorFinal,
         categoria: "",
         motivo: "",
         comprovanteUrl: "",
@@ -1354,7 +1371,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
         departamento: cartao.departamento,
         cartao: cartao.nome_cartao,
         data_compra: dataNormalizada,
-        estabelecimento: fornecedor,
+        estabelecimento: fornecedorFinal,
         valor: valorNumerico,
         mensagem: "Compra cadastrada automaticamente. Conclua o cadastro no sistema.",
         url_resolucao: urlResolucao,
@@ -1397,17 +1414,18 @@ app.post("/api/compras-cartao", async (request, response) => {
     const status = comprovanteUrl ? "registrada" : "sem_comprovante";
     const valorTotal = Number(valor);
     const valorParcela = totalParcelas > 1 ? Number((valorTotal / totalParcelas).toFixed(2)) : valorTotal;
+    const fornecedorFinal = await fornecedorCanonico(fornecedor);
 
     const result = await run(
       "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, criado_por_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valorParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", status, 1, totalParcelas, usuarioLogadoId || null]
+      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valorParcela, fornecedorFinal, categoria, motivo, comprovanteUrl || "", observacao || "", status, 1, totalParcelas, usuarioLogadoId || null]
     );
 
     if (totalParcelas > 1) {
       await run("UPDATE compras_cartao SET parcelamento_grupo_id = ? WHERE id = ?", [result.id, result.id]);
       await gerarParcelasFuturas({
         compraOrigemId: result.id, cartaoId, departamentoId, responsavelCompraId, dataCompra,
-        valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao,
+        valorTotal, totalParcelas, valorParcela, fornecedor: fornecedorFinal, categoria, motivo, comprovanteUrl, observacao,
         criadoPorId: usuarioLogadoId || null
       });
     }
@@ -1441,6 +1459,8 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       observacao: compraAtual.observacao || "Compra cadastrada automaticamente."
     }
     : { cartaoId, departamentoId, dataCompra, valor, fornecedor, observacao: observacao || "" };
+
+  dadosProtegidos.fornecedor = await fornecedorCanonico(dadosProtegidos.fornecedor);
 
   const cartoesPermitidos = await cartoesPermitidosParaUsuario(usuarioLogadoId, "cadastrar");
   if (cartoesPermitidos !== null && !cartoesPermitidos.includes(Number(dadosProtegidos.cartaoId))) {

@@ -47,6 +47,12 @@ function normalizarNomeFornecedor(nome) {
     .trim();
 }
 
+function paraTituloFornecedor(nome) {
+  return String(nome || "")
+    .toLowerCase()
+    .replace(/(^|[\s-])\p{L}/gu, (letra) => letra.toUpperCase());
+}
+
 const LIMITE_SUGESTOES_FORNECEDOR = 6;
 
 function renderizarListaAutocompleteFornecedor(lista, termo) {
@@ -105,7 +111,15 @@ function configurarSugestaoFornecedor() {
     const correspondente = fornecedoresConhecidosCache.find((nome) => (
       nome !== digitado && normalizarNomeFornecedor(nome) === digitadoNormalizado
     ));
-    if (!correspondente) return;
+    if (!correspondente) {
+      campo.value = paraTituloFornecedor(digitado);
+      return;
+    }
+
+    if (correspondente.toLowerCase() === digitado.toLowerCase()) {
+      campo.value = correspondente;
+      return;
+    }
 
     sugestao.innerHTML = `Já existe "${escapeHtml(correspondente)}" cadastrado. <a href="#" id="usarFornecedorSugerido">Usar esse nome</a>?`;
     sugestao.classList.remove("hidden");
