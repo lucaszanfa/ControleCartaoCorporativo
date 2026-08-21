@@ -80,6 +80,28 @@
           <div id="departamentosLista" class="users-departments-list"></div>
         </section>
 
+        <section id="bancosAdminPanel" class="users-departments-panel hidden">
+          <div class="users-departments-header">
+            <div>
+              <span class="eyebrow">Menu de admin</span>
+              <h2>Bancos</h2>
+              <p>Cadastre os bancos que aparecem no cadastro de cartões corporativos.</p>
+            </div>
+          </div>
+          <form id="bancoForm" class="users-department-form">
+            <label>
+              Nome do banco
+              <input id="bancoNome" type="text" placeholder="Ex.: Itaú" maxlength="80" required>
+            </label>
+            <button class="btn btn-primary" type="submit">Cadastrar banco</button>
+          </form>
+          <div class="users-departments-list-header">
+            <strong>Bancos cadastrados</strong>
+            <small>Use o botão Excluir ao lado do banco desejado.</small>
+          </div>
+          <div id="bancosLista" class="users-departments-list"></div>
+        </section>
+
         <div class="users-toolbar">
           <label class="users-search">
             <span class="sr-only">Buscar usuário</span>

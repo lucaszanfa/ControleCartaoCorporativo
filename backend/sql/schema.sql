@@ -10,6 +10,11 @@ CREATE TABLE IF NOT EXISTS categorias (
   nome TEXT NOT NULL UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS bancos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS usuarios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nome TEXT NOT NULL,
@@ -27,6 +32,7 @@ CREATE TABLE IF NOT EXISTS cartoes_corporativos (
   departamento_id INTEGER NOT NULL,
   responsavel_id INTEGER NOT NULL,
   gerente_id INTEGER NOT NULL,
+  banco_id INTEGER,
   ultimos_4_digitos TEXT NOT NULL CHECK (length(ultimos_4_digitos) = 4 AND ultimos_4_digitos GLOB '[0-9][0-9][0-9][0-9]'),
   limite_mensal REAL CHECK (limite_mensal IS NULL OR limite_mensal >= 0),
   status TEXT NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'inativo')),
@@ -35,7 +41,8 @@ CREATE TABLE IF NOT EXISTS cartoes_corporativos (
   atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (departamento_id) REFERENCES setores(id),
   FOREIGN KEY (responsavel_id) REFERENCES usuarios(id),
-  FOREIGN KEY (gerente_id) REFERENCES usuarios(id)
+  FOREIGN KEY (gerente_id) REFERENCES usuarios(id),
+  FOREIGN KEY (banco_id) REFERENCES bancos(id)
 );
 
 CREATE TABLE IF NOT EXISTS permissoes_cartao_usuario (

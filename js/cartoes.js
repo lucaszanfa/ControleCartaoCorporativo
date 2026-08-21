@@ -16,14 +16,15 @@ function corPorDepartamento(departamento) {
 }
 
 async function initCartoes() {
-  let usuariosDisponiveis;
+  let usuariosDisponiveis, bancosDisponiveis;
   try {
-    [setoresCartoes, usuariosDisponiveis] = await Promise.all([
+    [setoresCartoes, usuariosDisponiveis, bancosDisponiveis] = await Promise.all([
       fetch("/api/setores-detalhados").then((resposta) => resposta.json()),
-      fetch("/api/usuarios").then((resposta) => resposta.json())
+      fetch("/api/usuarios").then((resposta) => resposta.json()),
+      fetch("/api/bancos").then((resposta) => resposta.json())
     ]);
   } catch (error) {
-    msg.textContent = "Não foi possível carregar departamentos/usuários. Verifique sua conexão e recarregue a página.";
+    msg.textContent = "Não foi possível carregar departamentos/usuários/bancos. Verifique sua conexão e recarregue a página.";
     msg.classList.remove("hidden");
     document.getElementById("novoCartaoBtn").disabled = true;
     return;
@@ -32,6 +33,7 @@ async function initCartoes() {
   preencherSelect(document.getElementById("filtroDepartamento"), setoresCartoes, "id", "nome", "Todos");
   preencherSelect(document.getElementById("responsavelId"), usuariosDisponiveis, "id", "nome");
   preencherSelect(document.getElementById("gerenteId"), usuariosDisponiveis, "id", "nome");
+  preencherSelect(document.getElementById("bancoId"), bancosDisponiveis, "id", "nome");
   await carregarCartoes();
 }
 
@@ -66,6 +68,7 @@ async function carregarCartoes() {
         <td>${cartao.departamento}</td>
         <td>${cartao.responsavel}</td>
         <td>${cartao.gerente}</td>
+        <td>${cartao.banco || "-"}</td>
         <td><span class="corporate-card-final">•••• ${cartao.ultimos4Digitos}</span></td>
         <td><span class="${classeStatus(cartao.status)}">${cartao.status}</span></td>
         <td>
@@ -90,6 +93,7 @@ function editarCartao(id) {
   document.getElementById("departamentoId").value = cartao.departamentoId;
   document.getElementById("responsavelId").value = cartao.responsavelId;
   document.getElementById("gerenteId").value = cartao.gerenteId;
+  document.getElementById("bancoId").value = cartao.bancoId;
   document.getElementById("ultimos4Digitos").value = cartao.ultimos4Digitos;
   document.getElementById("status").value = cartao.status;
   document.getElementById("observacao").value = cartao.observacao;
@@ -112,6 +116,7 @@ form.addEventListener("submit", async (event) => {
     departamentoId: document.getElementById("departamentoId").value,
     responsavelId: document.getElementById("responsavelId").value,
     gerenteId: document.getElementById("gerenteId").value,
+    bancoId: document.getElementById("bancoId").value,
     ultimos4Digitos: document.getElementById("ultimos4Digitos").value,
     status: document.getElementById("status").value,
     observacao: document.getElementById("observacao").value

@@ -274,6 +274,7 @@ function atualizarResumoCartao() {
   document.getElementById("resumoCartaoStatus").textContent = cartao.status || "ativo";
   document.getElementById("resumoCartaoTitular").textContent = cartao.responsavel || "-";
   document.getElementById("resumoCartaoDepartamento").textContent = cartao.departamento || "-";
+  document.getElementById("resumoCartaoBanco").textContent = cartao.banco || "-";
   document.getElementById("resumoCartaoMes").textContent = moeda(totalMes);
 }
 

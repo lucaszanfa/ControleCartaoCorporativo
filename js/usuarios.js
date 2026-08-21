@@ -9,6 +9,10 @@ const departamentosAdminPanel = document.getElementById("departamentosAdminPanel
 const departamentoForm = document.getElementById("departamentoForm");
 const departamentoNome = document.getElementById("departamentoNome");
 const departamentosLista = document.getElementById("departamentosLista");
+const bancosAdminPanel = document.getElementById("bancosAdminPanel");
+const bancoForm = document.getElementById("bancoForm");
+const bancoNome = document.getElementById("bancoNome");
+const bancosLista = document.getElementById("bancosLista");
 const permissoesCartaoModal = document.getElementById("permissoesCartaoModal");
 const permissoesCartaoLista = document.getElementById("permissoesCartaoLista");
 const permissoesCartaoUsuarioNome = document.getElementById("permissoesCartaoUsuarioNome");
@@ -17,6 +21,7 @@ const salvarPermissoesCartaoBtn = document.getElementById("salvarPermissoesCarta
 
 let usuariosCache = [];
 let departamentosCache = [];
+let bancosCache = [];
 let usuarioPermissoesCartaoAtual = null;
 
 function textoSeguro(valor) {
@@ -208,16 +213,19 @@ function criarToggle(classe, ativo) {
 }
 
 async function carregarUsuarios() {
-  const [usuariosResposta, departamentosResposta] = await Promise.all([
+  const [usuariosResposta, departamentosResposta, bancosResposta] = await Promise.all([
     fetch("/api/usuarios"),
-    fetch("/api/setores-detalhados")
+    fetch("/api/setores-detalhados"),
+    fetch("/api/bancos")
   ]);
   usuariosCache = await usuariosResposta.json();
   departamentosCache = await departamentosResposta.json();
+  bancosCache = await bancosResposta.json();
 
   atualizarResumo(usuariosCache);
   preencherFiltroSetores(usuariosCache);
   renderizarDepartamentos();
+  renderizarBancos();
   renderizarUsuarios();
 }
 
@@ -311,6 +319,91 @@ async function cadastrarDepartamento(event) {
   }
 }
 
+function renderizarBancos() {
+  if (!bancosAdminPanel) return;
+
+  bancosAdminPanel.classList.toggle("hidden", !usuarioPodeCadastrarDepartamento());
+
+  if (!usuarioPodeCadastrarDepartamento()) {
+    return;
+  }
+
+  bancosLista.innerHTML = bancosCache.length
+    ? bancosCache.map((banco) => `
+        <article class="users-department-item">
+          <strong>${textoSeguro(banco.nome)}</strong>
+          <button class="btn users-department-delete" type="button" data-id="${banco.id}" data-nome="${textoSeguro(banco.nome)}" aria-label="Excluir banco ${textoSeguro(banco.nome)}">${svgIcone("lixeira", "icon-sm")} Excluir</button>
+        </article>
+      `).join("")
+    : `<span class="users-department-empty">Nenhum banco cadastrado.</span>`;
+}
+
+async function excluirBanco(event) {
+  const botao = event.target.closest(".users-department-delete");
+  if (!botao) return;
+
+  const nome = botao.dataset.nome;
+  if (!window.confirm(`Deseja realmente excluir o banco “${nome}”?`)) return;
+
+  botao.disabled = true;
+  try {
+    const resposta = await fetch(`/api/bancos/${botao.dataset.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminEmail: usuarioLogado?.email || "" })
+    });
+    const dados = await resposta.json();
+
+    usuariosMensagem.textContent = dados.mensagem || dados.erro || "Banco excluído.";
+    usuariosMensagem.classList.remove("hidden");
+    if (!resposta.ok) return;
+
+    await carregarUsuarios();
+  } finally {
+    botao.disabled = false;
+  }
+}
+
+async function cadastrarBanco(event) {
+  event.preventDefault();
+
+  if (!usuarioPodeCadastrarDepartamento()) {
+    usuariosMensagem.textContent = "Apenas administradores podem cadastrar bancos.";
+    usuariosMensagem.classList.remove("hidden");
+    return;
+  }
+
+  const nome = bancoNome.value.trim();
+  if (!nome) return;
+
+  const botao = bancoForm.querySelector('button[type="submit"]');
+  botao.disabled = true;
+  botao.textContent = "Cadastrando...";
+
+  try {
+    const resposta = await fetch("/api/bancos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nome,
+        adminEmail: usuarioLogado?.email || ""
+      })
+    });
+    const dados = await resposta.json();
+
+    usuariosMensagem.textContent = dados.mensagem || dados.erro || "Banco cadastrado.";
+    usuariosMensagem.classList.remove("hidden");
+
+    if (!resposta.ok) return;
+
+    bancoNome.value = "";
+    await carregarUsuarios();
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Cadastrar banco";
+  }
+}
+
 async function salvarPermissoes(event) {
   const linha = event.target.closest("tr");
   const id = linha.dataset.id;
@@ -347,5 +440,7 @@ usuariosLimparFiltros.addEventListener("click", () => {
 
 departamentoForm?.addEventListener("submit", cadastrarDepartamento);
 departamentosLista?.addEventListener("click", excluirDepartamento);
+bancoForm?.addEventListener("submit", cadastrarBanco);
+bancosLista?.addEventListener("click", excluirBanco);
 
 carregarUsuarios();

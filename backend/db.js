@@ -66,6 +66,7 @@ async function initDb() {
   await ensureCategoriaSemListaFixa();
   await ensureParcelamentoCompras();
   await ensureComprasCartaoAutoriaColumns();
+  await ensureCartaoBancoColumn();
 }
 
 async function ensureUsuarioColumns() {
@@ -240,6 +241,12 @@ async function ensureComprasCartaoAutoriaColumns() {
       await run(`ALTER TABLE compras_cartao ADD COLUMN ${name} ${definition}`);
     }
   }
+}
+
+async function ensureCartaoBancoColumn() {
+  const columns = await all("PRAGMA table_info(cartoes_corporativos)");
+  if (columns.some((column) => column.name === "banco_id")) return;
+  await run("ALTER TABLE cartoes_corporativos ADD COLUMN banco_id INTEGER");
 }
 
 module.exports = {

@@ -162,6 +162,8 @@ function mapCartao(row) {
     responsavel: row.responsavel,
     gerenteId: row.gerente_id,
     gerente: row.gerente,
+    bancoId: row.banco_id || null,
+    banco: row.banco || null,
     ultimos4Digitos: row.ultimos_4_digitos,
     status: row.status,
     observacao: row.observacao || ""
@@ -202,11 +204,12 @@ function mapCompraCartao(row) {
 }
 
 function cardJoinSql() {
-  return `SELECT c.*, s.nome AS departamento, r.nome AS responsavel, g.nome AS gerente
+  return `SELECT c.*, s.nome AS departamento, r.nome AS responsavel, g.nome AS gerente, b.nome AS banco
           FROM cartoes_corporativos c
           JOIN setores s ON s.id = c.departamento_id
           JOIN usuarios r ON r.id = c.responsavel_id
-          JOIN usuarios g ON g.id = c.gerente_id`;
+          JOIN usuarios g ON g.id = c.gerente_id
+          LEFT JOIN bancos b ON b.id = c.banco_id`;
 }
 
 function compraJoinSql() {
@@ -735,6 +738,76 @@ app.delete("/api/setores/:id", async (request, response) => {
   }
 });
 
+app.get("/api/bancos", async (_request, response) => {
+  try {
+    response.json(await all("SELECT id, nome FROM bancos ORDER BY nome"));
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao listar bancos.", detalhe: error.message });
+  }
+});
+
+app.post("/api/bancos", async (request, response) => {
+  try {
+    const nome = String(request.body?.nome || "").trim();
+    const adminEmail = String(request.body?.adminEmail || "").trim();
+
+    if (!nome) {
+      response.status(400).json({ erro: "Informe o nome do banco." });
+      return;
+    }
+
+    const admin = await get("SELECT perfil, status FROM usuarios WHERE lower(email) = lower(?)", [adminEmail]);
+    if (!admin || admin.status !== "ativo" || admin.perfil !== "admin") {
+      response.status(403).json({ erro: "Apenas administradores podem cadastrar bancos." });
+      return;
+    }
+
+    const existente = await get("SELECT id FROM bancos WHERE lower(nome) = lower(?)", [nome]);
+    if (existente) {
+      response.status(409).json({ erro: "Este banco já está cadastrado." });
+      return;
+    }
+
+    const result = await run("INSERT INTO bancos (nome) VALUES (?)", [nome]);
+    response.status(201).json({ id: result.id, nome, mensagem: "Banco cadastrado com sucesso." });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao cadastrar banco.", detalhe: error.message });
+  }
+});
+
+app.delete("/api/bancos/:id", async (request, response) => {
+  try {
+    const adminEmail = String(request.body?.adminEmail || "").trim();
+    const admin = await get("SELECT perfil, status FROM usuarios WHERE lower(email) = lower(?)", [adminEmail]);
+
+    if (!admin || admin.status !== "ativo" || admin.perfil !== "admin") {
+      response.status(403).json({ erro: "Apenas administradores podem excluir bancos." });
+      return;
+    }
+
+    const banco = await get("SELECT id, nome FROM bancos WHERE id = ?", [request.params.id]);
+    if (!banco) {
+      response.status(404).json({ erro: "Banco não encontrado." });
+      return;
+    }
+
+    const vinculos = await get("SELECT COUNT(*) AS total FROM cartoes_corporativos WHERE banco_id = ?", [banco.id]);
+
+    if (Number(vinculos.total) > 0) {
+      response.status(409).json({
+        erro: "Não é possível excluir este banco porque ele está em uso.",
+        vinculos: vinculos.total
+      });
+      return;
+    }
+
+    await run("DELETE FROM bancos WHERE id = ?", [banco.id]);
+    response.json({ mensagem: `Banco ${banco.nome} excluído com sucesso.` });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao excluir banco.", detalhe: error.message });
+  }
+});
+
 app.post("/api/uploads/comprovante", async (request, response) => {
   try {
     const { fileName, mimeType, base64, departamentoId, dataCompra } = request.body;
@@ -821,12 +894,12 @@ app.get("/api/cartoes/:id", async (request, response) => {
 app.post("/api/cartoes", async (request, response) => {
   try {
     assertNoSensitiveCardData(request.body);
-    const { nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status, observacao } = request.body;
-    if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável e gerente." });
+    const { nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status, observacao } = request.body;
+    if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId || !bancoId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável, gerente e banco." });
     if (!validateLast4(ultimos4Digitos)) return response.status(400).json({ erro: "Últimos 4 dígitos devem conter exatamente 4 números." });
     const result = await run(
-      "INSERT INTO cartoes_corporativos (nome_cartao, departamento_id, responsavel_id, gerente_id, ultimos_4_digitos, status, observacao) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status || "ativo", observacao || ""]
+      "INSERT INTO cartoes_corporativos (nome_cartao, departamento_id, responsavel_id, gerente_id, banco_id, ultimos_4_digitos, status, observacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status || "ativo", observacao || ""]
     );
     response.status(201).json({ id: result.id });
   } catch (error) {
@@ -837,12 +910,12 @@ app.post("/api/cartoes", async (request, response) => {
 app.put("/api/cartoes/:id", async (request, response) => {
   try {
     assertNoSensitiveCardData(request.body);
-    const { nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status, observacao } = request.body;
-    if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável e gerente." });
+    const { nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status, observacao } = request.body;
+    if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId || !bancoId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável, gerente e banco." });
     if (!validateLast4(ultimos4Digitos)) return response.status(400).json({ erro: "Últimos 4 dígitos devem conter exatamente 4 números." });
     await run(
-      "UPDATE cartoes_corporativos SET nome_cartao = ?, departamento_id = ?, responsavel_id = ?, gerente_id = ?, ultimos_4_digitos = ?, status = ?, observacao = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
-      [nomeCartao, departamentoId, responsavelId, gerenteId, ultimos4Digitos, status || "ativo", observacao || "", request.params.id]
+      "UPDATE cartoes_corporativos SET nome_cartao = ?, departamento_id = ?, responsavel_id = ?, gerente_id = ?, banco_id = ?, ultimos_4_digitos = ?, status = ?, observacao = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+      [nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status || "ativo", observacao || "", request.params.id]
     );
     response.json({ mensagem: "Cartão atualizado." });
   } catch (error) {
@@ -1152,27 +1225,45 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
       ultimos4Digitos,
       codigoAutorizacao,
       emailOrigemId,
-      parcelas
+      parcelas,
+      bancos
     } = request.body;
-    console.log("Compra automatica recebida:", JSON.stringify({ dataCompra, valor, fornecedor, ultimos4Digitos, codigoAutorizacao, emailOrigemId, parcelas }));
+    console.log("Compra automatica recebida:", JSON.stringify({ dataCompra, valor, fornecedor, ultimos4Digitos, codigoAutorizacao, emailOrigemId, parcelas, bancos }));
     const dataNormalizada = normalizarDataCompraAutomatica(dataCompra);
     const valorNumerico = normalizarValorCompraAutomatica(valor);
     const finalCartao = String(ultimos4Digitos || "").replace(/\D/g, "").slice(-4);
     const totalParcelas = Math.max(1, Math.min(60, Math.trunc(Number(parcelas)) || 1));
+    const bancoInformado = String(bancos || "").trim();
 
     if (!dataNormalizada || !valorNumerico || !fornecedor || !finalCartao) {
       response.status(400).json({ erro: "Informe dataCompra, valor, fornecedor e ultimos4Digitos." });
       return;
     }
 
-    const cartao = await get(
-      `SELECT c.*, s.nome AS departamento
-       FROM cartoes_corporativos c
-       JOIN setores s ON s.id = c.departamento_id
-       WHERE c.ultimos_4_digitos = ?
-         AND c.status = 'ativo'`,
-      [finalCartao]
-    );
+    let cartao = null;
+    if (bancoInformado) {
+      cartao = await get(
+        `SELECT c.*, s.nome AS departamento
+         FROM cartoes_corporativos c
+         JOIN setores s ON s.id = c.departamento_id
+         LEFT JOIN bancos b ON b.id = c.banco_id
+         WHERE c.ultimos_4_digitos = ?
+           AND c.status = 'ativo'
+           AND lower(ifnull(b.nome, '')) = lower(?)`,
+        [finalCartao, bancoInformado]
+      );
+    }
+
+    if (!cartao) {
+      cartao = await get(
+        `SELECT c.*, s.nome AS departamento
+         FROM cartoes_corporativos c
+         JOIN setores s ON s.id = c.departamento_id
+         WHERE c.ultimos_4_digitos = ?
+           AND c.status = 'ativo'`,
+        [finalCartao]
+      );
+    }
 
     if (!cartao) {
       response.status(404).json({ erro: "Nenhum cartão ativo encontrado com esses últimos 4 dígitos." });
