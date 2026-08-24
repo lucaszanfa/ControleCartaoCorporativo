@@ -119,7 +119,6 @@ const ICONES_SVG = {
   historico: '<circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path>',
   relatorios: '<path d="M5 20V10"></path><path d="M12 20V4"></path><path d="M19 20v-7"></path>',
   compra: '<rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M3 10h18"></path><path d="M7 15h4"></path>',
-  automatica: '<path d="M20 12a8 8 0 0 1-13.66 5.66"></path><path d="M4 12A8 8 0 0 1 17.66 6.34"></path><path d="M17 3v4h4"></path><path d="M7 21v-4H3"></path>',
   pendentes: '<rect x="6" y="4" width="12" height="16" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h3"></path>',
   resumo: '<path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 15l3-3 3 2 4-6"></path>',
   cartoes: '<rect x="3" y="6" width="18" height="12" rx="2"></rect><path d="M7 14h5"></path>',
@@ -255,7 +254,6 @@ async function carregarBuscaGlobal() {
     ...compras.map((compra) => ({ tipo: "Compra", titulo: compra.fornecedor || "Compra sem fornecedor", detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "), href: `compra-cartao.html?compraId=${compra.id}`, texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""}` })),
     ...cartoes.map((cartao) => ({ tipo: "Cartão", titulo: cartao.nomeCartao || cartao.nome || "Cartão", detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "), href: "cartoes.html", texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}` })),
     { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos e pendências", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias pdf" },
-    { tipo: "Página", titulo: "Compra automática", detalhe: "Registrar ou testar compra recebida pela automação", href: "compra-automatica.html", texto: "compra automatica email power automate registrar testar" },
     { tipo: "Página", titulo: "Pendências", detalhe: "Compras aguardando conclusão e conciliação com fatura", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams conciliacao fatura divergencia" },
     { tipo: "Página", titulo: "Faturas do cartão", detalhe: "Importar fatura e rodar conciliação", href: "faturas-cartao.html", texto: "faturas cartao importacao conciliacao csv" }
   ];
@@ -348,7 +346,6 @@ function aplicarMenuPrincipal() {
   const podeVerFaturas = podeVerCartoesGerenciais || usuarioTemCartaoComPermissao("ver");
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra", icon: "compra" },
-    { href: "compra-automatica.html", label: "Compra automática", icon: "automatica" },
     { href: "compras-pendentes.html", label: "Pendências", icon: "pendentes" },
     ...(podeVerFaturas ? [{ href: "faturas-cartao.html", label: "Faturas", icon: "faturas" }] : []),
     ...(podeVerFaturas ? [{ href: "relatorios-cartao.html", label: "Relatórios de cartão", icon: "relatorios" }] : []),
