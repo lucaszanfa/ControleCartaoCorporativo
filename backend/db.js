@@ -68,6 +68,7 @@ async function initDb() {
   await ensureComprasCartaoAutoriaColumns();
   await ensureCartaoBancoColumn();
   await ensureBancosSeed();
+  await ensureCartaoBancoSeed();
 }
 
 async function ensureUsuarioColumns() {
@@ -257,6 +258,22 @@ async function ensureBancosSeed() {
   const padrao = ["Inter", "Bradesco"];
   for (const nome of padrao) {
     await run("INSERT OR IGNORE INTO bancos (nome) VALUES (?)", [nome]);
+  }
+}
+
+async function ensureCartaoBancoSeed() {
+  const vinculos = [
+    ["Cartão Administrativo", "Inter"],
+    ["Cartão Limpeza/Copa", "Bradesco"]
+  ];
+
+  for (const [nomeCartao, nomeBanco] of vinculos) {
+    await run(
+      `UPDATE cartoes_corporativos
+       SET banco_id = (SELECT id FROM bancos WHERE nome = ?)
+       WHERE nome_cartao = ? AND banco_id IS NULL`,
+      [nomeBanco, nomeCartao]
+    );
   }
 }
 
