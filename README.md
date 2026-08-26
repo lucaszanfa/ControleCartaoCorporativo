@@ -4,7 +4,7 @@ Sistema web para controle de cartões corporativos: registro de compras, faturas
 
 ## Tecnologias
 
-Node.js + Express + SQLite no backend; HTML, CSS e JavaScript puro no frontend. Hospedado no Render.
+Node.js + Express + PostgreSQL (Supabase) no backend; HTML, CSS e JavaScript puro no frontend. Hospedado no Render.
 
 ## Rodando localmente
 
@@ -23,6 +23,7 @@ Crie um arquivo `.env` na raiz do projeto (nunca suba esse arquivo pro GitHub):
 HOST=0.0.0.0
 PORT=3010
 APP_BASE_URL=http://localhost:3010
+DATABASE_URL=postgresql://usuario:senha@host:5432/postgres
 COMPRA_AUTOMATICA_API_KEY=
 
 TEAMS_WEBHOOK_URL=
@@ -38,7 +39,9 @@ No Render, cadastre as mesmas variáveis em **Service → Environment**.
 
 ## Banco de dados
 
-SQLite local em `backend/database.sqlite`, criado e atualizado automaticamente ao iniciar o servidor (tabelas, colunas novas e dados padrão como bancos e categorias). Funciona bem para o volume atual; se o uso crescer bastante, vale migrar para um banco gerenciado (Postgres/MySQL).
+PostgreSQL gerenciado (recomendado: [Supabase](https://supabase.com), plano free). As tabelas e os dados padrão (admin, cartões e bancos de exemplo) são criados automaticamente ao iniciar o servidor, a partir de `backend/sql/schema.sql`.
+
+Configure a variável `DATABASE_URL` com a connection string direta do Postgres (Supabase → Project Settings → Database → Connection string → **URI**, não a versão com pooling/PgBouncer). Sem persistência local nenhuma — o app funciona igual local ou no Render, e os dados sobrevivem a redeploys/reinícios porque não dependem do disco do container.
 
 ## Deploy no Render
 

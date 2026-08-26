@@ -4,7 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const { PDFParse } = require("pdf-parse");
 const { loadEnv } = require("./config");
-const { initDb, all, get, run } = require("./db");
+const { initDb, all, get, run, ensureCartaoBancoSeed } = require("./db");
 const { sendTeamsAlert } = require("./teamsNotificationService");
 
 loadEnv();
@@ -41,12 +41,12 @@ async function ensureAdminUser() {
   await run("UPDATE usuarios SET status = 'ativo', perfil = 'admin', pode_administrar_usuarios = 1 WHERE email = ?", ["admin@sma.com"]);
 }
 async function ensureCartoesSeed() {
-  const row = await get("SELECT COUNT(*) AS total FROM cartoes_corporativos");
+  const row = await get("SELECT COUNT(*)::int AS total FROM cartoes_corporativos");
   if (row.total > 0) return;
 
   const admin = await get("SELECT id FROM usuarios WHERE email = ?", ["admin@sma.com"]);
-  await run("INSERT OR IGNORE INTO setores (nome) VALUES ('Administrativo')");
-  await run("INSERT OR IGNORE INTO setores (nome) VALUES ('Copa')");
+  await run("INSERT INTO setores (nome) VALUES ('Administrativo') ON CONFLICT (nome) DO NOTHING");
+  await run("INSERT INTO setores (nome) VALUES ('Copa') ON CONFLICT (nome) DO NOTHING");
 
   const ana = await get("SELECT id FROM usuarios WHERE email = ?", ["ana.pereira@sma.com"]);
   if (!ana) {
@@ -263,7 +263,7 @@ async function fornecedorCanonico(fornecedor) {
   const nome = String(fornecedor || "").trim();
   if (!nome) return nome;
   const existente = await get(
-    "SELECT fornecedor FROM compras_cartao WHERE lower(trim(fornecedor)) = lower(?) AND trim(ifnull(fornecedor, '')) <> '' ORDER BY id ASC LIMIT 1",
+    "SELECT fornecedor FROM compras_cartao WHERE lower(trim(fornecedor)) = lower(?) AND trim(coalesce(fornecedor, '')) <> '' ORDER BY id ASC LIMIT 1",
     [nome]
   );
   return existente ? existente.fornecedor.trim() : paraTituloFornecedor(nome);
@@ -321,7 +321,7 @@ function calcularAvisoPeriodoFatura(transacoes, mesReferencia, anoReferencia) {
 
 async function criarAlertaCartao({ cartaoId, departamentoId, gerenteId, transacaoId, compraId, tipo, mensagem }) {
   const existente = await get(
-    "SELECT id FROM alertas_cartao WHERE tipo_alerta = ? AND ifnull(transacao_fatura_id, 0) = ifnull(?, 0) AND ifnull(compra_cartao_id, 0) = ifnull(?, 0) AND status != 'resolvido'",
+    "SELECT id FROM alertas_cartao WHERE tipo_alerta = ? AND coalesce(transacao_fatura_id, 0) = coalesce(?, 0) AND coalesce(compra_cartao_id, 0) = coalesce(?, 0) AND status != 'resolvido'",
     [tipo, transacaoId || null, compraId || null]
   );
   if (existente) return existente.id;
@@ -363,7 +363,7 @@ async function ensureAlertasComprasSemComprovante() {
       AND a.tipo_alerta = 'compra_sem_comprovante'
       AND a.status != 'resolvido'
      WHERE cc.status = 'sem_comprovante'
-       AND ifnull(cc.comprovante_url, '') = ''
+       AND coalesce(cc.comprovante_url, '') = ''
        AND a.id IS NULL`
   );
 
@@ -382,7 +382,7 @@ async function buscarPendenciasCompativeisCompra(compra) {
      WHERE t.cartao_id = ?
        AND t.status_conciliacao IN ('pendente', 'sem_registro')
        AND (co.id IS NULL OR co.status = 'sem_registro')
-     ORDER BY ABS(julianday(t.data_transacao) - julianday(?)) ASC, t.id ASC`,
+     ORDER BY ABS((t.data_transacao)::date - (?)::date) ASC, t.id ASC`,
     [compra.cartao_id, compra.data_compra]
   );
 
@@ -409,7 +409,7 @@ async function buscarComprasSemelhantes(compra) {
      WHERE cc.cartao_id = ?
        AND cc.parcela_atual = 1
        AND cc.status != 'cancelada'
-     ORDER BY ABS(julianday(cc.data_compra) - julianday(?)) ASC, cc.id DESC`,
+     ORDER BY ABS((cc.data_compra)::date - (?)::date) ASC, cc.id DESC`,
     [compra.cartao_id, compra.data_compra]
   );
 
@@ -632,8 +632,8 @@ app.get("/api/usuarios/:id/permissoes-cartao", async (request, response) => {
   try {
     const cartoes = await all(
       `SELECT c.id AS cartaoId, c.nome_cartao AS nomeCartao, c.ultimos_4_digitos AS ultimos4Digitos, s.nome AS departamento,
-              ifnull(p.pode_cadastrar_compra, 0) AS podeCadastrarCompra,
-              ifnull(p.pode_ver_compras, 0) AS podeVerCompras
+              coalesce(p.pode_cadastrar_compra, 0) AS podeCadastrarCompra,
+              coalesce(p.pode_ver_compras, 0) AS podeVerCompras
        FROM cartoes_corporativos c
        JOIN setores s ON s.id = c.departamento_id
        LEFT JOIN permissoes_cartao_usuario p ON p.cartao_id = c.id AND p.usuario_id = ?
@@ -731,10 +731,10 @@ app.delete("/api/setores/:id", async (request, response) => {
 
     const vinculos = await get(
       `SELECT
-        (SELECT COUNT(*) FROM usuarios WHERE lower(setor) = lower(?)) AS usuarios,
-        (SELECT COUNT(*) FROM cartoes_corporativos WHERE departamento_id = ?) AS cartoes,
-        (SELECT COUNT(*) FROM compras_cartao WHERE departamento_id = ?) AS compras,
-        (SELECT COUNT(*) FROM alertas_cartao WHERE departamento_id = ?) AS alertas`,
+        (SELECT COUNT(*)::int FROM usuarios WHERE lower(setor) = lower(?)) AS usuarios,
+        (SELECT COUNT(*)::int FROM cartoes_corporativos WHERE departamento_id = ?) AS cartoes,
+        (SELECT COUNT(*)::int FROM compras_cartao WHERE departamento_id = ?) AS compras,
+        (SELECT COUNT(*)::int FROM alertas_cartao WHERE departamento_id = ?) AS alertas`,
       [departamento.nome, departamento.id, departamento.id, departamento.id]
     );
     const totalVinculos = Object.values(vinculos).reduce((total, quantidade) => total + Number(quantidade || 0), 0);
@@ -807,7 +807,7 @@ app.delete("/api/bancos/:id", async (request, response) => {
       return;
     }
 
-    const vinculos = await get("SELECT COUNT(*) AS total FROM cartoes_corporativos WHERE banco_id = ?", [banco.id]);
+    const vinculos = await get("SELECT COUNT(*)::int AS total FROM cartoes_corporativos WHERE banco_id = ?", [banco.id]);
 
     if (Number(vinculos.total) > 0) {
       response.status(409).json({
@@ -987,7 +987,7 @@ app.get("/api/compras-cartao", async (request, response) => {
 app.get("/api/compras-cartao/fornecedores", async (_request, response) => {
   try {
     const linhas = await all(
-      "SELECT fornecedor FROM compras_cartao WHERE trim(ifnull(fornecedor, '')) <> '' GROUP BY lower(trim(fornecedor)) ORDER BY COUNT(*) DESC, fornecedor"
+      "SELECT fornecedor FROM compras_cartao WHERE trim(coalesce(fornecedor, '')) <> '' GROUP BY lower(trim(fornecedor)) ORDER BY COUNT(*) DESC, fornecedor"
     );
     response.json(linhas.map((linha) => linha.fornecedor.trim()));
   } catch (error) {
@@ -1009,8 +1009,8 @@ app.get("/api/compras-cartao/pendentes", async (request, response) => {
   try {
     const where = [
       `(cc.status IN ('aguardando_conferencia', 'divergente', 'sem_comprovante')
-          OR (cc.status != 'aguardando_fatura' AND ifnull(trim(cc.comprovante_url), '') = '')
-          OR ifnull(trim(cc.motivo), '') = ''
+          OR (cc.status != 'aguardando_fatura' AND coalesce(trim(cc.comprovante_url), '') = '')
+          OR coalesce(trim(cc.motivo), '') = ''
           OR cc.responsavel_compra_id IS NULL)`
     ];
     const params = [];
@@ -1265,7 +1265,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
          LEFT JOIN bancos b ON b.id = c.banco_id
          WHERE c.ultimos_4_digitos = ?
            AND c.status = 'ativo'
-           AND lower(ifnull(b.nome, '')) = lower(?)`,
+           AND lower(coalesce(b.nome, '')) = lower(?)`,
         [finalCartao, bancoInformado]
       );
     }
@@ -1542,8 +1542,8 @@ app.get("/api/faturas-cartao", async (request, response) => {
   await aplicarFiltroCartoesPermitidos(where, params, request.query.usuarioId, "f.cartao_id");
   response.json(await all(
     `SELECT f.*, c.nome_cartao AS cartao,
-            (SELECT COUNT(*) FROM transacoes_fatura t WHERE t.fatura_id = f.id) AS total_transacoes,
-            (SELECT COUNT(*) FROM transacoes_fatura t WHERE t.fatura_id = f.id AND t.status_conciliacao = 'conciliada') AS transacoes_conciliadas
+            (SELECT COUNT(*)::int FROM transacoes_fatura t WHERE t.fatura_id = f.id) AS total_transacoes,
+            (SELECT COUNT(*)::int FROM transacoes_fatura t WHERE t.fatura_id = f.id AND t.status_conciliacao = 'conciliada') AS transacoes_conciliadas
      FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
      ORDER BY f.ano_referencia DESC, f.mes_referencia DESC`,
@@ -1821,7 +1821,7 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
     gerados += 1;
   }
 
-  const pendencias = await get("SELECT COUNT(*) AS total FROM transacoes_fatura WHERE fatura_id = ? AND status_conciliacao != 'conciliada'", [request.params.faturaId]);
+  const pendencias = await get("SELECT COUNT(*)::int AS total FROM transacoes_fatura WHERE fatura_id = ? AND status_conciliacao != 'conciliada'", [request.params.faturaId]);
   await run("UPDATE faturas_cartao SET status = ? WHERE id = ?", [pendencias.total ? "com_pendencias" : "conciliada", request.params.faturaId]);
   const pendenciasAtuais = await all(
     `SELECT t.id AS transacaoId,
@@ -1831,11 +1831,11 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
               FROM alertas_cartao a
               WHERE a.status != 'resolvido'
                 AND a.transacao_fatura_id = t.id
-                AND ifnull(a.compra_cartao_id, 0) = ifnull(co.compra_cartao_id, 0)
+                AND coalesce(a.compra_cartao_id, 0) = coalesce(co.compra_cartao_id, 0)
               ORDER BY a.id DESC
               LIMIT 1
             ) AS alertaId,
-            ifnull(co.status, t.status_conciliacao) AS status,
+            coalesce(co.status, t.status_conciliacao) AS status,
             t.data_transacao AS dataTransacao,
             t.estabelecimento,
             t.valor,
@@ -1847,8 +1847,8 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
             cc.fornecedor AS compraFornecedor,
             cc.data_compra AS compraData,
             cc.valor AS compraValor,
-            ifnull(co.diferenca_valor, 0) AS diferencaValor,
-            ifnull(co.diferenca_dias, 0) AS diferencaDias
+            coalesce(co.diferenca_valor, 0) AS diferencaValor,
+            coalesce(co.diferenca_dias, 0) AS diferencaDias
      FROM transacoes_fatura t
      JOIN cartoes_corporativos c ON c.id = t.cartao_id
      JOIN setores s ON s.id = c.departamento_id
@@ -1909,9 +1909,9 @@ app.get("/api/alertas-cartao", async (request, response) => {
     params.push(request.query.tipo);
   }
   const sql = `SELECT a.*, c.nome_cartao AS cartao, c.ultimos_4_digitos, s.nome AS departamento, g.nome AS gerente,
-                      ifnull(t.estabelecimento, cc.fornecedor) AS estabelecimento,
-                      ifnull(t.valor, cc.valor) AS valor,
-                      ifnull(t.data_transacao, cc.data_compra) AS data_transacao
+                      coalesce(t.estabelecimento, cc.fornecedor) AS estabelecimento,
+                      coalesce(t.valor, cc.valor) AS valor,
+                      coalesce(t.data_transacao, cc.data_compra) AS data_transacao
                FROM alertas_cartao a
                JOIN cartoes_corporativos c ON c.id = a.cartao_id
                JOIN setores s ON s.id = a.departamento_id
@@ -1935,9 +1935,9 @@ app.get("/api/alertas-cartao", async (request, response) => {
 app.get("/api/alertas-cartao/:id", async (request, response) => {
   const alerta = await get(
     `SELECT a.*, c.nome_cartao AS cartao, c.ultimos_4_digitos, s.nome AS departamento, g.nome AS gerente,
-            ifnull(t.estabelecimento, cc.fornecedor) AS estabelecimento,
-            ifnull(t.valor, cc.valor) AS valor,
-            ifnull(t.data_transacao, cc.data_compra) AS data_transacao,
+            coalesce(t.estabelecimento, cc.fornecedor) AS estabelecimento,
+            coalesce(t.valor, cc.valor) AS valor,
+            coalesce(t.data_transacao, cc.data_compra) AS data_transacao,
             t.id AS transacao_id,
             t.categoria_detectada,
             c.departamento_id,
@@ -1998,9 +1998,9 @@ app.post("/api/alertas-cartao/:id/enviar-teams", async (request, response) => {
               s.nome AS departamento,
               g.nome AS gerente_nome,
               g.email AS gerente_email,
-              ifnull(t.estabelecimento, cc.fornecedor) AS estabelecimento,
-              ifnull(t.valor, cc.valor) AS valor,
-              ifnull(t.data_transacao, cc.data_compra) AS data_transacao,
+              coalesce(t.estabelecimento, cc.fornecedor) AS estabelecimento,
+              coalesce(t.valor, cc.valor) AS valor,
+              coalesce(t.data_transacao, cc.data_compra) AS data_transacao,
               cc.fornecedor,
               cc.data_compra,
               uc.nome AS comprador_nome,
@@ -2056,13 +2056,13 @@ app.get("/api/dashboard/cartoes", async (_request, response) => {
   const ano = String(now.getFullYear());
   const prefixo = `${ano}-${mes}`;
   const [ativos, comprasMes, transacoesMes, semRegistro, alertasPendentes, semComprovante, divergencias, deptoMaior, cartaoMaior] = await Promise.all([
-    get("SELECT COUNT(*) AS total FROM cartoes_corporativos WHERE status = 'ativo'"),
-    get("SELECT COUNT(*) AS qtd, ifnull(SUM(valor), 0) AS total FROM compras_cartao WHERE data_compra LIKE ?", [`${prefixo}%`]),
-    get("SELECT COUNT(*) AS total FROM transacoes_fatura WHERE data_transacao LIKE ?", [`${prefixo}%`]),
-    get("SELECT COUNT(*) AS total FROM transacoes_fatura WHERE status_conciliacao = 'sem_registro'"),
-    get("SELECT COUNT(*) AS total FROM alertas_cartao WHERE status != 'resolvido'"),
-    get("SELECT COUNT(*) AS total FROM compras_cartao WHERE status = 'sem_comprovante'"),
-    get("SELECT COUNT(*) AS total FROM conciliacoes_cartao WHERE status IN ('valor_divergente', 'data_divergente', 'aguardando_comprovante', 'sem_registro')"),
+    get("SELECT COUNT(*)::int AS total FROM cartoes_corporativos WHERE status = 'ativo'"),
+    get("SELECT COUNT(*)::int AS qtd, coalesce(SUM(valor), 0) AS total FROM compras_cartao WHERE data_compra LIKE ?", [`${prefixo}%`]),
+    get("SELECT COUNT(*)::int AS total FROM transacoes_fatura WHERE data_transacao LIKE ?", [`${prefixo}%`]),
+    get("SELECT COUNT(*)::int AS total FROM transacoes_fatura WHERE status_conciliacao = 'sem_registro'"),
+    get("SELECT COUNT(*)::int AS total FROM alertas_cartao WHERE status != 'resolvido'"),
+    get("SELECT COUNT(*)::int AS total FROM compras_cartao WHERE status = 'sem_comprovante'"),
+    get("SELECT COUNT(*)::int AS total FROM conciliacoes_cartao WHERE status IN ('valor_divergente', 'data_divergente', 'aguardando_comprovante', 'sem_registro')"),
     get("SELECT s.nome AS nome, SUM(cc.valor) AS total FROM compras_cartao cc JOIN setores s ON s.id = cc.departamento_id GROUP BY s.nome ORDER BY total DESC LIMIT 1"),
     get("SELECT c.nome_cartao AS nome, SUM(cc.valor) AS total FROM compras_cartao cc JOIN cartoes_corporativos c ON c.id = cc.cartao_id GROUP BY c.nome_cartao ORDER BY total DESC LIMIT 1")
   ]);
@@ -2155,7 +2155,7 @@ async function aplicarFiltroCartoesPermitidos(where, params, usuarioId, coluna) 
 
 app.get("/api/relatorios-cartao/gastos-por-cartao", async (request, response) => {
   const { where, params } = await filtrosRelatorioComprasCartao(request.query);
-  response.json(await all(`SELECT c.nome_cartao AS cartao, s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*) AS quantidade_compras, AVG(cc.valor) AS media_compra
+  response.json(await all(`SELECT c.nome_cartao AS cartao, s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*)::int AS quantidade_compras, AVG(cc.valor) AS media_compra
                            FROM compras_cartao cc JOIN cartoes_corporativos c ON c.id = cc.cartao_id JOIN setores s ON s.id = cc.departamento_id
                            ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
                            GROUP BY c.id, s.nome ORDER BY total_gasto DESC`, params));
@@ -2163,7 +2163,7 @@ app.get("/api/relatorios-cartao/gastos-por-cartao", async (request, response) =>
 
 app.get("/api/relatorios-cartao/gastos-por-departamento", async (request, response) => {
   const { where, params } = await filtrosRelatorioComprasCartao(request.query);
-  const rows = await all(`SELECT s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*) AS quantidade_compras
+  const rows = await all(`SELECT s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*)::int AS quantidade_compras
                           FROM compras_cartao cc JOIN setores s ON s.id = cc.departamento_id
                           ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
                           GROUP BY s.id ORDER BY total_gasto DESC`, params);
@@ -2173,7 +2173,7 @@ app.get("/api/relatorios-cartao/gastos-por-departamento", async (request, respon
 
 app.get("/api/relatorios-cartao/pendencias", async (request, response) => {
   const { where, params } = await filtrosRelatorioPendenciasCartao(request.query);
-  response.json(await all(`SELECT co.status, COUNT(*) AS total
+  response.json(await all(`SELECT co.status, COUNT(*)::int AS total
                            FROM conciliacoes_cartao co
                            JOIN cartoes_corporativos c ON c.id = co.cartao_id
                            JOIN transacoes_fatura t ON t.id = co.transacao_fatura_id
@@ -2200,6 +2200,7 @@ app.get("/", (_request, response) => {
 initDb()
   .then(ensureAdminUser)
   .then(ensureCartoesSeed)
+  .then(ensureCartaoBancoSeed)
   .then(ensureAlertasComprasSemComprovante)
   .then(() => {
     app.listen(port, host, () => {

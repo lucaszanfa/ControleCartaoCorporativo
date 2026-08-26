@@ -1,22 +1,20 @@
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS setores (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   nome TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS categorias (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   nome TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS bancos (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   nome TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS usuarios (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   nome TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   senha TEXT NOT NULL DEFAULT '123456',
@@ -27,14 +25,14 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 
 CREATE TABLE IF NOT EXISTS cartoes_corporativos (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   nome_cartao TEXT NOT NULL,
   departamento_id INTEGER NOT NULL,
   responsavel_id INTEGER NOT NULL,
   gerente_id INTEGER NOT NULL,
   banco_id INTEGER,
-  ultimos_4_digitos TEXT NOT NULL CHECK (length(ultimos_4_digitos) = 4 AND ultimos_4_digitos GLOB '[0-9][0-9][0-9][0-9]'),
-  limite_mensal REAL CHECK (limite_mensal IS NULL OR limite_mensal >= 0),
+  ultimos_4_digitos TEXT NOT NULL CHECK (length(ultimos_4_digitos) = 4 AND ultimos_4_digitos ~ '^[0-9]{4}$'),
+  limite_mensal DOUBLE PRECISION CHECK (limite_mensal IS NULL OR limite_mensal >= 0),
   status TEXT NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo', 'inativo')),
   observacao TEXT,
   criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -46,7 +44,7 @@ CREATE TABLE IF NOT EXISTS cartoes_corporativos (
 );
 
 CREATE TABLE IF NOT EXISTS permissoes_cartao_usuario (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   usuario_id INTEGER NOT NULL,
   cartao_id INTEGER NOT NULL,
   pode_cadastrar_compra INTEGER NOT NULL DEFAULT 0,
@@ -57,12 +55,12 @@ CREATE TABLE IF NOT EXISTS permissoes_cartao_usuario (
 );
 
 CREATE TABLE IF NOT EXISTS compras_cartao (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   cartao_id INTEGER NOT NULL,
   departamento_id INTEGER NOT NULL,
   responsavel_compra_id INTEGER,
   data_compra TEXT NOT NULL,
-  valor REAL NOT NULL CHECK (valor > 0),
+  valor DOUBLE PRECISION NOT NULL CHECK (valor > 0),
   fornecedor TEXT NOT NULL,
   categoria TEXT,
   motivo TEXT,
@@ -72,6 +70,8 @@ CREATE TABLE IF NOT EXISTS compras_cartao (
   parcela_atual INTEGER NOT NULL DEFAULT 1,
   parcela_total INTEGER NOT NULL DEFAULT 1,
   parcelamento_grupo_id INTEGER,
+  criado_por_id INTEGER,
+  atualizado_por_id INTEGER,
   criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS compras_cartao (
 );
 
 CREATE TABLE IF NOT EXISTS faturas_cartao (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   cartao_id INTEGER NOT NULL,
   mes_referencia INTEGER NOT NULL,
   ano_referencia INTEGER NOT NULL,
@@ -95,12 +95,12 @@ CREATE TABLE IF NOT EXISTS faturas_cartao (
 );
 
 CREATE TABLE IF NOT EXISTS transacoes_fatura (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   fatura_id INTEGER NOT NULL,
   cartao_id INTEGER NOT NULL,
   data_transacao TEXT NOT NULL,
   estabelecimento TEXT NOT NULL,
-  valor REAL NOT NULL CHECK (valor > 0),
+  valor DOUBLE PRECISION NOT NULL CHECK (valor > 0),
   ultimos_4_digitos TEXT NOT NULL,
   codigo_autorizacao TEXT,
   categoria_detectada TEXT,
@@ -111,12 +111,12 @@ CREATE TABLE IF NOT EXISTS transacoes_fatura (
 );
 
 CREATE TABLE IF NOT EXISTS conciliacoes_cartao (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   transacao_fatura_id INTEGER NOT NULL,
   compra_cartao_id INTEGER,
   cartao_id INTEGER NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('conciliada', 'sem_registro', 'valor_divergente', 'data_divergente', 'aguardando_comprovante', 'resolvida')),
-  diferenca_valor REAL NOT NULL DEFAULT 0,
+  diferenca_valor DOUBLE PRECISION NOT NULL DEFAULT 0,
   diferenca_dias INTEGER NOT NULL DEFAULT 0,
   observacao TEXT,
   conciliado_por_id INTEGER,
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS conciliacoes_cartao (
 );
 
 CREATE TABLE IF NOT EXISTS alertas_cartao (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   cartao_id INTEGER NOT NULL,
   departamento_id INTEGER NOT NULL,
   gerente_id INTEGER NOT NULL,
