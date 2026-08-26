@@ -91,35 +91,137 @@ function filtrarComprasPorMes(compras, mesOffset) {
   };
 }
 
-function desenharGraficoTempo(compras) {
-  const canvas = document.getElementById("graficoCartaoTempo");
-  if (!canvas) return;
-  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
-  const pontos = [-5, -4, -3, -2, -1, 0].map((offset) => filtrarComprasPorMes(compras, offset));
-  const maior = Math.max(1, ...pontos.map((item) => item.total));
-  const margem = 58;
-  const altura = canvas.height - 78;
-  const baseY = altura + 34;
-  const largura = canvas.width - margem * 2;
+function agruparValorPorMes(compras) {
+  const mapa = new Map();
+  (compras || []).forEach((compra) => {
+    const chave = String(compra.data_compra || "").slice(0, 7);
+    if (!chave) return;
+    mapa.set(chave, (mapa.get(chave) || 0) + Number(compra.valor || 0));
+  });
+  return mapa;
+}
 
+function rotuloMesAno(chaveAnoMes) {
+  const [ano, mes] = chaveAnoMes.split("-").map(Number);
+  return new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+}
+
+function mesesEntre(dataInicioISO, dataFimISO) {
+  if (!dataInicioISO || !dataFimISO) return [];
+  const resultado = [];
+  const [anoIni, mesIni] = dataInicioISO.split("-").map(Number);
+  const [anoFim, mesFim] = dataFimISO.split("-").map(Number);
+  let ano = anoIni;
+  let mes = mesIni;
+  while (ano < anoFim || (ano === anoFim && mes <= mesFim)) {
+    resultado.push(`${ano}-${String(mes).padStart(2, "0")}`);
+    mes += 1;
+    if (mes > 12) {
+      mes = 1;
+      ano += 1;
+    }
+  }
+  return resultado;
+}
+
+function formatarIntervaloCurto(dataInicioISO, dataFimISO) {
+  return `${formatarData(dataInicioISO)} – ${formatarData(dataFimISO)}`;
+}
+
+function calcularTicksEixoY(valorMaximo, quantidade = 4) {
+  if (!valorMaximo || valorMaximo <= 0) return [0, 1];
+  const passoBruto = valorMaximo / quantidade;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(passoBruto)));
+  const normalizado = passoBruto / magnitude;
+  let passo;
+  if (normalizado <= 1) passo = 1;
+  else if (normalizado <= 2) passo = 2;
+  else if (normalizado <= 5) passo = 5;
+  else passo = 10;
+  passo *= magnitude;
+
+  const ticks = [];
+  let valor = 0;
+  while (valor < valorMaximo + passo * 0.999) {
+    ticks.push(Math.round(valor));
+    valor += passo;
+  }
+  return ticks;
+}
+
+function calcularMargemEixoY(ctx, ticks) {
+  ctx.font = "12px Arial";
+  const larguras = ticks.map((valor) => ctx.measureText(moeda(valor).replace("R$", "R$ ")).width);
+  return Math.max(50, Math.ceil(Math.max(...larguras)) + 18);
+}
+
+function desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro) {
   ctx.strokeStyle = escuro ? "rgba(148, 163, 184, 0.18)" : "#e8eef7";
   ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
   ctx.font = "12px Arial";
   ctx.textAlign = "right";
-  for (let i = 0; i <= 4; i += 1) {
-    const valor = maior * (i / 4);
-    const y = baseY - (altura * i / 4);
+  ticks.forEach((valor) => {
+    const y = baseY - (altura * valor / valorTopo);
     ctx.beginPath();
     ctx.moveTo(margem, y);
-    ctx.lineTo(canvas.width - margem, y);
+    ctx.lineTo(margem + largura, y);
     ctx.stroke();
     ctx.fillText(moeda(valor).replace("R$", "R$ "), margem - 10, y);
+  });
+}
+
+let barrasGraficoTempo = [];
+
+function desenharGraficoTempo(relatorio) {
+  const canvas = document.getElementById("graficoCartaoTempo");
+  const legenda = document.getElementById("graficoCartaoTempoLegenda");
+  if (!canvas) return;
+  const comparativoAtivo = Boolean(document.getElementById("compararPeriodoAnterior")?.checked && relatorio.comprasPeriodoAnterior);
+  const escuro = document.documentElement.dataset.theme === "dark";
+  barrasGraficoTempo = [];
+
+  if (legenda) {
+    const corAtual = escuro ? "#22d3ee" : "#2563eb";
+    legenda.innerHTML = comparativoAtivo
+      ? `<span class="card-report-trend-legend-item"><i style="background:${corAtual}"></i>Atual</span><span class="card-report-trend-legend-item"><i style="background:#94a3b8"></i>Período anterior</span>`
+      : "Últimos 6 meses";
   }
+
+  if (comparativoAtivo) {
+    const dataInicial = document.getElementById("filtroDataInicial").value;
+    const dataFinal = document.getElementById("filtroDataFinal").value;
+    const prevInicio = document.getElementById("comparaDataInicial").value;
+    const prevFim = document.getElementById("comparaDataFinal").value;
+    const atualMultiMes = !dataInicial || !dataFinal || dataInicial.slice(0, 7) !== dataFinal.slice(0, 7);
+    const anteriorMultiMes = !prevInicio || !prevFim || prevInicio.slice(0, 7) !== prevFim.slice(0, 7);
+
+    if (!atualMultiMes && !anteriorMultiMes) {
+      desenharGraficoTempoParPeriodos(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, { dataInicial, dataFinal, prevInicio, prevFim });
+    } else {
+      const meses = Array.from(new Set([...mesesEntre(dataInicial, dataFinal), ...mesesEntre(prevInicio, prevFim)])).sort();
+      desenharGraficoTempoComparativo(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, meses);
+    }
+  } else {
+    desenharGraficoTempoSimples(canvas, relatorio.comprasPeriodo);
+  }
+}
+
+function desenharGraficoTempoSimples(canvas, compras) {
+  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
+  const pontos = [-5, -4, -3, -2, -1, 0].map((offset) => filtrarComprasPorMes(compras, offset));
+  const ticks = calcularTicksEixoY(Math.max(1, ...pontos.map((item) => item.total)));
+  const valorTopo = ticks[ticks.length - 1] || 1;
+  const margem = calcularMargemEixoY(ctx, ticks);
+  const altura = canvas.height - 78;
+  const baseY = altura + 34;
+  const largura = canvas.width - margem - 20;
+
+  desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro);
 
   const barraLargura = Math.min(56, largura / pontos.length * 0.45);
   pontos.forEach((item, index) => {
     const grupo = largura / pontos.length;
-    const h = (item.total / maior) * altura;
+    const h = (item.total / valorTopo) * altura;
     const x = margem + index * grupo + (grupo - barraLargura) / 2;
     const y = baseY - h;
     const grad = ctx.createLinearGradient(0, y, 0, baseY);
@@ -133,6 +235,150 @@ function desenharGraficoTempo(compras) {
     ctx.textAlign = "center";
     ctx.font = "700 12px Arial";
     ctx.fillText(item.label, x + barraLargura / 2, baseY + 24);
+
+    barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${item.label}: ${moeda(item.total)}` });
+  });
+}
+
+function desenharGraficoTempoParPeriodos(canvas, comprasAtual, comprasAnterior, periodos) {
+  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
+  const totalAtual = (comprasAtual || []).reduce((soma, compra) => soma + Number(compra.valor || 0), 0);
+  const totalAnterior = (comprasAnterior || []).reduce((soma, compra) => soma + Number(compra.valor || 0), 0);
+
+  const ticks = calcularTicksEixoY(Math.max(totalAtual, totalAnterior));
+  const valorTopo = ticks[ticks.length - 1] || 1;
+  const margem = calcularMargemEixoY(ctx, ticks);
+  const altura = canvas.height - 78;
+  const baseY = altura + 34;
+  const largura = canvas.width - margem - 20;
+
+  desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro);
+
+  const barraLargura = Math.min(90, largura * 0.22);
+  const espacoEntreBarras = largura * 0.14;
+  const centro = margem + largura / 2;
+
+  const barras = [
+    { valor: totalAnterior, cor: ["#cbd5e1", "#94a3b8"], x: centro - espacoEntreBarras / 2 - barraLargura, rotulo: "Período anterior", intervalo: formatarIntervaloCurto(periodos.prevInicio, periodos.prevFim) },
+    { valor: totalAtual, cor: escuro ? ["#22d3ee", "#0f766e"] : ["#2563eb", "#14b8a6"], x: centro + espacoEntreBarras / 2, rotulo: "Atual", intervalo: formatarIntervaloCurto(periodos.dataInicial, periodos.dataFinal) }
+  ];
+
+  barras.forEach(({ valor, cor, x, rotulo, intervalo }) => {
+    const h = (valor / valorTopo) * altura;
+    const y = baseY - h;
+    const grad = ctx.createLinearGradient(0, y, 0, baseY);
+    grad.addColorStop(0, cor[0]);
+    grad.addColorStop(1, cor[1]);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barraLargura, Math.max(h, 0), 8);
+    ctx.fill();
+
+    ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
+    ctx.textAlign = "center";
+    ctx.font = "700 12px Arial";
+    ctx.fillText(rotulo, x + barraLargura / 2, baseY + 20);
+    ctx.font = "11px Arial";
+    ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
+    ctx.fillText(intervalo, x + barraLargura / 2, baseY + 35);
+
+    barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${rotulo} (${intervalo}): ${moeda(valor)}` });
+  });
+}
+
+function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, meses) {
+  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
+  const mapaAtual = agruparValorPorMes(comprasAtual);
+  const mapaAnterior = agruparValorPorMes(comprasAnterior);
+
+  if (!meses.length) {
+    ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
+    ctx.textAlign = "center";
+    ctx.fillText("Sem dados para exibir.", canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  const pontos = meses.map((chave) => ({
+    label: rotuloMesAno(chave),
+    atual: mapaAtual.get(chave) || 0,
+    anterior: mapaAnterior.get(chave) || 0
+  }));
+
+  const ticks = calcularTicksEixoY(Math.max(1, ...pontos.map((item) => Math.max(item.atual, item.anterior))));
+  const valorTopo = ticks[ticks.length - 1] || 1;
+  const margem = calcularMargemEixoY(ctx, ticks);
+  const altura = canvas.height - 78;
+  const baseY = altura + 34;
+  const largura = canvas.width - margem - 20;
+
+  desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro);
+
+  const grupo = largura / pontos.length;
+  const barraLargura = Math.min(34, grupo * 0.28);
+  const espacoEntreBarras = 6;
+
+  pontos.forEach((item, index) => {
+    const centroGrupo = margem + index * grupo + grupo / 2;
+
+    [
+      { valor: item.anterior, cor: ["#cbd5e1", "#94a3b8"], deslocamento: -(barraLargura + espacoEntreBarras / 2), rotulo: "Período anterior" },
+      { valor: item.atual, cor: escuro ? ["#22d3ee", "#0f766e"] : ["#2563eb", "#14b8a6"], deslocamento: espacoEntreBarras / 2, rotulo: "Atual" }
+    ].forEach(({ valor, cor, deslocamento, rotulo }) => {
+      const h = (valor / valorTopo) * altura;
+      const x = centroGrupo + deslocamento;
+      const y = baseY - h;
+      const grad = ctx.createLinearGradient(0, y, 0, baseY);
+      grad.addColorStop(0, cor[0]);
+      grad.addColorStop(1, cor[1]);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barraLargura, Math.max(h, 0), 6);
+      ctx.fill();
+
+      barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${rotulo} — ${item.label}: ${moeda(valor)}` });
+    });
+
+    ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
+    ctx.textAlign = "center";
+    ctx.font = "700 12px Arial";
+    ctx.fillText(item.label, centroGrupo, baseY + 24);
+  });
+}
+
+function configurarTooltipGraficoTempo() {
+  const canvas = document.getElementById("graficoCartaoTempo");
+  if (!canvas || canvas.dataset.tooltipConfigurado) return;
+  canvas.dataset.tooltipConfigurado = "true";
+
+  const container = canvas.parentElement;
+  container.style.position = "relative";
+  const tooltip = document.createElement("div");
+  tooltip.id = "graficoCartaoTempoTooltip";
+  tooltip.className = "card-report-chart-tooltip hidden";
+  container.appendChild(tooltip);
+
+  canvas.addEventListener("mousemove", (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const escalaX = canvas.width / rect.width;
+    const escalaY = canvas.height / rect.height;
+    const x = (event.clientX - rect.left) * escalaX;
+    const y = (event.clientY - rect.top) * escalaY;
+
+    const barra = barrasGraficoTempo.find((item) => x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height);
+    if (barra) {
+      tooltip.textContent = barra.detalhe;
+      tooltip.style.left = `${event.clientX - rect.left + 14}px`;
+      tooltip.style.top = `${event.clientY - rect.top + 14}px`;
+      tooltip.classList.remove("hidden");
+      canvas.style.cursor = "pointer";
+    } else {
+      tooltip.classList.add("hidden");
+      canvas.style.cursor = "default";
+    }
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    tooltip.classList.add("hidden");
   });
 }
 
@@ -209,13 +455,103 @@ function renderInsightsRelatorioCartao(relatorio) {
   const total = relatorio.porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
   const compras = relatorio.porCartao.reduce((sum, item) => sum + Number(item.quantidade_compras || 0), 0);
   const maior = relatorio.porCartao[0];
+  const menor = relatorio.porCartao[relatorio.porCartao.length - 1];
   const participacao = total && maior ? (Number(maior.total_gasto || 0) / total) * 100 : 0;
 
   document.getElementById("insightMaiorGasto").textContent = maior ? moeda(maior.total_gasto) : moeda(0);
   document.getElementById("insightMaiorGastoTexto").textContent = maior?.cartao || "-";
+  document.getElementById("insightMenorGasto").textContent = menor ? moeda(menor.total_gasto) : moeda(0);
+  document.getElementById("insightMenorGastoTexto").textContent = menor?.cartao || "-";
   document.getElementById("insightTicketMedio").textContent = moeda(compras ? total / compras : 0);
   document.getElementById("insightParticipacaoMaior").textContent = `${participacao.toFixed(1).replace(".", ",")}%`;
   document.getElementById("insightPeriodo").textContent = textoPeriodoSelecionado();
+}
+
+function paraISO(data) {
+  return data.toISOString().slice(0, 10);
+}
+
+function calcularPeriodoAnteriorPadrao(dataInicial, dataFinal) {
+  const inicio = new Date(`${dataInicial}T00:00:00`);
+  const fim = new Date(`${dataFinal}T00:00:00`);
+  const diasPeriodo = Math.round((fim - inicio) / 86400000) + 1;
+  const prevFim = new Date(inicio);
+  prevFim.setDate(prevFim.getDate() - 1);
+  const prevInicio = new Date(prevFim);
+  prevInicio.setDate(prevInicio.getDate() - diasPeriodo + 1);
+  return { inicio: paraISO(prevInicio), fim: paraISO(prevFim) };
+}
+
+function sincronizarPeriodoComparativoPadrao() {
+  const dataInicial = document.getElementById("filtroDataInicial").value;
+  const dataFinal = document.getElementById("filtroDataFinal").value;
+  if (!dataInicial || !dataFinal) return;
+
+  const padrao = calcularPeriodoAnteriorPadrao(dataInicial, dataFinal);
+  document.getElementById("comparaDataInicial").value = padrao.inicio;
+  document.getElementById("comparaDataFinal").value = padrao.fim;
+}
+
+async function renderComparativoPeriodoAnterior(totalAtual) {
+  const elemento = document.getElementById("resumoTotalComparativo");
+  const barra = document.getElementById("compararPeriodoBar");
+  if (!elemento) return;
+  const ativo = document.getElementById("compararPeriodoAnterior")?.checked;
+
+  if (!ativo) {
+    elemento.textContent = "";
+    elemento.className = "card-report-kpi-delta hidden";
+    barra.classList.add("hidden");
+    if (ultimoRelatorioCartao) ultimoRelatorioCartao.comprasPeriodoAnterior = null;
+    desenharGraficoTempo(ultimoRelatorioCartao || {});
+    return;
+  }
+
+  barra.classList.remove("hidden");
+  const prevInicio = document.getElementById("comparaDataInicial").value;
+  const prevFim = document.getElementById("comparaDataFinal").value;
+  if (!prevInicio || !prevFim) {
+    elemento.textContent = "";
+    elemento.className = "card-report-kpi-delta hidden";
+    if (ultimoRelatorioCartao) ultimoRelatorioCartao.comprasPeriodoAnterior = null;
+    desenharGraficoTempo(ultimoRelatorioCartao || {});
+    return;
+  }
+
+  const qs = new URLSearchParams();
+  const departamentoId = document.getElementById("filtroDepartamento").value;
+  const cartaoId = document.getElementById("filtroCartao").value;
+  const status = document.getElementById("filtroStatus").value;
+  if (departamentoId) qs.set("departamentoId", departamentoId);
+  if (cartaoId) qs.set("cartaoId", cartaoId);
+  qs.set("dataInicial", prevInicio);
+  qs.set("dataFinal", prevFim);
+  qs.set("usuarioId", usuarioIdAtual());
+
+  const qsCompras = new URLSearchParams(qs);
+  if (status) qsCompras.set("status", status);
+
+  const periodoTexto = `${formatarData(prevInicio)} – ${formatarData(prevFim)}`;
+  const [porCartaoAnterior, comprasAnterior] = await Promise.all([
+    fetch(`/api/relatorios-cartao/gastos-por-cartao?${qs.toString()}`).then((r) => r.json()),
+    fetch(`/api/relatorios-cartao/compras?${qsCompras.toString()}`).then((r) => r.json())
+  ]);
+  const totalAnterior = porCartaoAnterior.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
+
+  if (ultimoRelatorioCartao) ultimoRelatorioCartao.comprasPeriodoAnterior = comprasAnterior;
+  desenharGraficoTempo(ultimoRelatorioCartao || {});
+
+  if (!totalAnterior) {
+    elemento.textContent = `Sem gastos no período comparado (${periodoTexto})`;
+    elemento.className = "card-report-kpi-delta";
+    return;
+  }
+
+  const variacao = ((totalAtual - totalAnterior) / totalAnterior) * 100;
+  const subiu = variacao > 0;
+  const seta = subiu ? "↑" : "↓";
+  elemento.className = `card-report-kpi-delta ${subiu ? "is-up" : "is-down"}`;
+  elemento.textContent = `${seta} ${Math.abs(variacao).toFixed(1).replace(".", ",")}% vs ${periodoTexto}`;
 }
 
 function textoPeriodoSelecionado() {
@@ -234,7 +570,7 @@ function textoPeriodoSelecionado() {
 
 function renderVisualRelatorioCartao() {
   if (!ultimoRelatorioCartao) return;
-  desenharGraficoTempo(ultimoRelatorioCartao.comprasPeriodo);
+  desenharGraficoTempo(ultimoRelatorioCartao);
   desenharGraficoDistribuicao(ultimoRelatorioCartao);
   renderInsightsRelatorioCartao(ultimoRelatorioCartao);
 }
@@ -307,6 +643,8 @@ async function carregarRelatoriosCartao() {
   if (comprasResultado.blocked) {
     document.getElementById("comprasPeriodoTabela").innerHTML = vazio(8, comprasResultado.blocked);
   }
+  const totalAtual = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
+  renderComparativoPeriodoAnterior(totalAtual);
 }
 
 function textoSelecionadoCartao(id) {
@@ -395,23 +733,59 @@ function configurarEventos() {
     document.getElementById(id).addEventListener("change", carregarRelatoriosCartao);
   });
 
+  ["filtroDataInicial", "filtroDataFinal"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", () => {
+      if (document.getElementById("compararPeriodoAnterior").checked) {
+        sincronizarPeriodoComparativoPadrao();
+      }
+    });
+  });
+
   document.getElementById("limparFiltros").addEventListener("click", () => {
     ["filtroDepartamento", "filtroCartao", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
       document.getElementById(id).value = "";
     });
+    document.getElementById("compararPeriodoAnterior").checked = false;
+    document.getElementById("comparaDataInicial").value = "";
+    document.getElementById("comparaDataFinal").value = "";
+    document.getElementById("compararPeriodoBar").classList.add("hidden");
     carregarRelatoriosCartao();
   });
 
   document.getElementById("baixarPdfCartao").addEventListener("click", baixarPdfRelatorioCartao);
+
+  document.getElementById("compararPeriodoAnterior").addEventListener("change", (event) => {
+    if (event.target.checked && !document.getElementById("comparaDataInicial").value) {
+      sincronizarPeriodoComparativoPadrao();
+    }
+    const porCartao = ultimoRelatorioCartao?.porCartao || [];
+    const totalAtual = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
+    renderComparativoPeriodoAnterior(totalAtual);
+  });
+
+  ["comparaDataInicial", "comparaDataFinal"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", () => {
+      const porCartao = ultimoRelatorioCartao?.porCartao || [];
+      const totalAtual = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
+      renderComparativoPeriodoAnterior(totalAtual);
+    });
+  });
 
   document.getElementById("alternarFiltrosAvancados").addEventListener("click", () => {
     const painel = document.getElementById("filtrosAvancados");
     const botao = document.getElementById("alternarFiltrosAvancados");
     const expandido = painel.classList.toggle("hidden") === false;
     botao.setAttribute("aria-expanded", String(expandido));
-    botao.innerHTML = expandido
-      ? 'Menos filtros <span aria-hidden="true">⌃</span>'
-      : 'Mais filtros <span aria-hidden="true">⌄</span>';
+  });
+
+  document.addEventListener("click", (event) => {
+    const ancora = document.querySelector(".card-report-filtros-anchor");
+    const painel = document.getElementById("filtrosAvancados");
+    if (!ancora || painel.classList.contains("hidden")) return;
+    if (!ancora.contains(event.target)) {
+      painel.classList.add("hidden");
+      document.getElementById("alternarFiltrosAvancados").setAttribute("aria-expanded", "false");
+    }
   });
 
   document.querySelectorAll(".report-tabs button").forEach((button) => {
@@ -436,6 +810,7 @@ async function initRelatoriosCartao() {
   await carregarFiltros();
   definirPeriodoPadraoMesAtual();
   configurarEventos();
+  configurarTooltipGraficoTempo();
   await carregarRelatoriosCartao();
 }
 

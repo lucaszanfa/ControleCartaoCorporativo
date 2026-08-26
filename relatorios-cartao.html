@@ -14,81 +14,72 @@
       <header class="topbar">
         <div>
           <span class="eyebrow">Análise de cartões</span>
-          <h1>Relatórios de cartão</h1><p class="topbar-subtitle">Analise os gastos dos cartões por período e departamento.</p>
+          <h1>Relatórios</h1><p class="topbar-subtitle">Acompanhe os gastos, compras e desempenho dos cartões da sua empresa.</p>
         </div>
         <span class="user-chip">Usuário</span>
       </header>
 
-      <section class="card-reports-hero">
-        <img src="img/smamateriais.png" alt="Mascote SM&A com materiais">
-        <div>
-          <span>Análise de cartões</span>
-          <h2>Relatórios SM&A Cartões</h2>
-          <p>Acompanhe gastos, pendências e compras do período com uma leitura mais executiva.</p>
-        </div>
-        <div class="card-reports-hero-art" aria-hidden="true">
-          <i></i>
-          <i></i>
-          <i></i>
+      <section class="card-report-actions-row">
+        <div class="card-report-actions-buttons">
+          <div class="card-report-filtros-anchor">
+            <button class="btn btn-secondary" id="alternarFiltrosAvancados" type="button" aria-expanded="false" aria-controls="filtrosAvancados">
+              <svg class="icon-sm" viewBox="0 0 24 24"><path d="M4 5h16"></path><path d="M7 12h10"></path><path d="M10 19h4"></path></svg>
+              Filtros
+            </button>
+            <div class="card-report-filtros-panel hidden" id="filtrosAvancados">
+              <label>Status da pendência
+                <select id="filtroStatus">
+                  <option value="">Todos os status</option>
+                  <option value="sem_registro">Sem registro</option>
+                  <option value="aguardando_comprovante">Sem comprovante</option>
+                  <option value="valor_divergente">Valor divergente</option>
+                  <option value="data_divergente">Data divergente</option>
+                  <option value="resolvida">Resolvida</option>
+                  <option value="conciliada">Conciliada</option>
+                </select>
+              </label>
+              <button class="btn btn-secondary" id="limparFiltros" type="button">Limpar filtros</button>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="baixarPdfCartao" type="button">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 11 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+            Baixar PDF
+          </button>
         </div>
       </section>
 
-      <section class="card-report-filter">
-        <div class="card-report-filter-aside">
-          <img src="img/mascote-comemorando.png" alt="Mascote SM&A">
-        </div>
+      <section class="card-report-filter-bar">
+        <label class="card-report-period-field">Período
+          <span class="card-report-period-inputs">
+            <input id="filtroDataInicial" type="date">
+            <span aria-hidden="true">–</span>
+            <input id="filtroDataFinal" type="date">
+          </span>
+        </label>
+        <label>Departamento
+          <select id="filtroDepartamento">
+            <option value="">Todos os departamentos</option>
+          </select>
+        </label>
+        <label>Cartão
+          <select id="filtroCartao">
+            <option value="">Todos os cartões</option>
+          </select>
+        </label>
+        <label class="card-report-compare-toggle">
+          <input type="checkbox" id="compararPeriodoAnterior">
+          <span class="card-report-toggle-track" aria-hidden="true"></span>
+          Comparar com período anterior
+        </label>
+      </section>
 
-        <div class="card-report-filter-content">
-          <div class="card-report-filter-header">
-            <div class="card-report-filter-title">
-              <span class="eyebrow">Filtros</span>
-              <h2>Escolha o que deseja analisar</h2>
-            </div>
-            <div class="card-report-filter-actions">
-              <a class="btn btn-secondary" href="compra-cartao.html">Registrar compra</a>
-              <button class="btn btn-secondary" id="limparFiltros" type="button">Limpar filtros</button>
-              <button class="btn btn-primary" id="baixarPdfCartao" type="button">Baixar PDF</button>
-            </div>
-          </div>
-
-          <div class="card-report-filter-grid">
-            <label>Cartão
-              <select id="filtroCartao">
-                <option value="">Todos os cartões</option>
-              </select>
-            </label>
-            <label>Data inicial
-              <input id="filtroDataInicial" type="date">
-            </label>
-            <label>Data final
-              <input id="filtroDataFinal" type="date">
-            </label>
-          </div>
-
-          <button class="btn btn-secondary card-report-filter-toggle" id="alternarFiltrosAvancados" type="button" aria-expanded="false" aria-controls="filtrosAvancados">
-            Mais filtros
-            <span aria-hidden="true">⌄</span>
-          </button>
-
-          <div class="card-report-filter-grid card-report-filter-advanced hidden" id="filtrosAvancados">
-            <label>Departamento
-              <select id="filtroDepartamento">
-                <option value="">Todos os departamentos</option>
-              </select>
-            </label>
-            <label>Status da pendência
-              <select id="filtroStatus">
-                <option value="">Todos os status</option>
-                <option value="sem_registro">Sem registro</option>
-                <option value="aguardando_comprovante">Sem comprovante</option>
-                <option value="valor_divergente">Valor divergente</option>
-                <option value="data_divergente">Data divergente</option>
-                <option value="resolvida">Resolvida</option>
-                <option value="conciliada">Conciliada</option>
-              </select>
-            </label>
-          </div>
-        </div>
+      <section class="card-report-compare-bar hidden" id="compararPeriodoBar">
+        <span>Comparando com</span>
+        <span class="card-report-period-inputs">
+          <input id="comparaDataInicial" type="date">
+          <span aria-hidden="true">–</span>
+          <input id="comparaDataFinal" type="date">
+        </span>
       </section>
 
       <section class="card-report-summary-grid">
@@ -96,7 +87,7 @@
           <span class="card-report-kpi-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><path d="M6 9v.01M18 15v.01"></path></svg></span>
           <span>Total gasto</span>
           <strong id="resumoTotal">R$ 0,00</strong>
-          <small>Total filtrado no período</small>
+          <small id="resumoTotalComparativo" class="card-report-kpi-delta hidden"></small>
         </article>
         <article>
           <span class="card-report-kpi-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6"></path></svg></span>
@@ -132,7 +123,7 @@
               <article>
                 <div class="card-report-block-header">
                   <h3>Gastos ao longo do tempo</h3>
-                  <span>Últimos 6 meses</span>
+                  <span id="graficoCartaoTempoLegenda">Últimos 6 meses</span>
                 </div>
                 <canvas id="graficoCartaoTempo" width="760" height="260"></canvas>
               </article>
@@ -215,6 +206,11 @@
               <span>Maior gasto</span>
               <strong id="insightMaiorGasto">R$ 0,00</strong>
               <small id="insightMaiorGastoTexto">-</small>
+            </article>
+            <article>
+              <span>Menor gasto</span>
+              <strong id="insightMenorGasto">R$ 0,00</strong>
+              <small id="insightMenorGastoTexto">-</small>
             </article>
             <article>
               <span>Ticket médio</span>
