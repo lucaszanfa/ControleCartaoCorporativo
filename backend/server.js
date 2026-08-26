@@ -1,5 +1,4 @@
 const path = require("path");
-const fs = require("fs");
 const express = require("express");
 const cors = require("cors");
 const { PDFParse } = require("pdf-parse");
@@ -138,6 +137,36 @@ function monthFolder(value) {
   const match = text.match(/^(\d{4})-(\d{2})/);
   if (!match) return new Date().toISOString().slice(0, 7);
   return `${match[1]}-${match[2]}`;
+}
+
+const SUPABASE_STORAGE_BUCKET = "comprovantes";
+
+async function uploadParaSupabaseStorage(caminhoNoBucket, buffer, mimeType) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY nao configurados.");
+  }
+
+  const resposta = await fetch(
+    `${supabaseUrl}/storage/v1/object/${SUPABASE_STORAGE_BUCKET}/${caminhoNoBucket}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": mimeType
+      },
+      body: buffer
+    }
+  );
+
+  if (!resposta.ok) {
+    const detalhe = await resposta.text().catch(() => "");
+    throw new Error(`Falha ao enviar arquivo para o Supabase Storage: ${resposta.status} ${detalhe}`);
+  }
+
+  return `${supabaseUrl}/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/${caminhoNoBucket}`;
 }
 
 function extensionFromMime(mimeType, originalName) {
@@ -855,17 +884,15 @@ app.post("/api/uploads/comprovante", async (request, response) => {
       return;
     }
 
-    const relativeDir = path.join("uploads", "comprovantes", monthFolder(dataCompra), safeFilePart(departamento.nome));
-    const absoluteDir = path.join(publicDir, relativeDir);
-    fs.mkdirSync(absoluteDir, { recursive: true });
-
+    const relativeDir = [monthFolder(dataCompra), safeFilePart(departamento.nome)].join("/");
     const baseName = safeFilePart(path.basename(fileName, path.extname(fileName)));
     const savedName = `${Date.now()}-${baseName}${ext}`;
-    const absolutePath = path.join(absoluteDir, savedName);
-    fs.writeFileSync(absolutePath, buffer);
+    const caminhoNoBucket = `${relativeDir}/${savedName}`;
+
+    const url = await uploadParaSupabaseStorage(caminhoNoBucket, buffer, mimeType);
 
     response.status(201).json({
-      caminho: `/${relativeDir.replace(/\\/g, "/")}/${savedName}`,
+      caminho: url,
       nome: savedName
     });
   } catch (error) {

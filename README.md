@@ -24,6 +24,8 @@ HOST=0.0.0.0
 PORT=3010
 APP_BASE_URL=http://localhost:3010
 DATABASE_URL=postgresql://usuario:senha@host:5432/postgres
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=
 COMPRA_AUTOMATICA_API_KEY=
 
 TEAMS_WEBHOOK_URL=
@@ -84,7 +86,7 @@ Numa compra cadastrada automaticamente, os campos **cartão, departamento, data,
 
 - Nunca suba o `.env` nem exponha URLs do Power Automate no frontend.
 - Configure `COMPRA_AUTOMATICA_API_KEY` em produção e use o mesmo valor no header `x-api-key` da automação.
-- Comprovantes ficam salvos em `uploads/`. No plano free do Render isso pode não persistir entre redeploys — considere um storage externo (SharePoint, OneDrive, S3) se isso virar um problema.
+- Comprovantes ficam salvos no **Supabase Storage** (bucket público `comprovantes`), não no disco do servidor — sobrevivem a redeploys/reinícios normalmente. `SUPABASE_SERVICE_ROLE_KEY` é secreta: nunca exponha no frontend, é usada só pelo backend para enviar os arquivos.
 
 ## Publicando mudanças
 
