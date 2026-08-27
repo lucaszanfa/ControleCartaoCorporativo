@@ -660,9 +660,9 @@ app.put("/api/usuarios/:id/permissoes", async (request, response) => {
 app.get("/api/usuarios/:id/permissoes-cartao", async (request, response) => {
   try {
     const cartoes = await all(
-      `SELECT c.id AS cartaoId, c.nome_cartao AS nomeCartao, c.ultimos_4_digitos AS ultimos4Digitos, s.nome AS departamento,
-              coalesce(p.pode_cadastrar_compra, 0) AS podeCadastrarCompra,
-              coalesce(p.pode_ver_compras, 0) AS podeVerCompras
+      `SELECT c.id AS "cartaoId", c.nome_cartao AS "nomeCartao", c.ultimos_4_digitos AS "ultimos4Digitos", s.nome AS departamento,
+              coalesce(p.pode_cadastrar_compra, 0) AS "podeCadastrarCompra",
+              coalesce(p.pode_ver_compras, 0) AS "podeVerCompras"
        FROM cartoes_corporativos c
        JOIN setores s ON s.id = c.departamento_id
        LEFT JOIN permissoes_cartao_usuario p ON p.cartao_id = c.id AND p.usuario_id = ?
@@ -1851,8 +1851,8 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
   const pendencias = await get("SELECT COUNT(*)::int AS total FROM transacoes_fatura WHERE fatura_id = ? AND status_conciliacao != 'conciliada'", [request.params.faturaId]);
   await run("UPDATE faturas_cartao SET status = ? WHERE id = ?", [pendencias.total ? "com_pendencias" : "conciliada", request.params.faturaId]);
   const pendenciasAtuais = await all(
-    `SELECT t.id AS transacaoId,
-            co.compra_cartao_id AS compraId,
+    `SELECT t.id AS "transacaoId",
+            co.compra_cartao_id AS "compraId",
             (
               SELECT a.id
               FROM alertas_cartao a
@@ -1861,21 +1861,21 @@ app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) =
                 AND coalesce(a.compra_cartao_id, 0) = coalesce(co.compra_cartao_id, 0)
               ORDER BY a.id DESC
               LIMIT 1
-            ) AS alertaId,
+            ) AS "alertaId",
             coalesce(co.status, t.status_conciliacao) AS status,
-            t.data_transacao AS dataTransacao,
+            t.data_transacao AS "dataTransacao",
             t.estabelecimento,
             t.valor,
-            t.cartao_id AS cartaoId,
+            t.cartao_id AS "cartaoId",
             c.nome_cartao AS cartao,
-            c.ultimos_4_digitos AS ultimos4Digitos,
-            c.departamento_id AS departamentoId,
+            c.ultimos_4_digitos AS "ultimos4Digitos",
+            c.departamento_id AS "departamentoId",
             s.nome AS departamento,
-            cc.fornecedor AS compraFornecedor,
-            cc.data_compra AS compraData,
-            cc.valor AS compraValor,
-            coalesce(co.diferenca_valor, 0) AS diferencaValor,
-            coalesce(co.diferenca_dias, 0) AS diferencaDias
+            cc.fornecedor AS "compraFornecedor",
+            cc.data_compra AS "compraData",
+            cc.valor AS "compraValor",
+            coalesce(co.diferenca_valor, 0) AS "diferencaValor",
+            coalesce(co.diferenca_dias, 0) AS "diferencaDias"
      FROM transacoes_fatura t
      JOIN cartoes_corporativos c ON c.id = t.cartao_id
      JOIN setores s ON s.id = c.departamento_id
