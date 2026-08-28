@@ -134,6 +134,7 @@ const ICONES_SVG = {
   recibo: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6"></path>',
   nota: '<path d="M4 4h16v16H4z"></path><path d="M8 8h8M8 12h8M8 16h5"></path>',
   chat: '<path d="M4 4h16v12H8l-4 4Z"></path>',
+  teamsChat: '<path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"></path><circle cx="10" cy="10.2" r="1.6"></circle><path d="M7 14.3a3 3 0 0 1 6 0"></path><circle cx="15.4" cy="9.4" r="1.3"></circle><path d="M13.4 12.6a2.4 2.4 0 0 1 3.6 0"></path>',
   olho: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>',
   relogio: '<circle cx="12" cy="12" r="8"></circle><path d="M12 8v4l3 2"></path>',
   envelope: '<rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path>',

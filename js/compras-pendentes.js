@@ -24,7 +24,7 @@ function pendenciaBadge(pendencia) {
 }
 
 function teamsIconHtml() {
-  return `<span class="teams-button-icon" aria-hidden="true">${svgIcone("chat", "icon-sm")}</span>`;
+  return `<span class="teams-button-icon" aria-hidden="true">${svgIcone("teamsChat", "icon-sm")}</span>`;
 }
 
 function identificarPendencias(compra) {
@@ -166,8 +166,8 @@ function renderizarPendentes() {
       </td>
       <td>
         <div class="actions">
-          <button class="btn btn-secondary teams-icon-button enviar-teams-pendente" data-pendente-id="${compra.id}" data-alerta-id="${compra.alertaId || ""}" data-compra-id="${compra.compraId || compra.id}" type="button" title="Enviar alerta no Teams" aria-label="Enviar alerta no Teams">
-            ${teamsIconHtml()}
+          <button class="btn btn-teams-alert enviar-teams-pendente" data-pendente-id="${compra.id}" data-alerta-id="${compra.alertaId || ""}" data-compra-id="${compra.compraId || compra.id}" type="button" title="Enviar alerta no Teams" aria-label="Enviar alerta no Teams">
+            ${teamsIconHtml()}<span>Alertar no Teams</span>
           </button>
           <a class="btn btn-primary" href="${linkConclusao(compra)}">Concluir</a>
         </div>
