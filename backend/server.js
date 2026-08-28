@@ -1643,14 +1643,15 @@ function dataInterNormalizada(dia, mesAbreviado, ano) {
 function transacoesExtraidasDoTextoInter(texto, cartao) {
   const linhas = String(texto || "").split(/\r?\n/).map((linha) => linha.replace(/\s+/g, " ").trim()).filter(Boolean);
   const regexTransacao = /^(\d{2})\s+de\s+([a-z]{3})\.?\s+(\d{4})\s+(.+?)\s+-\s+(\+\s*)?R\$\s*(-?[\d.]+,\d{2})$/i;
-  const regexCabecalhoCartao = /^CART[AÃ]O\s+(\d{6,})$/i;
+  const regexCabecalhoCartao = /^CART[AÃ]O\s+([\d*xX]{6,})$/i;
   const transacoes = [];
   let dentroDoCartaoCerto = false;
 
   for (const linha of linhas) {
     const cabecalho = linha.match(regexCabecalhoCartao);
     if (cabecalho) {
-      dentroDoCartaoCerto = cabecalho[1].endsWith(cartao.ultimos_4_digitos);
+      const digitos = cabecalho[1].replace(/\D/g, "");
+      dentroDoCartaoCerto = digitos.endsWith(cartao.ultimos_4_digitos);
       continue;
     }
     if (/^total\s+cart[aã]o/i.test(linha)) {
