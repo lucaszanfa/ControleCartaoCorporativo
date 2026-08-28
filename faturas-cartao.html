@@ -25,6 +25,12 @@
           </div>
           <label>Mês <select id="mesReferencia" required></select></label>
           <label>Ano <input id="anoReferencia" type="number" value="2026" required></label>
+          <label>Banco da fatura (PDF)
+            <select id="bancoFatura">
+              <option value="generico">Genérico (uma transação por linha)</option>
+              <option value="inter">Banco Inter</option>
+            </select>
+          </label>
           <label class="purchase-upload-label">Arquivo CSV ou PDF
             <input id="arquivoFatura" type="file" accept=".csv,text/csv,.pdf,application/pdf" required>
             <input id="arquivoNome" type="hidden">

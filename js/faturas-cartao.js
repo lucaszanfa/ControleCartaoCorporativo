@@ -141,7 +141,8 @@ async function carregarArquivoFatura(event) {
       fileName: file.name,
       base64: await arquivoComoDataUrl(file),
       cartaoId: cartaoIdsPdf[0],
-      anoReferencia: document.getElementById("anoReferencia").value
+      anoReferencia: document.getElementById("anoReferencia").value,
+      banco: document.getElementById("bancoFatura").value
     })
   });
   const dados = await resposta.json();

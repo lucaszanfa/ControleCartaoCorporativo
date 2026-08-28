@@ -1632,10 +1632,58 @@ function transacoesExtraidasDoTexto(texto, cartao, anoReferencia) {
   return transacoes;
 }
 
+const MESES_ABREVIADOS_PT = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
+
+function dataInterNormalizada(dia, mesAbreviado, ano) {
+  const mes = MESES_ABREVIADOS_PT[mesAbreviado.toLowerCase()];
+  if (!mes) return "";
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+function transacoesExtraidasDoTextoInter(texto, cartao) {
+  const linhas = String(texto || "").split(/\r?\n/).map((linha) => linha.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const regexTransacao = /^(\d{2})\s+de\s+([a-z]{3})\.?\s+(\d{4})\s+(.+?)\s+-\s+(\+\s*)?R\$\s*(-?[\d.]+,\d{2})$/i;
+  const regexCabecalhoCartao = /^CART[AÃ]O\s+(\d{6,})$/i;
+  const transacoes = [];
+  let dentroDoCartaoCerto = false;
+
+  for (const linha of linhas) {
+    const cabecalho = linha.match(regexCabecalhoCartao);
+    if (cabecalho) {
+      dentroDoCartaoCerto = cabecalho[1].endsWith(cartao.ultimos_4_digitos);
+      continue;
+    }
+    if (/^total\s+cart[aã]o/i.test(linha)) {
+      dentroDoCartaoCerto = false;
+      continue;
+    }
+    if (!dentroDoCartaoCerto) continue;
+
+    const encontrada = linha.match(regexTransacao);
+    if (!encontrada) continue;
+    const ehCredito = Boolean(encontrada[5]);
+    if (ehCredito) continue;
+
+    const estabelecimento = encontrada[4].trim();
+    const valor = Number(encontrada[6].replaceAll(".", "").replace(",", "."));
+    if (!estabelecimento || !Number.isFinite(valor) || valor <= 0) continue;
+
+    transacoes.push({
+      dataTransacao: dataInterNormalizada(encontrada[1], encontrada[2], encontrada[3]),
+      estabelecimento,
+      valor,
+      ultimos4Digitos: cartao.ultimos_4_digitos,
+      codigoAutorizacao: "",
+      categoriaDetectada: categoriaFaturaPorTexto(estabelecimento)
+    });
+  }
+  return transacoes;
+}
+
 app.post("/api/faturas-cartao/extrair-pdf", async (request, response) => {
   let parser;
   try {
-    const { fileName, base64, cartaoId, anoReferencia } = request.body;
+    const { fileName, base64, cartaoId, anoReferencia, banco } = request.body;
     if (!fileName || !base64 || !cartaoId) return response.status(400).json({ erro: "PDF e cartão são obrigatórios." });
     const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
     if (!cartao) return response.status(404).json({ erro: "Cartão não encontrado." });
@@ -1646,8 +1694,15 @@ app.post("/api/faturas-cartao/extrair-pdf", async (request, response) => {
     const resultado = await parser.getText();
     const texto = String(resultado?.text || "").trim();
     if (!texto) return response.status(422).json({ erro: "O PDF não possui texto selecionável. Para arquivos escaneados será necessário OCR." });
-    const transacoes = transacoesExtraidasDoTexto(texto, cartao, anoReferencia);
-    if (!transacoes.length) return response.status(422).json({ erro: "Não foi possível reconhecer transações neste modelo de fatura. Confira se cada linha contém data, estabelecimento e valor." });
+    const transacoes = banco === "inter"
+      ? transacoesExtraidasDoTextoInter(texto, cartao)
+      : transacoesExtraidasDoTexto(texto, cartao, anoReferencia);
+    if (!transacoes.length) {
+      const mensagemInter = "Não foi possível reconhecer compras deste cartão (final " + cartao.ultimos_4_digitos + ") nesta fatura do Inter. Confira se o cartão marcado é o mesmo desta fatura.";
+      return response.status(422).json({
+        erro: banco === "inter" ? mensagemInter : "Não foi possível reconhecer transações neste modelo de fatura. Confira se cada linha contém data, estabelecimento e valor."
+      });
+    }
     response.json({ transacoes });
   } catch (error) {
     response.status(500).json({ erro: "Erro ao processar o PDF da fatura.", detalhe: error.message });
