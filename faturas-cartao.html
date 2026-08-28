@@ -18,11 +18,9 @@
         <div id="arquivosPorCartao" class="conciliation-result hidden"></div>
         <div id="resultadoConciliacao" class="conciliation-result hidden"></div>
         <form id="faturaForm" class="form-grid form-grid-two">
-          <div class="full-width">
-            <span class="fatura-cartoes-titulo">Cartão(ões) <em>*</em></span>
-            <p class="field-hint">Marque mais de um se a fatura reunir compras de vários cartões — o sistema separa cada transação pelo cartão certo automaticamente.</p>
-            <div id="cartaoIdLista" class="fatura-cartoes-lista"></div>
-          </div>
+          <label>Cartão <em>*</em>
+            <select id="cartaoIdLista" required><option value="">Selecione o cartão</option></select>
+          </label>
           <label>Mês <select id="mesReferencia" required></select></label>
           <label>Ano <input id="anoReferencia" type="number" value="2026" required></label>
           <label>Banco da fatura (PDF)

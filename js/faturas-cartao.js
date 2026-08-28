@@ -5,25 +5,19 @@ let faturasCache = [];
 
 async function initFaturas() {
   cartoesFaturaCache = await (await fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
-  document.getElementById("cartaoIdLista").innerHTML = cartoesFaturaCache.map((cartao) => `
-    <label class="fatura-cartao-opcao">
-      <input type="checkbox" value="${cartao.id}">
-      ${escapeHtml(cartao.nomeCartao)} <small>final ${escapeHtml(cartao.ultimos4Digitos)}</small>
-    </label>
-  `).join("");
-  document.querySelectorAll("#cartaoIdLista input[type=checkbox]").forEach((checkbox) => {
-    checkbox.addEventListener("change", () => {
-      checkbox.closest(".fatura-cartao-opcao").classList.toggle("selecionado", checkbox.checked);
-      renderPreviaFatura();
-    });
-  });
+  document.getElementById("cartaoIdLista").innerHTML = `
+    <option value="">Selecione o cartão</option>
+    ${cartoesFaturaCache.map((cartao) => `<option value="${cartao.id}">${escapeHtml(cartao.nomeCartao)} (final ${escapeHtml(cartao.ultimos4Digitos)})</option>`).join("")}
+  `;
+  document.getElementById("cartaoIdLista").addEventListener("change", renderPreviaFatura);
   document.getElementById("mesReferencia").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
   document.getElementById("mesReferencia").value = new Date().getMonth() + 1;
   await carregarFaturas();
 }
 
 function cartoesSelecionados() {
-  return [...document.querySelectorAll("#cartaoIdLista input[type=checkbox]:checked")].map((input) => Number(input.value));
+  const valor = document.getElementById("cartaoIdLista").value;
+  return valor ? [Number(valor)] : [];
 }
 
 function parseCsv(texto) {
@@ -127,7 +121,7 @@ async function carregarArquivoFatura(event) {
   if (!cartaoIdsPdf.length) {
     event.target.value = "";
     arquivoNome.value = "";
-    mensagem.textContent = "Marque ao menos um cartão antes de anexar um PDF.";
+    mensagem.textContent = "Selecione o cartão antes de anexar um PDF.";
     mensagem.classList.remove("hidden");
     return;
   }
@@ -159,9 +153,7 @@ async function carregarArquivoFatura(event) {
   csvFaturaSelecionada = "";
   transacoesFaturaSelecionadas = dados.transacoes || [];
   arquivoAtual.textContent = `PDF processado: ${file.name} (${transacoesFaturaSelecionadas.length} transação(ões))`;
-  mensagem.textContent = cartaoIdsPdf.length > 1
-    ? "PDF convertido usando os dados do primeiro cartão marcado (um PDF representa a fatura de um único cartão). Confira a prévia antes de importar."
-    : "PDF convertido. Confira a prévia antes de importar.";
+  mensagem.textContent = "PDF convertido. Confira a prévia antes de importar.";
   renderPreviaFatura();
 }
 
@@ -404,7 +396,7 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
 
   const cartaoIds = cartoesSelecionados();
   if (!cartaoIds.length) {
-    mensagem.textContent = "Marque pelo menos um cartão.";
+    mensagem.textContent = "Selecione o cartão.";
     mensagem.classList.remove("hidden");
     return;
   }
@@ -455,7 +447,7 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
     textoMensagem += ` Não importado(s): ${ignoradas.map((item) => `${item.cartao} (${item.motivo})`).join(", ")}.`;
   }
   if (data.transacoesNaoReconhecidas) {
-    textoMensagem += ` ⚠️ ${data.transacoesNaoReconhecidas} transação(ões) do arquivo não correspondem a nenhum cartão marcado.`;
+    textoMensagem += ` ⚠️ ${data.transacoesNaoReconhecidas} transação(ões) do arquivo não correspondem ao cartão selecionado.`;
   }
   const avisosPeriodo = [...new Set(importadas.map((item) => item.avisoPeriodo).filter(Boolean))];
   if (avisosPeriodo.length) {
@@ -473,10 +465,6 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
   document.getElementById("arquivoNome").value = "";
   document.getElementById("arquivoFaturaAtual").textContent = "Nenhum arquivo selecionado.";
   document.getElementById("mesReferencia").value = new Date().getMonth() + 1;
-  document.querySelectorAll("#cartaoIdLista input[type=checkbox]").forEach((checkbox) => {
-    checkbox.checked = false;
-    checkbox.closest(".fatura-cartao-opcao").classList.remove("selecionado");
-  });
   await carregarFaturas();
 });
 
