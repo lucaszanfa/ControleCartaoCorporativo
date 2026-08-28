@@ -100,8 +100,27 @@ function alertaParaPendente(alerta) {
     dataCompra: alerta.data_transacao,
     status: statusAlertaParaCompra(alerta),
     pendencias: pendenciasDoAlerta(alerta),
-    origem: "alerta"
+    origem: "alerta",
+    vezesTeams: alerta.vezes_enviado_teams || 0,
+    dataUltimoEnvioTeams: alerta.data_envio_teams || null
   };
+}
+
+function formatarDataHoraCurta(valor) {
+  if (!valor) return "";
+  const data = new Date(String(valor).includes("T") ? valor : String(valor).replace(" ", "T"));
+  if (Number.isNaN(data.getTime())) return "";
+  const dia = String(data.getDate()).padStart(2, "0");
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const hora = String(data.getHours()).padStart(2, "0");
+  const minuto = String(data.getMinutes()).padStart(2, "0");
+  return `${dia}/${mes} às ${hora}h${minuto}`;
+}
+
+function teamsEnvioInfoHtml(compra) {
+  if (!compra.vezesTeams) return "";
+  const quando = formatarDataHoraCurta(compra.dataUltimoEnvioTeams);
+  return `<small class="teams-alert-meta">Enviado ${compra.vezesTeams}x${quando ? ` · último em ${quando}` : ""}</small>`;
 }
 
 function destinoTeams(compra) {
@@ -171,6 +190,7 @@ function renderizarPendentes() {
           </button>
           <a class="btn btn-primary" href="${linkConclusao(compra)}">Concluir</a>
         </div>
+        ${teamsEnvioInfoHtml(compra)}
       </td>
     </tr>
   `).join("");
@@ -246,7 +266,9 @@ async function carregarComprasPendentes() {
     ...compra,
     compraId: compra.id,
     origem: "compra",
-    pendencias: compra.pendencias?.length ? compra.pendencias : identificarPendencias(compra)
+    pendencias: compra.pendencias?.length ? compra.pendencias : identificarPendencias(compra),
+    vezesTeams: compra.vezesAlertaTeams || 0,
+    dataUltimoEnvioTeams: compra.dataUltimoAlertaTeams || null
   }));
   const idsComAlerta = new Set(alertas.map((alerta) => alerta.compraId).filter(Boolean).map(String));
 
@@ -281,6 +303,7 @@ async function confirmarEnvioTeams() {
       alertaId: compraTeamsSelecionada.alertaId
     });
     fecharConfirmacaoTeams();
+    await carregarComprasPendentes();
   } catch (error) {
     pendentesMensagem.textContent = "Nao foi possivel enviar a notificacao Teams.";
     pendentesMensagem.classList.remove("hidden");

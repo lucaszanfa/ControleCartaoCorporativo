@@ -1336,6 +1336,14 @@ textarea:focus {
   color: var(--brand);
 }
 
+.teams-alert-meta {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted, var(--texto-suave));
+  font-size: .75rem;
+  white-space: nowrap;
+}
+
 
 .teams-confirm-card {
   width: min(100%, 640px);

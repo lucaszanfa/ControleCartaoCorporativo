@@ -74,11 +74,16 @@ CREATE TABLE IF NOT EXISTS compras_cartao (
   atualizado_por_id INTEGER,
   criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  vezes_alerta_teams INTEGER NOT NULL DEFAULT 0,
+  data_ultimo_alerta_teams TEXT,
   FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
   FOREIGN KEY (departamento_id) REFERENCES setores(id),
   FOREIGN KEY (responsavel_compra_id) REFERENCES usuarios(id),
   FOREIGN KEY (parcelamento_grupo_id) REFERENCES compras_cartao(id)
 );
+
+ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS vezes_alerta_teams INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS data_ultimo_alerta_teams TEXT;
 
 CREATE TABLE IF NOT EXISTS faturas_cartao (
   id SERIAL PRIMARY KEY,
@@ -140,6 +145,7 @@ CREATE TABLE IF NOT EXISTS alertas_cartao (
   status TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'enviado', 'em_analise', 'resolvido')),
   enviado_teams INTEGER NOT NULL DEFAULT 0,
   data_envio_teams TEXT,
+  vezes_enviado_teams INTEGER NOT NULL DEFAULT 0,
   resolvido_por_id INTEGER,
   resolvido_em TEXT,
   observacao_resolucao TEXT,
@@ -151,3 +157,5 @@ CREATE TABLE IF NOT EXISTS alertas_cartao (
   FOREIGN KEY (compra_cartao_id) REFERENCES compras_cartao(id),
   FOREIGN KEY (resolvido_por_id) REFERENCES usuarios(id)
 );
+
+ALTER TABLE alertas_cartao ADD COLUMN IF NOT EXISTS vezes_enviado_teams INTEGER NOT NULL DEFAULT 0;

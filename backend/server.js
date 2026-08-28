@@ -224,6 +224,8 @@ function mapCompraCartao(row) {
     parcelaAtual: row.parcela_atual || 1,
     parcelaTotal: row.parcela_total || 1,
     parcelamentoGrupoId: row.parcelamento_grupo_id || null,
+    vezesAlertaTeams: row.vezes_alerta_teams || 0,
+    dataUltimoAlertaTeams: row.data_ultimo_alerta_teams || null,
     automatica: compraCartaoAutomatica(row),
     criadoPorId: row.criado_por_id || null,
     criadoPor: row.criado_por || null,
@@ -1138,11 +1140,18 @@ app.post("/api/compras-cartao/:id/enviar-pendencia-teams", async (request, respo
       )
     });
 
+    const atualizada = await get(
+      "UPDATE compras_cartao SET vezes_alerta_teams = coalesce(vezes_alerta_teams, 0) + 1, data_ultimo_alerta_teams = CURRENT_TIMESTAMP WHERE id = ? RETURNING vezes_alerta_teams, data_ultimo_alerta_teams",
+      [row.id]
+    );
+
     response.json({
       mensagem: temResponsavel
         ? "Mensagem enviada/simulada para o responsavel pela compra."
         : "Mensagem enviada/simulada para o grupo do departamento.",
-      envio
+      envio,
+      vezesAlertaTeams: atualizada.vezes_alerta_teams,
+      dataUltimoAlertaTeams: atualizada.data_ultimo_alerta_teams
     });
   } catch (error) {
     response.status(502).json({ erro: "Erro ao chamar a automacao do Power Automate.", detalhe: error.message });
@@ -2051,8 +2060,16 @@ app.post("/api/alertas-cartao/:id/enviar-teams", async (request, response) => {
       );
     }
     const envio = await sendTeamsAlert(alerta);
-    await run("UPDATE alertas_cartao SET enviado_teams = 1, data_envio_teams = CURRENT_TIMESTAMP, status = 'enviado' WHERE id = ?", [request.params.id]);
-    response.json({ mensagem: "Notificacao Teams enviada/simulada.", envio });
+    const atualizado = await get(
+      "UPDATE alertas_cartao SET enviado_teams = 1, data_envio_teams = CURRENT_TIMESTAMP, vezes_enviado_teams = coalesce(vezes_enviado_teams, 0) + 1, status = 'enviado' WHERE id = ? RETURNING vezes_enviado_teams, data_envio_teams",
+      [request.params.id]
+    );
+    response.json({
+      mensagem: "Notificacao Teams enviada/simulada.",
+      envio,
+      vezesEnviadoTeams: atualizado.vezes_enviado_teams,
+      dataEnvioTeams: atualizado.data_envio_teams
+    });
   } catch (error) {
     response.status(502).json({ erro: "Erro ao chamar a automacao do Power Automate.", detalhe: error.message });
   }
