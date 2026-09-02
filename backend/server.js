@@ -1638,7 +1638,7 @@ function dataInterNormalizada(dia, mesAbreviado, ano) {
   const mes = MESES_ABREVIADOS_PT[mesAbreviado.toLowerCase()];
   if (!mes) return "";
   return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
-}
+[]}
 
 function transacoesExtraidasDoTextoInter(texto, cartao) {
   const linhas = String(texto || "").split(/\r?\n/).map((linha) => linha.replace(/\s+/g, " ").trim()).filter(Boolean);
@@ -1681,6 +1681,57 @@ function transacoesExtraidasDoTextoInter(texto, cartao) {
   return transacoes;
 }
 
+function transacoesExtraidasDoTextoBradesco(texto, cartao, anoReferencia) {
+  const linhas = String(texto || "").split(/\r?\n/).map((linha) => linha.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const regexTransacao = /^(\d{2}\/\d{2})\s+(.+?)\s+(-?[\d.]+,\d{2})(\s*-)?$/;
+  const regexCabecalhoCartao = /Cart[aã]o\s+[\dXx*]{4}(?:\s+[\dXx*]{4}){1,2}\s+(\d{4})\s*$/i;
+  const transacoes = [];
+  let dentroDoCartaoCerto = false;
+
+  for (const linha of linhas) {
+    const cabecalho = linha.match(regexCabecalhoCartao);
+    if (cabecalho) {
+      dentroDoCartaoCerto = cabecalho[1].endsWith(cartao.ultimos_4_digitos);
+      continue;
+    }
+    if (/^Total\s+para\b/i.test(linha)) {
+      dentroDoCartaoCerto = false;
+      continue;
+    }
+    if (!dentroDoCartaoCerto) continue;
+
+    const encontrada = linha.match(regexTransacao);
+    if (!encontrada) continue;
+    const ehCredito = Boolean(encontrada[4]);
+    if (ehCredito) continue;
+
+    const estabelecimento = encontrada[2].trim();
+    const valor = Number(encontrada[3].replaceAll(".", "").replace(",", "."));
+    if (!estabelecimento || !Number.isFinite(valor) || valor <= 0) continue;
+
+    transacoes.push({
+      dataTransacao: dataFaturaNormalizada(encontrada[1], anoReferencia),
+      estabelecimento,
+      valor,
+      ultimos4Digitos: cartao.ultimos_4_digitos,
+      codigoAutorizacao: "",
+      categoriaDetectada: categoriaFaturaPorTexto(estabelecimento)
+    });
+  }
+  return transacoes;
+}
+
+function textoIndicaBradesco(texto) {
+  if (/bradesco/i.test(texto)) return true;
+  return /Cart[aã]o\s+[\dXx*]{4}(?:\s+[\dXx*]{4}){1,2}\s+\d{4}\s*$/im.test(texto);
+}
+
+function textoIndicaInter(texto) {
+  const temCabecalhoCartao = /^CART[AÃ]O\s+[\d*xX]{6,}\s*$/im.test(texto);
+  const temTransacaoNoFormatoInter = /\d{2}\s+de\s+[a-z]{3}\.?\s+\d{4}\s+.+?-\s+(\+\s*)?R\$\s*-?[\d.]+,\d{2}/i.test(texto);
+  return temCabecalhoCartao && temTransacaoNoFormatoInter;
+}
+
 app.post("/api/faturas-cartao/extrair-pdf", async (request, response) => {
   let parser;
   try {
@@ -1695,13 +1746,26 @@ app.post("/api/faturas-cartao/extrair-pdf", async (request, response) => {
     const resultado = await parser.getText();
     const texto = String(resultado?.text || "").trim();
     if (!texto) return response.status(422).json({ erro: "O PDF não possui texto selecionável. Para arquivos escaneados será necessário OCR." });
+    if (banco !== "inter" && banco !== "bradesco") {
+      if (textoIndicaBradesco(texto)) {
+        return response.status(422).json({ erro: 'Este PDF parece ser uma fatura do Bradesco. Selecione "Bradesco" no campo "Banco da fatura" em vez de "Genérico".' });
+      }
+      if (textoIndicaInter(texto)) {
+        return response.status(422).json({ erro: 'Este PDF parece ser uma fatura do Banco Inter. Selecione "Banco Inter" no campo "Banco da fatura" em vez de "Genérico".' });
+      }
+    }
     const transacoes = banco === "inter"
       ? transacoesExtraidasDoTextoInter(texto, cartao)
+      : banco === "bradesco"
+      ? transacoesExtraidasDoTextoBradesco(texto, cartao, anoReferencia)
       : transacoesExtraidasDoTexto(texto, cartao, anoReferencia);
     if (!transacoes.length) {
-      const mensagemInter = "Não foi possível reconhecer compras deste cartão (final " + cartao.ultimos_4_digitos + ") nesta fatura do Inter. Confira se o cartão marcado é o mesmo desta fatura.";
+      const mensagemPorBanco = {
+        inter: "Não foi possível reconhecer compras deste cartão (final " + cartao.ultimos_4_digitos + ") nesta fatura do Inter. Confira se o cartão marcado é o mesmo desta fatura.",
+        bradesco: "Não foi possível reconhecer compras deste cartão (final " + cartao.ultimos_4_digitos + ") nesta fatura do Bradesco. Confira se o cartão marcado é o mesmo desta fatura."
+      };
       return response.status(422).json({
-        erro: banco === "inter" ? mensagemInter : "Não foi possível reconhecer transações neste modelo de fatura. Confira se cada linha contém data, estabelecimento e valor."
+        erro: mensagemPorBanco[banco] || "Não foi possível reconhecer transações neste modelo de fatura. Confira se cada linha contém data, estabelecimento e valor."
       });
     }
     response.json({ transacoes });
