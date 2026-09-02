@@ -1681,42 +1681,105 @@ function transacoesExtraidasDoTextoInter(texto, cartao) {
   return transacoes;
 }
 
-function transacoesExtraidasDoTextoBradesco(texto, cartao, anoReferencia) {
-  const linhas = String(texto || "").split(/\r?\n/).map((linha) => linha.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const regexTransacao = /^(\d{2}\/\d{2})\s+(.+?)\s+(-?[\d.]+,\d{2})(\s*-)?$/;
+const CAMINHO_FONTES_PADRAO_PDF = require("url").pathToFileURL(
+  path.join(path.dirname(require.resolve("pdfjs-dist/package.json")), "standard_fonts") + path.sep
+).href;
+
+async function linhasPosicionadasDoPdf(buffer) {
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const documento = await pdfjsLib.getDocument({
+    data: new Uint8Array(buffer),
+    standardFontDataUrl: CAMINHO_FONTES_PADRAO_PDF,
+    verbosity: pdfjsLib.VerbosityLevel.ERRORS
+  }).promise;
+  const paginas = [];
+  for (let numero = 1; numero <= documento.numPages; numero++) {
+    const pagina = await documento.getPage(numero);
+    const conteudo = await pagina.getTextContent();
+    const linhas = [];
+    for (const item of conteudo.items) {
+      const texto = item.str.trim();
+      if (!texto) continue;
+      const y = item.transform[5];
+      const x = item.transform[4];
+      let linha = linhas.find((candidata) => Math.abs(candidata.y - y) <= 2);
+      if (!linha) {
+        linha = { y, itens: [] };
+        linhas.push(linha);
+      }
+      linha.itens.push({ x, texto });
+    }
+    linhas.sort((a, b) => b.y - a.y);
+    linhas.forEach((linha) => linha.itens.sort((a, b) => a.x - b.x));
+    paginas.push(linhas.map((linha) => linha.itens));
+  }
+  return paginas;
+}
+
+async function transacoesExtraidasDoPdfBradesco(buffer, cartao, anoReferencia) {
+  const paginas = await linhasPosicionadasDoPdf(buffer);
   const regexCabecalhoCartao = /Cart[aã]o\s+[\dXx*]{4}(?:\s+[\dXx*]{4}){1,2}\s+(\d{4})\s*$/i;
   const transacoes = [];
   let dentroDoCartaoCerto = false;
+  let colunaCidadeX = null;
+  let colunaUsDolarX = null;
+  let larguraTabela = null;
 
-  for (const linha of linhas) {
-    const cabecalho = linha.match(regexCabecalhoCartao);
-    if (cabecalho) {
-      dentroDoCartaoCerto = cabecalho[1].endsWith(cartao.ultimos_4_digitos);
-      continue;
+  for (const linhasDaPagina of paginas) {
+    for (const itensOriginais of linhasDaPagina) {
+      const itemCidade = itensOriginais.find((item) => item.texto === "Cidade");
+      const itemUsDolar = itensOriginais.find((item) => item.texto === "US$");
+      if (itemCidade && itemUsDolar) {
+        colunaCidadeX = itemCidade.x;
+        colunaUsDolarX = itemUsDolar.x;
+        larguraTabela = colunaUsDolarX + 80;
+      }
     }
-    if (/^Total\s+para\b/i.test(linha)) {
-      dentroDoCartaoCerto = false;
-      continue;
+
+    for (const itensOriginais of linhasDaPagina) {
+      const itens = larguraTabela != null ? itensOriginais.filter((item) => item.x < larguraTabela) : itensOriginais;
+      if (!itens.length) continue;
+      const textoLinha = itens.map((item) => item.texto).join(" ").replace(/\s+/g, " ").trim();
+      if (!textoLinha) continue;
+
+      const cabecalho = textoLinha.match(regexCabecalhoCartao);
+      if (cabecalho) {
+        dentroDoCartaoCerto = cabecalho[1].endsWith(cartao.ultimos_4_digitos);
+        continue;
+      }
+      if (/^Total\s+para\b/i.test(textoLinha)) {
+        dentroDoCartaoCerto = false;
+        continue;
+      }
+      if (!dentroDoCartaoCerto) continue;
+
+      const dataEncontrada = itens[0]?.texto.match(/^(\d{2}\/\d{2})$/);
+      if (!dataEncontrada) continue;
+
+      const ultimoItem = itens[itens.length - 1];
+      const valorEncontrado = ultimoItem.texto.match(/^(-?[\d.]+,\d{2})(\s*-)?$/);
+      if (!valorEncontrado) continue;
+      const ehCredito = Boolean(valorEncontrado[2]);
+      if (ehCredito) continue;
+
+      const itensDoMeio = itens.slice(1, -1);
+      const estabelecimento = colunaCidadeX != null
+        ? itensDoMeio.filter((item) => item.x < colunaCidadeX - 10).map((item) => item.texto).join(" ").trim()
+        : itensDoMeio.map((item) => item.texto).join(" ").trim();
+      if (!estabelecimento) continue;
+
+      const valor = Number(valorEncontrado[1].replaceAll(".", "").replace(",", "."));
+      if (!Number.isFinite(valor) || valor <= 0) continue;
+
+      transacoes.push({
+        dataTransacao: dataFaturaNormalizada(dataEncontrada[1], anoReferencia),
+        estabelecimento,
+        valor,
+        ultimos4Digitos: cartao.ultimos_4_digitos,
+        codigoAutorizacao: "",
+        categoriaDetectada: categoriaFaturaPorTexto(estabelecimento)
+      });
     }
-    if (!dentroDoCartaoCerto) continue;
-
-    const encontrada = linha.match(regexTransacao);
-    if (!encontrada) continue;
-    const ehCredito = Boolean(encontrada[4]);
-    if (ehCredito) continue;
-
-    const estabelecimento = encontrada[2].trim();
-    const valor = Number(encontrada[3].replaceAll(".", "").replace(",", "."));
-    if (!estabelecimento || !Number.isFinite(valor) || valor <= 0) continue;
-
-    transacoes.push({
-      dataTransacao: dataFaturaNormalizada(encontrada[1], anoReferencia),
-      estabelecimento,
-      valor,
-      ultimos4Digitos: cartao.ultimos_4_digitos,
-      codigoAutorizacao: "",
-      categoriaDetectada: categoriaFaturaPorTexto(estabelecimento)
-    });
   }
   return transacoes;
 }
@@ -1757,7 +1820,7 @@ app.post("/api/faturas-cartao/extrair-pdf", async (request, response) => {
     const transacoes = banco === "inter"
       ? transacoesExtraidasDoTextoInter(texto, cartao)
       : banco === "bradesco"
-      ? transacoesExtraidasDoTextoBradesco(texto, cartao, anoReferencia)
+      ? await transacoesExtraidasDoPdfBradesco(buffer, cartao, anoReferencia)
       : transacoesExtraidasDoTexto(texto, cartao, anoReferencia);
     if (!transacoes.length) {
       const mensagemPorBanco = {
