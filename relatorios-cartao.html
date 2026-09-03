@@ -136,7 +136,6 @@
               <button class="active" data-tab="cartao" type="button">Por cartão</button>
               <button data-tab="departamento" type="button">Por departamento</button>
               <button data-tab="compras" type="button">Compras do período</button>
-              <button data-tab="pendencias" type="button">Pendências</button>
             </div>
 
             <div class="report-panel active" id="tab-cartao">
@@ -178,23 +177,8 @@
               </div>
               <div class="table-wrapper">
                 <table>
-                  <thead><tr><th>Data</th><th>Cartão</th><th>Departamento</th><th>Responsável</th><th>Fornecedor</th><th>Valor</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Data</th><th>Cartão</th><th>Departamento</th><th>Responsável</th><th>Fornecedor</th><th>Valor</th><th>Status</th><th></th></tr></thead>
                   <tbody id="comprasPeriodoTabela"></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="report-panel" id="tab-pendencias">
-              <div class="section-header">
-                <div>
-                  <h2>Pendências de conciliação</h2>
-                  <p>Acompanhe itens sem registro, comprovante ou com divergências.</p>
-                </div>
-              </div>
-              <div class="table-wrapper">
-                <table>
-                  <thead><tr><th>Status</th><th>Total</th></tr></thead>
-                  <tbody id="pendenciasTabela"></tbody>
                 </table>
               </div>
             </div>

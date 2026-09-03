@@ -575,7 +575,7 @@ function renderVisualRelatorioCartao() {
   renderInsightsRelatorioCartao(ultimoRelatorioCartao);
 }
 
-function renderTabelas({ porCartao, porDepartamento, pendencias, comprasPeriodo }) {
+function renderTabelas({ porCartao, porDepartamento, comprasPeriodo }) {
   document.getElementById("gastosCartaoTabela").innerHTML = porCartao.length
     ? porCartao.map((r) => linha([
         `<strong>${r.cartao}</strong>`,
@@ -603,16 +603,10 @@ function renderTabelas({ porCartao, porDepartamento, pendencias, comprasPeriodo 
         r.responsavel,
         r.fornecedor,
         `<span class="report-money-pill">${moeda(r.valor)}</span>`,
-        `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`
-      ])).join("")
-    : vazio(7, "Nenhuma compra encontrada para o período selecionado.");
-
-  document.getElementById("pendenciasTabela").innerHTML = pendencias.length
-    ? pendencias.map((r) => linha([
         `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`,
-        `<span class="report-number-pill">${r.total}</span>`
-      ], { destaque: r.status !== "conciliada" && r.status !== "resolvida" ? "row-inactive" : "" })).join("")
-    : vazio(2, "Nenhuma pendência encontrada.");
+        `<a class="btn btn-secondary" href="compra-cartao.html?compraId=${r.id}">Ver compra</a>`
+      ])).join("")
+    : vazio(8, "Nenhuma compra encontrada para o período selecionado.");
 }
 
 async function carregarRelatoriosCartao() {
