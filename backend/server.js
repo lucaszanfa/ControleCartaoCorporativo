@@ -1577,12 +1577,12 @@ app.get("/api/faturas-cartao", async (request, response) => {
   const params = [];
   await aplicarFiltroCartoesPermitidos(where, params, request.query.usuarioId, "f.cartao_id");
   response.json(await all(
-    `SELECT f.*, c.nome_cartao AS cartao,
+    `SELECT f.*, c.nome_cartao AS cartao, c.ultimos_4_digitos AS "ultimos4Digitos", b.nome AS banco,
             (SELECT COUNT(*)::int FROM transacoes_fatura t WHERE t.fatura_id = f.id) AS total_transacoes,
             (SELECT COUNT(*)::int FROM transacoes_fatura t WHERE t.fatura_id = f.id AND t.status_conciliacao = 'conciliada') AS transacoes_conciliadas
-     FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id
+     FROM faturas_cartao f JOIN cartoes_corporativos c ON c.id = f.cartao_id LEFT JOIN bancos b ON b.id = c.banco_id
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY f.ano_referencia DESC, f.mes_referencia DESC`,
+     ORDER BY f.data_importacao DESC`,
     params
   ));
 });

@@ -2,6 +2,9 @@ let csvFaturaSelecionada = "";
 let transacoesFaturaSelecionadas = [];
 let cartoesFaturaCache = [];
 let faturasCache = [];
+let faturasOrdenacaoAtual = "importacao_desc";
+let faturasPaginaAtual = 1;
+let faturasPorPaginaAtual = 10;
 
 async function initFaturas() {
   cartoesFaturaCache = await (await fetch(`/api/cartoes?status=ativo&usuarioId=${usuarioIdAtual()}&permissao=ver`)).json();
@@ -12,6 +15,11 @@ async function initFaturas() {
   document.getElementById("cartaoIdLista").addEventListener("change", renderPreviaFatura);
   document.getElementById("mesReferencia").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
   document.getElementById("mesReferencia").value = new Date().getMonth() + 1;
+  document.getElementById("filtroFaturaCartao").innerHTML = `
+    <option value="">Todos os cartões</option>
+    ${cartoesFaturaCache.map((cartao) => `<option value="${cartao.id}">${escapeHtml(cartao.nomeCartao)} (final ${escapeHtml(cartao.ultimos4Digitos)})</option>`).join("")}
+  `;
+  configurarListaFaturas();
   await carregarFaturas();
 }
 
@@ -310,23 +318,254 @@ function renderResultadoConciliacao(data) {
   `;
 }
 
+const CORES_BANCO_FATURA = {
+  bradesco: "#cc092f",
+  inter: "#ff7a00",
+  "itaú": "#ec7000",
+  itau: "#ec7000",
+  santander: "#ec0000",
+  nubank: "#8a05be",
+  "banco do brasil": "#e8b400",
+  caixa: "#0066b3",
+  sicoob: "#00a651",
+  sicredi: "#6dbb45"
+};
+const CORES_BANCO_FATURA_FALLBACK = ["#2563eb", "#0f766e", "#7c3aed", "#0891b2", "#b45309", "#334155"];
+
+function corBadgeCartaoFatura(banco) {
+  const chave = String(banco || "").trim().toLowerCase();
+  if (CORES_BANCO_FATURA[chave]) return CORES_BANCO_FATURA[chave];
+  let hash = 0;
+  for (let i = 0; i < chave.length; i++) hash = (hash * 31 + chave.charCodeAt(i)) >>> 0;
+  return CORES_BANCO_FATURA_FALLBACK[hash % CORES_BANCO_FATURA_FALLBACK.length];
+}
+
+function iconeArquivoFaturaInfo(nomeArquivo) {
+  const extensao = String(nomeArquivo || "").split(".").pop().toLowerCase();
+  if (extensao === "csv") return { cor: "#16a34a", fundo: "rgba(22,163,74,.14)", rotulo: "CSV" };
+  if (extensao === "pdf") return { cor: "#dc2626", fundo: "rgba(220,38,38,.14)", rotulo: "PDF" };
+  return { cor: "#64748b", fundo: "rgba(100,116,139,.14)", rotulo: "ARQ" };
+}
+
+function statusFaturaInfo(status) {
+  if (status === "conciliada") return { classe: "status-dot status-ok", rotulo: "Conciliada" };
+  if (status === "com_pendencias") return { classe: "status-dot status-pending", rotulo: "Com pendências" };
+  return { classe: "status-dot status-warning", rotulo: "Processando" };
+}
+
+function statusFaturaNormalizado(status) {
+  if (status === "conciliada") return "conciliada";
+  if (status === "com_pendencias") return "com_pendencias";
+  return "processando";
+}
+
+function formatarDataImportacaoRelativa(valor) {
+  if (!valor) return "-";
+  const texto = String(valor).trim().replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00");
+  const data = new Date(texto);
+  if (Number.isNaN(data.getTime())) return "-";
+  const agora = new Date();
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const diaData = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+  const diffDias = Math.round((hoje - diaData) / 86400000);
+  const hora = String(data.getHours()).padStart(2, "0");
+  const minuto = String(data.getMinutes()).padStart(2, "0");
+  if (diffDias === 0) return `Hoje, ${hora}:${minuto}`;
+  if (diffDias === 1) return `Ontem, ${hora}:${minuto}`;
+  const dia = String(data.getDate()).padStart(2, "0");
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  return `${dia}/${mes}/${data.getFullYear()}`;
+}
+
+function faturaCorrespondeMesAno(fatura, filtro) {
+  const texto = String(filtro || "").trim();
+  if (!texto) return true;
+  const partes = texto.split("/").map((parte) => parte.trim()).filter(Boolean);
+  if (partes.length === 2) {
+    const [mes, ano] = partes;
+    return String(fatura.mes_referencia).padStart(2, "0") === mes.padStart(2, "0") && String(fatura.ano_referencia) === ano;
+  }
+  if (partes.length === 1) {
+    const valor = partes[0];
+    if (valor.length === 4) return String(fatura.ano_referencia) === valor;
+    return String(fatura.mes_referencia).padStart(2, "0") === valor.padStart(2, "0");
+  }
+  return true;
+}
+
+function faturasFiltradas() {
+  const cartaoId = document.getElementById("filtroFaturaCartao").value;
+  const status = document.getElementById("filtroFaturaStatus").value;
+  const mesAno = document.getElementById("filtroFaturaMesAno").value;
+  const arquivo = document.getElementById("filtroFaturaArquivo").value.trim().toLowerCase();
+
+  return faturasCache.filter((fatura) => {
+    if (cartaoId && String(fatura.cartao_id) !== cartaoId) return false;
+    if (status && statusFaturaNormalizado(fatura.status) !== status) return false;
+    if (!faturaCorrespondeMesAno(fatura, mesAno)) return false;
+    if (arquivo && !String(fatura.arquivo_nome || "").toLowerCase().includes(arquivo)) return false;
+    return true;
+  });
+}
+
+function ordenarFaturasLista(lista) {
+  const [campo, direcao] = faturasOrdenacaoAtual.split("_");
+  const sinal = direcao === "asc" ? 1 : -1;
+  const copia = [...lista];
+  copia.sort((a, b) => {
+    if (campo === "cartao") return sinal * String(a.cartao || "").localeCompare(String(b.cartao || ""));
+    if (campo === "periodo") return sinal * ((a.ano_referencia * 100 + Number(a.mes_referencia)) - (b.ano_referencia * 100 + Number(b.mes_referencia)));
+    if (campo === "arquivo") return sinal * String(a.arquivo_nome || "").localeCompare(String(b.arquivo_nome || ""));
+    if (campo === "status") return sinal * String(a.status || "").localeCompare(String(b.status || ""));
+    return sinal * (new Date(a.data_importacao) - new Date(b.data_importacao));
+  });
+  return copia;
+}
+
+function atualizarIndicadoresOrdenacaoFaturas() {
+  const [campoAtivo] = faturasOrdenacaoAtual.split("_");
+  document.querySelectorAll(".invoices-sort-th").forEach((botao) => {
+    botao.classList.toggle("active", botao.dataset.campo === campoAtivo);
+  });
+  const dropdown = document.getElementById("ordenacaoFaturas");
+  if ([...dropdown.options].some((opcao) => opcao.value === faturasOrdenacaoAtual)) {
+    dropdown.value = faturasOrdenacaoAtual;
+  }
+}
+
+function definirOrdenacaoFaturasPorCampo(campo) {
+  const [campoAtual, direcaoAtual] = faturasOrdenacaoAtual.split("_");
+  const direcaoPadrao = campo === "cartao" || campo === "arquivo" || campo === "status" ? "asc" : "desc";
+  const novaDirecao = campoAtual === campo ? (direcaoAtual === "asc" ? "desc" : "asc") : direcaoPadrao;
+  faturasOrdenacaoAtual = `${campo}_${novaDirecao}`;
+  faturasPaginaAtual = 1;
+  renderFaturasLista();
+}
+
+function renderFaturasLista() {
+  const filtradas = faturasFiltradas();
+  const ordenadas = ordenarFaturasLista(filtradas);
+  const total = ordenadas.length;
+  const porPagina = faturasPorPaginaAtual;
+  const totalPaginas = Math.max(1, Math.ceil(total / porPagina));
+  if (faturasPaginaAtual > totalPaginas) faturasPaginaAtual = totalPaginas;
+  const inicio = (faturasPaginaAtual - 1) * porPagina;
+  const pagina = ordenadas.slice(inicio, inicio + porPagina);
+
+  document.getElementById("faturasContagem").textContent = `${total} fatura${total === 1 ? "" : "s"} encontrada${total === 1 ? "" : "s"}`;
+
+  document.getElementById("faturasTabela").innerHTML = pagina.length ? pagina.map((fatura) => {
+    const corBanco = corBadgeCartaoFatura(fatura.banco);
+    const arquivoInfo = iconeArquivoFaturaInfo(fatura.arquivo_nome);
+    const statusInfo = statusFaturaInfo(fatura.status);
+    const subtituloCartao = `${fatura.banco || "Corporativo"} •••• ${fatura.ultimos4Digitos || "----"}`;
+    return `
+      <tr class="report-data-row">
+        <td>
+          <div class="invoice-card-cell">
+            <span class="invoice-badge" style="background:${corBanco}">
+              <svg class="icon-sm" viewBox="0 0 24 24" style="width:18px;height:18px"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>
+            </span>
+            <span>
+              <span class="invoice-card-name" title="${escapeHtml(fatura.cartao)}">${escapeHtml(fatura.cartao)}</span>
+              <span class="invoice-card-sub">${escapeHtml(subtituloCartao)}</span>
+            </span>
+          </div>
+        </td>
+        <td><span class="report-number-pill">${String(fatura.mes_referencia).padStart(2, "0")}/${fatura.ano_referencia}</span></td>
+        <td>
+          <div class="invoice-file-cell">
+            <span class="invoice-file-badge" style="background:${arquivoInfo.fundo};color:${arquivoInfo.cor}">${arquivoInfo.rotulo}</span>
+            <span>
+              <span class="invoice-file-name" title="${escapeHtml(fatura.arquivo_nome || "-")}">${escapeHtml(fatura.arquivo_nome || "-")}</span>
+              <span class="invoice-file-sub">${fatura.total_transacoes} transação(ões)</span>
+            </span>
+          </div>
+        </td>
+        <td>${formatarDataImportacaoRelativa(fatura.data_importacao)}</td>
+        <td><span class="${statusInfo.classe}">${statusInfo.rotulo}</span></td>
+        <td class="actions">
+          <button class="invoices-icon-btn" type="button" title="Ver transações" onclick="verTransacoesFatura(${fatura.id})">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+          <button class="invoices-icon-btn" type="button" title="Baixar transações (CSV)" onclick="baixarCsvFatura(${fatura.id})">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 11 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+          </button>
+          ${fatura.status !== "conciliada" ? `
+          <button class="invoices-icon-btn invoices-icon-btn-primary" type="button" title="Rodar conciliação novamente" onclick="rodarConciliacao(${fatura.id})">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
+          </button>` : ""}
+        </td>
+      </tr>
+    `;
+  }).join("") : `<tr><td colspan="6" class="empty-state">Nenhuma fatura encontrada para os filtros selecionados.</td></tr>`;
+
+  document.getElementById("faturasPaginaAtualLabel").textContent = String(faturasPaginaAtual);
+  const fimExibido = total ? Math.min(inicio + porPagina, total) : 0;
+  document.getElementById("faturasPaginacaoTexto").textContent = total ? `${inicio + 1}–${fimExibido} de ${total}` : "0–0 de 0";
+  document.getElementById("faturasPaginaAnterior").disabled = faturasPaginaAtual <= 1;
+  document.getElementById("faturasProximaPagina").disabled = faturasPaginaAtual >= totalPaginas;
+  atualizarIndicadoresOrdenacaoFaturas();
+}
+
+async function baixarCsvFatura(id) {
+  const fatura = faturasCache.find((item) => item.id === id);
+  if (!fatura) return;
+  const transacoes = await (await fetch(`/api/faturas-cartao/${id}/transacoes`)).json();
+  const nomeArquivo = `fatura-${String(fatura.cartao || "cartao").toLowerCase().replaceAll(" ", "-")}-${fatura.ano_referencia}-${String(fatura.mes_referencia).padStart(2, "0")}.csv`;
+  baixarArquivoTexto(nomeArquivo, gerarCsvTransacoes(transacoes));
+}
+
+function configurarListaFaturas() {
+  const aplicarFiltro = () => {
+    faturasPaginaAtual = 1;
+    renderFaturasLista();
+  };
+  document.getElementById("filtroFaturaCartao").addEventListener("change", aplicarFiltro);
+  document.getElementById("filtroFaturaStatus").addEventListener("change", aplicarFiltro);
+  document.getElementById("filtroFaturaMesAno").addEventListener("input", aplicarFiltro);
+  document.getElementById("filtroFaturaArquivo").addEventListener("input", aplicarFiltro);
+  document.getElementById("btnFiltrarFaturas").addEventListener("click", aplicarFiltro);
+  document.getElementById("btnLimparFiltrosFaturas").addEventListener("click", () => {
+    document.getElementById("filtroFaturaCartao").value = "";
+    document.getElementById("filtroFaturaStatus").value = "";
+    document.getElementById("filtroFaturaMesAno").value = "";
+    document.getElementById("filtroFaturaArquivo").value = "";
+    aplicarFiltro();
+  });
+  document.getElementById("ordenacaoFaturas").addEventListener("change", (event) => {
+    faturasOrdenacaoAtual = event.target.value;
+    faturasPaginaAtual = 1;
+    renderFaturasLista();
+  });
+  document.querySelectorAll(".invoices-sort-th").forEach((botao) => {
+    botao.addEventListener("click", () => definirOrdenacaoFaturasPorCampo(botao.dataset.campo));
+  });
+  document.getElementById("faturasPorPagina").addEventListener("change", (event) => {
+    faturasPorPaginaAtual = Number(event.target.value);
+    faturasPaginaAtual = 1;
+    renderFaturasLista();
+  });
+  document.getElementById("faturasPaginaAnterior").addEventListener("click", () => {
+    if (faturasPaginaAtual > 1) {
+      faturasPaginaAtual -= 1;
+      renderFaturasLista();
+    }
+  });
+  document.getElementById("faturasProximaPagina").addEventListener("click", () => {
+    faturasPaginaAtual += 1;
+    renderFaturasLista();
+  });
+  document.getElementById("btnIrParaImportar").addEventListener("click", () => {
+    document.getElementById("importarFaturaSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 async function carregarFaturas() {
   const faturas = await (await fetch(`/api/faturas-cartao?usuarioId=${usuarioIdAtual()}`)).json();
   faturasCache = faturas;
-  document.getElementById("faturasTabela").innerHTML = faturas.map((fatura) => `
-    <tr class="report-data-row">
-      <td><strong>${fatura.cartao}</strong></td>
-      <td><span class="report-number-pill">${fatura.mes_referencia}/${fatura.ano_referencia}</span></td>
-      <td>${fatura.arquivo_nome || "-"}</td>
-      <td><span class="${classeStatus(fatura.status)}">${fatura.status}</span></td>
-      <td class="actions">
-        <button class="btn btn-secondary btn-compact" type="button" onclick="verTransacoesFatura(${fatura.id})">Ver</button>
-        ${fatura.status !== "conciliada"
-          ? `<button class="btn btn-primary btn-compact" type="button" onclick="rodarConciliacao(${fatura.id})">Rodar novamente</button>`
-          : ""}
-      </td>
-    </tr>
-  `).join("");
+  faturasPaginaAtual = 1;
+  renderFaturasLista();
 }
 
 async function verTransacoesFatura(id) {

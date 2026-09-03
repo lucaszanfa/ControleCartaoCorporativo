@@ -7,7 +7,7 @@
     <main class="main-content">
       <header class="topbar"><div><span class="eyebrow">Importação por CSV ou PDF</span><h1>Faturas do cartão</h1><p class="topbar-subtitle">Importe faturas para comparar as transações com as compras registradas.</p></div><span class="user-chip">Usuário</span></header>
 
-      <section class="card report-filter-card">
+      <section class="card report-filter-card" id="importarFaturaSection">
         <div class="section-header">
           <div>
             <h2>Importar fatura</h2>
@@ -45,14 +45,89 @@
         </form>
       </section>
 
-      <section class="card report-workspace-card">
+      <section class="card report-workspace-card invoices-card">
         <div class="section-header">
           <div>
             <h2>Faturas importadas</h2>
             <p>Histórico de importações por cartão e período.</p>
           </div>
+          <button class="btn btn-primary" type="button" id="btnIrParaImportar">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 21V9"></path><path d="m7 13 5-5 5 5"></path><path d="M5 21h14"></path></svg>
+            Importar nova fatura
+          </button>
         </div>
-        <div class="table-wrapper"><table><thead><tr><th>Cartão</th><th>Mês/Ano</th><th>Arquivo</th><th>Status</th><th>Ação</th></tr></thead><tbody id="faturasTabela"></tbody></table></div>
+
+        <div class="filters-row filters-four invoices-filter-bar">
+          <label>Cartão
+            <select id="filtroFaturaCartao"><option value="">Todos os cartões</option></select>
+          </label>
+          <label>Status
+            <select id="filtroFaturaStatus">
+              <option value="">Todos</option>
+              <option value="conciliada">Conciliada</option>
+              <option value="com_pendencias">Com pendências</option>
+              <option value="processando">Processando</option>
+            </select>
+          </label>
+          <label>Mês/Ano
+            <input id="filtroFaturaMesAno" type="text" inputmode="numeric" placeholder="MM/AAAA" maxlength="7">
+          </label>
+          <label>Buscar arquivo
+            <input id="filtroFaturaArquivo" type="search" placeholder="Nome do arquivo">
+          </label>
+        </div>
+        <div class="invoices-filter-actions">
+          <button class="btn btn-primary btn-compact" type="button" id="btnFiltrarFaturas">Filtrar</button>
+          <button class="btn btn-secondary btn-compact" type="button" id="btnLimparFiltrosFaturas">Limpar filtros</button>
+        </div>
+
+        <div class="invoices-toolbar">
+          <span id="faturasContagem">0 faturas encontradas</span>
+          <label class="invoices-sort">
+            <select id="ordenacaoFaturas">
+              <option value="importacao_desc">Mais recentes</option>
+              <option value="importacao_asc">Mais antigas</option>
+              <option value="cartao_asc">Cartão (A-Z)</option>
+              <option value="periodo_desc">Mês/ano (recente)</option>
+              <option value="status_asc">Status</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="invoices-table">
+            <thead>
+              <tr>
+                <th><button type="button" class="invoices-sort-th" data-campo="cartao">Cartão<span aria-hidden="true">↑↓</span></button></th>
+                <th><button type="button" class="invoices-sort-th" data-campo="periodo">Mês/Ano<span aria-hidden="true">↑↓</span></button></th>
+                <th><button type="button" class="invoices-sort-th" data-campo="arquivo">Arquivo<span aria-hidden="true">↑↓</span></button></th>
+                <th><button type="button" class="invoices-sort-th" data-campo="importacao">Importação<span aria-hidden="true">↑↓</span></button></th>
+                <th><button type="button" class="invoices-sort-th" data-campo="status">Status<span aria-hidden="true">↑↓</span></button></th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="faturasTabela"></tbody>
+          </table>
+        </div>
+
+        <div class="invoices-pagination">
+          <div class="invoices-per-page">
+            <span>Itens por página</span>
+            <select id="faturasPorPagina">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+          <div class="invoices-pagination-info">
+            <span id="faturasPaginacaoTexto">0–0 de 0</span>
+            <div class="invoices-pagination-buttons">
+              <button type="button" id="faturasPaginaAnterior" aria-label="Página anterior">‹</button>
+              <span id="faturasPaginaAtualLabel" class="invoices-pagina-atual">1</span>
+              <button type="button" id="faturasProximaPagina" aria-label="Próxima página">›</button>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
