@@ -5567,10 +5567,10 @@ textarea {
 .card-report-workspace .report-tabs {
   display: flex;
   gap: 6px;
-  padding: 10px 16px 0;
+  margin-top: 16px;
+  padding: 0;
   overflow-x: auto;
   border-bottom: 1px solid var(--prototype-line);
-  background: var(--prototype-card-soft);
 }
 
 .card-report-workspace .report-tabs button {
@@ -5605,10 +5605,6 @@ textarea {
   height: 3px;
   border-radius: 999px 999px 0 0;
   background: #ffffff;
-}
-
-:root[data-theme="dark"] .card-report-workspace .report-tabs {
-  background: rgba(5, 18, 32, .88);
 }
 
 :root[data-theme="dark"] .card-report-workspace .report-tabs button {
