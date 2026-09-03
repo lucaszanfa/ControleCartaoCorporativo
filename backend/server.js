@@ -306,6 +306,26 @@ async function usuarioEhAdmin(usuarioId) {
   return usuario?.perfil === "admin" || Boolean(usuario?.pode_administrar_usuarios);
 }
 
+async function registrarAuditoria({ entidade, entidadeId, acao, usuarioId, alteracoes }) {
+  if (!alteracoes || !alteracoes.length) return;
+  await run(
+    "INSERT INTO log_auditoria (entidade, entidade_id, acao, usuario_id, alteracoes) VALUES (?, ?, ?, ?, ?)",
+    [entidade, entidadeId, acao, usuarioId || null, JSON.stringify(alteracoes)]
+  );
+}
+
+function diffCampos(antes, depois, campos) {
+  const alteracoes = [];
+  for (const { chave, rotulo } of campos) {
+    const valorAntes = antes[chave] ?? null;
+    const valorDepois = depois[chave] ?? null;
+    if (String(valorAntes) !== String(valorDepois)) {
+      alteracoes.push({ campo: rotulo, de: valorAntes, para: valorDepois });
+    }
+  }
+  return alteracoes;
+}
+
 async function cartoesDoDepartamentoUsuario(usuarioId) {
   const usuario = await get("SELECT setor FROM usuarios WHERE id = ?", [usuarioId]);
   if (!usuario?.setor) return [];
@@ -855,6 +875,93 @@ app.delete("/api/bancos/:id", async (request, response) => {
   }
 });
 
+app.get("/api/log-auditoria", async (request, response) => {
+  if (!(await usuarioEhAdmin(request.query.usuarioId))) {
+    response.status(403).json({ erro: "Apenas administradores podem ver o log de auditoria." });
+    return;
+  }
+
+  const where = [];
+  const params = [];
+  if (request.query.entidade) {
+    where.push("l.entidade = ?");
+    params.push(request.query.entidade);
+  }
+  if (request.query.usuarioFiltroId) {
+    where.push("l.usuario_id = ?");
+    params.push(request.query.usuarioFiltroId);
+  }
+  if (request.query.acao) {
+    where.push("l.acao = ?");
+    params.push(request.query.acao);
+  }
+  if (request.query.dataInicial) {
+    where.push("l.criado_em >= ?");
+    params.push(request.query.dataInicial);
+  }
+  if (request.query.dataFinal) {
+    where.push("l.criado_em <= ?");
+    params.push(`${request.query.dataFinal} 23:59:59`);
+  }
+
+  try {
+    const linhas = await all(
+      `SELECT l.*, u.nome AS usuario_nome,
+              cc.fornecedor AS compra_fornecedor, cc.valor AS compra_valor, c.nome_cartao AS compra_cartao
+       FROM log_auditoria l
+       LEFT JOIN usuarios u ON u.id = l.usuario_id
+       LEFT JOIN compras_cartao cc ON cc.id = l.entidade_id AND l.entidade = 'compra_cartao'
+       LEFT JOIN cartoes_corporativos c ON c.id = cc.cartao_id
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+       ORDER BY l.criado_em DESC
+       LIMIT 500`,
+      params
+    );
+    response.json(linhas.map((linha) => ({
+      id: linha.id,
+      entidade: linha.entidade,
+      entidadeId: linha.entidade_id,
+      acao: linha.acao,
+      usuarioId: linha.usuario_id,
+      usuarioNome: linha.usuario_nome || "Automático",
+      alteracoes: linha.alteracoes ? JSON.parse(linha.alteracoes) : [],
+      compraFornecedor: linha.compra_fornecedor || null,
+      compraValor: linha.compra_valor ?? null,
+      compraCartao: linha.compra_cartao || null,
+      criadoEm: linha.criado_em
+    })));
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao carregar o log de auditoria.", detalhe: error.message });
+  }
+});
+
+app.get("/api/admin/backup", async (request, response) => {
+  if (!(await usuarioEhAdmin(request.query.usuarioId))) {
+    response.status(403).json({ erro: "Apenas administradores podem exportar o backup dos dados." });
+    return;
+  }
+
+  try {
+    const tabelas = {
+      setores: await all("SELECT * FROM setores ORDER BY id"),
+      categorias: await all("SELECT * FROM categorias ORDER BY id"),
+      bancos: await all("SELECT * FROM bancos ORDER BY id"),
+      usuarios: await all("SELECT id, nome, email, setor, status, perfil, pode_administrar_usuarios FROM usuarios ORDER BY id"),
+      cartoes_corporativos: await all("SELECT * FROM cartoes_corporativos ORDER BY id"),
+      permissoes_cartao_usuario: await all("SELECT * FROM permissoes_cartao_usuario ORDER BY id"),
+      compras_cartao: await all("SELECT * FROM compras_cartao ORDER BY id"),
+      faturas_cartao: await all("SELECT * FROM faturas_cartao ORDER BY id"),
+      transacoes_fatura: await all("SELECT * FROM transacoes_fatura ORDER BY id"),
+      conciliacoes_cartao: await all("SELECT * FROM conciliacoes_cartao ORDER BY id"),
+      alertas_cartao: await all("SELECT * FROM alertas_cartao ORDER BY id"),
+      log_auditoria: await all("SELECT * FROM log_auditoria ORDER BY id")
+    };
+    response.json({ geradoEm: new Date().toISOString(), versao: 1, tabelas });
+  } catch (error) {
+    response.status(500).json({ erro: "Erro ao gerar o backup dos dados.", detalhe: error.message });
+  }
+});
+
 app.post("/api/uploads/comprovante", async (request, response) => {
   try {
     const { fileName, mimeType, base64, departamentoId, dataCompra } = request.body;
@@ -1016,7 +1123,7 @@ app.get("/api/compras-cartao", async (request, response) => {
 app.get("/api/compras-cartao/fornecedores", async (_request, response) => {
   try {
     const linhas = await all(
-      "SELECT fornecedor FROM compras_cartao WHERE trim(coalesce(fornecedor, '')) <> '' GROUP BY lower(trim(fornecedor)) ORDER BY COUNT(*) DESC, fornecedor"
+      "SELECT MIN(fornecedor) AS fornecedor FROM compras_cartao WHERE trim(coalesce(fornecedor, '')) <> '' GROUP BY lower(trim(fornecedor)) ORDER BY COUNT(*) DESC, MIN(fornecedor)"
     );
     response.json(linhas.map((linha) => linha.fornecedor.trim()));
   } catch (error) {
@@ -1470,6 +1577,16 @@ app.post("/api/compras-cartao", async (request, response) => {
     if (!pendencia.atualizada && status === "sem_comprovante") {
       await criarAlertaCompraSemComprovante(result.id);
     }
+    await registrarAuditoria({
+      entidade: "compra_cartao",
+      entidadeId: result.id,
+      acao: "criacao",
+      usuarioId: usuarioLogadoId,
+      alteracoes: [
+        { campo: "Fornecedor", de: null, para: fornecedorFinal },
+        { campo: "Valor", de: null, para: valorParcela }
+      ]
+    });
     response.status(201).json({ id: result.id, pendenciaAtualizada: pendencia.atualizada, statusConciliacao: pendencia.status || null, parcelas: totalParcelas });
   } catch (error) {
     response.status(500).json({ erro: "Erro ao registrar compra.", detalhe: error.message });
@@ -1556,6 +1673,36 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       criadoPorId: usuarioLogadoId || null
     });
   }
+
+  await registrarAuditoria({
+    entidade: "compra_cartao",
+    entidadeId: Number(request.params.id),
+    acao: "edicao",
+    usuarioId: usuarioLogadoId,
+    alteracoes: diffCampos(compraAtual, {
+      cartao_id: Number(dadosProtegidos.cartaoId),
+      departamento_id: Number(dadosProtegidos.departamentoId),
+      responsavel_compra_id: responsavelCompraId ? Number(responsavelCompraId) : null,
+      data_compra: dadosProtegidos.dataCompra,
+      valor: valorFinal,
+      fornecedor: dadosProtegidos.fornecedor,
+      categoria: categoria || "",
+      motivo: motivo || "",
+      observacao: dadosProtegidos.observacao,
+      status: status || "registrada"
+    }, [
+      { chave: "cartao_id", rotulo: "Cartão" },
+      { chave: "departamento_id", rotulo: "Departamento" },
+      { chave: "responsavel_compra_id", rotulo: "Responsável" },
+      { chave: "data_compra", rotulo: "Data da compra" },
+      { chave: "valor", rotulo: "Valor" },
+      { chave: "fornecedor", rotulo: "Fornecedor" },
+      { chave: "categoria", rotulo: "Categoria" },
+      { chave: "motivo", rotulo: "Motivo" },
+      { chave: "observacao", rotulo: "Observação" },
+      { chave: "status", rotulo: "Status" }
+    ])
+  });
 
   const pendencia = vincularPendencia ? await tentarAtualizarPendenciaPorCompra(request.params.id, transacaoFaturaId) : { atualizada: false };
   const alerta = await resolverAlertaAposAtualizarCompra(request.params.id, alertaId);

@@ -10721,3 +10721,18 @@ body.sidebar-collapsed .sidebar-brand {
   color: #ffffff;
   font-weight: 900;
 }
+
+.auditoria-alteracoes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.auditoria-alteracoes li strong {
+  font-weight: 800;
+  margin-right: 4px;
+}

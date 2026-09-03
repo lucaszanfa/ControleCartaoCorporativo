@@ -159,3 +159,14 @@ CREATE TABLE IF NOT EXISTS alertas_cartao (
 );
 
 ALTER TABLE alertas_cartao ADD COLUMN IF NOT EXISTS vezes_enviado_teams INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS log_auditoria (
+  id SERIAL PRIMARY KEY,
+  entidade TEXT NOT NULL,
+  entidade_id INTEGER NOT NULL,
+  acao TEXT NOT NULL CHECK (acao IN ('criacao', 'edicao')),
+  usuario_id INTEGER,
+  alteracoes TEXT,
+  criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+);

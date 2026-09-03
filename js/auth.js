@@ -356,7 +356,7 @@ function aplicarMenuPrincipal() {
   ];
   sidebar.innerHTML = `
     <div class="sidebar-brand"><img class="sidebar-logo" src="img/sma_sistemas_eletricos_automacao_logo.png" alt="SM&A"><div><strong>Cartões Corporativos</strong><small>Controle e conciliação</small></div><button class="sidebar-menu-button" type="button" aria-label="Menu lateral">${svgIcone("menu", "icon-sm")}</button></div>
-    <nav class="sidebar-nav"><div class="nav-group"><span class="nav-group-title">Cartões corporativos</span>${cartoes.map((item) => criarLinkMenuModerno(item, paginaAtual)).join("")}</div><div class="nav-group nav-group-system"><span class="nav-group-title">Sistema</span>${criarLinkMenuModerno({ href: "usuarios.html", label: "Usuários", icon: "usuarios", adminOnly: true }, paginaAtual)}<a class="logout-link" href="login.html"><span class="nav-icon">${navIconModerno("sair")}</span><span class="nav-label">Sair</span><span class="nav-arrow">›</span></a></div></nav>
+    <nav class="sidebar-nav"><div class="nav-group"><span class="nav-group-title">Cartões corporativos</span>${cartoes.map((item) => criarLinkMenuModerno(item, paginaAtual)).join("")}</div><div class="nav-group nav-group-system"><span class="nav-group-title">Sistema</span>${criarLinkMenuModerno({ href: "usuarios.html", label: "Usuários", icon: "usuarios", adminOnly: true }, paginaAtual)}${criarLinkMenuModerno({ href: "log-auditoria.html", label: "Log de auditoria", icon: "historico", adminOnly: true }, paginaAtual)}<a class="logout-link" href="login.html"><span class="nav-icon">${navIconModerno("sair")}</span><span class="nav-label">Sair</span><span class="nav-arrow">›</span></a></div></nav>
     <div class="sidebar-footer"><div class="sidebar-user-card"><span class="sidebar-avatar">${iniciaisUsuario()}</span><span><strong>${usuarioLogado?.nome || "Usuário"}</strong><small>${usuarioLogado?.perfil || "usuário"}</small></span></div></div><div class="sidebar-resizer" role="separator" aria-orientation="vertical" title="Arraste para redimensionar o menu"></div>`;
   sidebar.querySelector(".sidebar-menu-button")?.addEventListener("click", alternarMenuLateral);
   configurarRedimensionamentoMenu(sidebar);
@@ -415,7 +415,7 @@ function aplicarPermissoes() {
   });
 
   const pagina = window.location.pathname.split("/").pop();
-  const regras = { "usuarios.html": "administrarUsuarios" };
+  const regras = { "usuarios.html": "administrarUsuarios", "log-auditoria.html": "administrarUsuarios" };
   const permissaoNecessaria = regras[pagina];
 
   if (permissaoNecessaria && !temPermissao(permissaoNecessaria)) {

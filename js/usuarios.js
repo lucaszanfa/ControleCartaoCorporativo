@@ -226,6 +226,7 @@ async function carregarUsuarios() {
   preencherFiltroSetores(usuariosCache);
   renderizarDepartamentos();
   renderizarBancos();
+  renderizarBackupPanel();
   renderizarUsuarios();
 }
 
@@ -337,6 +338,55 @@ function renderizarBancos() {
       `).join("")
     : `<span class="users-department-empty">Nenhum banco cadastrado.</span>`;
 }
+
+const backupAdminPanel = document.getElementById("backupAdminPanel");
+const btnBaixarBackup = document.getElementById("btnBaixarBackup");
+const backupMensagem = document.getElementById("backupMensagem");
+
+function renderizarBackupPanel() {
+  if (!backupAdminPanel) return;
+  backupAdminPanel.classList.toggle("hidden", !usuarioPodeCadastrarDepartamento());
+}
+
+async function baixarBackupDados() {
+  if (!btnBaixarBackup) return;
+  const textoBotao = document.getElementById("btnBaixarBackupTexto");
+  btnBaixarBackup.disabled = true;
+  const textoOriginal = textoBotao.textContent;
+  textoBotao.textContent = "Gerando backup...";
+  backupMensagem.textContent = "";
+
+  try {
+    const resposta = await fetch(`/api/admin/backup?usuarioId=${usuarioIdAtual()}`);
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      backupMensagem.textContent = dados.erro || "Não foi possível gerar o backup.";
+      return;
+    }
+
+    const conteudo = JSON.stringify(dados, null, 2);
+    const blob = new Blob([conteudo], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const agora = new Date();
+    const carimbo = `${agora.getFullYear()}${String(agora.getMonth() + 1).padStart(2, "0")}${String(agora.getDate()).padStart(2, "0")}-${String(agora.getHours()).padStart(2, "0")}${String(agora.getMinutes()).padStart(2, "0")}`;
+    link.href = url;
+    link.download = `backup-cartoes-corporativos-${carimbo}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    backupMensagem.textContent = "Backup gerado e baixado com sucesso.";
+  } catch (error) {
+    backupMensagem.textContent = "Erro ao gerar o backup.";
+  } finally {
+    btnBaixarBackup.disabled = false;
+    textoBotao.textContent = textoOriginal;
+  }
+}
+
+btnBaixarBackup?.addEventListener("click", baixarBackupDados);
 
 async function excluirBanco(event) {
   const botao = event.target.closest(".users-department-delete");

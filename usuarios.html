@@ -102,6 +102,21 @@
           <div id="bancosLista" class="users-departments-list"></div>
         </section>
 
+        <section id="backupAdminPanel" class="users-departments-panel hidden">
+          <div class="users-departments-header">
+            <div>
+              <span class="eyebrow">Menu de admin</span>
+              <h2>Backup de dados</h2>
+              <p>Baixe um arquivo JSON com todos os dados cadastrados no sistema (cartões, compras, faturas, usuários e mais) para guardar como backup.</p>
+            </div>
+          </div>
+          <button class="btn btn-primary" type="button" id="btnBaixarBackup">
+            <svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 3v12"></path><path d="m7 11 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+            <span id="btnBaixarBackupTexto">Baixar backup (JSON)</span>
+          </button>
+          <p id="backupMensagem" class="field-hint"></p>
+        </section>
+
         <div class="users-toolbar">
           <label class="users-search">
             <span class="sr-only">Buscar usuário</span>
@@ -173,6 +188,7 @@
 
   <script src="js/dados.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/cartoes-utils.js"></script>
   <script src="js/usuarios.js?v=20260715-2"></script>
 </body>
 </html>
