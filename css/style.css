@@ -5571,6 +5571,7 @@ textarea {
   padding: 0;
   overflow-x: auto;
   border-bottom: 1px solid var(--prototype-line);
+  background: transparent;
 }
 
 .card-report-workspace .report-tabs button {
