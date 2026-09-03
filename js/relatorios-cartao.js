@@ -391,7 +391,7 @@ function dadosDistribuicaoAtual(relatorio) {
   }
   return {
     titulo: "Por cartão",
-    itens: relatorio.porCartao.map((item) => ({ nome: item.cartao, total: Number(item.total_gasto || 0) }))
+    itens: relatorio.porCartao.map((item) => ({ nome: item.cartao, subtitulo: item.departamento, total: Number(item.total_gasto || 0) }))
   };
 }
 
@@ -441,11 +441,13 @@ function desenharGraficoDistribuicao(relatorio) {
 
   document.getElementById("legendaCartaoDistribuicao").innerHTML = dados.map((item, index) => {
     const percentual = total ? ((item.total / total) * 100).toFixed(1).replace(".", ",") : "0";
+    const tituloCompleto = item.subtitulo ? `${item.nome} (${item.subtitulo})` : item.nome;
+    const detalhe = item.subtitulo ? `${item.subtitulo} · ${moeda(item.total)}` : moeda(item.total);
     return `
       <div>
-        <span><i style="background:${coresRelatorioCartao[index % coresRelatorioCartao.length]}"></i>${item.nome}</span>
+        <span title="${tituloCompleto}"><i style="background:${coresRelatorioCartao[index % coresRelatorioCartao.length]}"></i>${item.nome}</span>
         <strong>${percentual}%</strong>
-        <small>${moeda(item.total)}</small>
+        <small>${detalhe}</small>
       </div>
     `;
   }).join("");
