@@ -3900,37 +3900,38 @@ textarea {
 
 /* Corporate card purchase page */
 .card-purchase-page .page-breadcrumb {
-  margin-bottom: 12px;
+  margin-bottom: 22px;
 }
 
-.purchase-page-header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 20px;
+.purchase-form-section {
+  padding-bottom: 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--prototype-line);
 }
 
-.purchase-page-header h2 {
-  margin: 0 0 6px;
-  color: var(--text-main);
-  font-size: clamp(24px, 2.4vw, 34px);
+.purchase-form-section:last-of-type {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
 }
 
-.purchase-page-header p {
-  margin: 0;
+.purchase-form-section .purchase-detail-section-title {
+  margin-bottom: 16px;
+}
+
+.purchase-upload-icon {
+  color: var(--blue-accent);
+}
+
+.purchase-required-hint {
   color: var(--text-muted);
-  font-weight: 700;
-}
-
-.purchase-page-header > span {
-  padding: 9px 14px;
-  border: 1px solid var(--prototype-line);
-  border-radius: 10px;
-  color: var(--text-muted);
-  background: var(--prototype-card);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 800;
+}
+
+.purchase-required-hint em {
+  color: #ef4444;
+  font-style: normal;
 }
 
 .purchase-layout {
@@ -4081,7 +4082,9 @@ textarea {
 
 .purchase-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 22px;
   padding-top: 18px;
   border-top: 1px solid var(--prototype-line);
@@ -4100,12 +4103,33 @@ textarea {
   gap: 12px;
 }
 
+.purchase-side-title-label,
+.purchase-table-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.purchase-side-title-label span,
+.purchase-table-card-title > span {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(37, 99, 235, .12);
+  color: var(--blue-accent);
+}
+
 .purchase-side-title strong {
   color: var(--text-main);
   font-size: 17px;
 }
 
-.purchase-side-title span {
+.purchase-side-title > span:last-child {
+  flex: 0 0 auto;
   padding: 5px 9px;
   border-radius: 999px;
   background: rgba(34, 197, 94, 0.16);
@@ -4233,7 +4257,7 @@ textarea {
   background: rgba(77, 160, 255, 0.09);
 }
 
-:root[data-theme="dark"] .purchase-side-title span {
+:root[data-theme="dark"] .purchase-side-title > span:last-child {
   color: #86efac;
 }
 
@@ -4244,9 +4268,9 @@ textarea {
 }
 
 @media (max-width: 780px) {
-  .purchase-page-header,
   .purchase-table-card .section-header,
-  .purchase-table-tools {
+  .purchase-table-tools,
+  .purchase-actions {
     align-items: stretch;
     flex-direction: column;
   }
