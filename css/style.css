@@ -3904,8 +3904,8 @@ textarea {
 }
 
 .purchase-form-section {
-  padding-bottom: 22px;
-  margin-bottom: 22px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
   border-bottom: 1px solid var(--prototype-line);
 }
 
@@ -3958,7 +3958,11 @@ textarea {
 .purchase-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 20px;
+  gap: 16px 20px;
+}
+
+.purchase-form-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .purchase-form-grid label {
@@ -4068,6 +4072,16 @@ textarea {
   color: var(--blue-accent);
   text-align: center;
   cursor: pointer;
+}
+
+.purchase-upload-box-compact {
+  min-height: 0;
+  padding: 12px;
+}
+
+.purchase-upload-box-compact .purchase-upload-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .purchase-upload-box strong {
