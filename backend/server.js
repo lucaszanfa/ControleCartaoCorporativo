@@ -1134,7 +1134,6 @@ app.get("/api/compras-cartao/fornecedores", async (_request, response) => {
 function pendenciasCadastroCompra(compra) {
   const pendencias = [];
   if (!compra.responsavelCompraId) pendencias.push("Responsavel");
-  if (!String(compra.motivo || "").trim()) pendencias.push("Motivo");
   if (compra.status !== "aguardando_fatura" && !String(compra.comprovanteUrl || "").trim()) pendencias.push("Comprovante");
   if (compra.status === "aguardando_conferencia") pendencias.push("Conferencia");
   if (compra.status === "divergente") pendencias.push("Divergencia");
@@ -1544,7 +1543,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
 app.post("/api/compras-cartao", async (request, response) => {
   try {
     const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, vincularPendencia, transacaoFaturaId, usuarioLogadoId, parcelas } = request.body;
-    if (!cartaoId || !departamentoId || !responsavelCompraId || !dataCompra || !valor || !fornecedor || !categoria || !motivo) return response.status(400).json({ erro: "Preencha todos os campos obrigatórios." });
+    if (!cartaoId || !departamentoId || !responsavelCompraId || !dataCompra || !valor || !fornecedor || !categoria) return response.status(400).json({ erro: "Preencha todos os campos obrigatórios." });
     if (Number(valor) <= 0) return response.status(400).json({ erro: "Valor deve ser maior que zero." });
     const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
     if (!cartao || cartao.status !== "ativo") return response.status(400).json({ erro: "Selecione um cartão ativo." });
