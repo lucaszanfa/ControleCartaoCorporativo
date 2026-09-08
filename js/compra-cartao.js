@@ -2,6 +2,7 @@ const compraParams = new URLSearchParams(window.location.search);
 const compraEdicaoId = compraParams.get("compraId");
 const alertaResolucaoId = compraParams.get("alertaId");
 const transacaoResolucaoId = compraParams.get("transacaoId");
+const compraVisualizacaoId = compraParams.get("verCompraId");
 let cartoesAtivosCache = [];
 let comprasCartaoCache = [];
 let fornecedoresConhecidosCache = [];
@@ -177,6 +178,10 @@ async function initCompraCartao() {
 
   await carregarComprasCartao();
   atualizarResumoCartao();
+
+  if (compraVisualizacaoId) {
+    await abrirDetalheCompra(compraVisualizacaoId);
+  }
 }
 
 function carregarTransacaoParaNovaCompra() {

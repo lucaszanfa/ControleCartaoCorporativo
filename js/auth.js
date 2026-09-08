@@ -274,7 +274,7 @@ async function carregarBuscaGlobal() {
         tipo: "Compra",
         titulo: compra.fornecedor || "Compra sem fornecedor",
         detalhe: [dataFormatada, valorFormatado, compra.cartao, compra.status].filter(Boolean).join(" • "),
-        href: `compra-cartao.html?compraId=${compra.id}`,
+        href: `compra-cartao.html?verCompraId=${compra.id}`,
         texto: [
           compra.fornecedor, compra.cartao, compra.departamento, compra.status,
           compra.responsavel, compra.motivo, dataFormatada, mesExtensoBuscaGlobal(compra.dataCompra),
