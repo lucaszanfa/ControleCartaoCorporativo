@@ -230,7 +230,15 @@ function configurarRedimensionamentoMenu(sidebar) {
   });
 }
 
-const paginasComBuscaGlobal = new Set(["relatorios-cartao.html"]);
+const paginasComBuscaGlobal = new Set([
+  "relatorios-cartao.html",
+  "compra-cartao.html",
+  "compras-pendentes.html",
+  "faturas-cartao.html",
+  "cartoes.html",
+  "usuarios.html",
+  "log-auditoria.html"
+]);
 
 let buscaGlobalCache = null;
 let buscaGlobalCacheCriadoEm = 0;

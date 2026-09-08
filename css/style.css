@@ -2212,7 +2212,6 @@ body {
 }
 
 .pending-page .global-search,
-.pending-page .app-search,
 .pending-page .topbar-search {
   display: none;
 }
@@ -3081,7 +3080,7 @@ body {
   position: relative;
   z-index: 90;
   display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 520px) auto auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(200px, 320px) auto auto;
   gap: 18px;
   align-items: center;
   min-height: 76px;
@@ -3126,9 +3125,9 @@ body {
 
 .app-search input,
 .dashboard-search input {
-  min-height: 48px;
-  padding: 0 46px;
-  border-radius: 11px;
+  min-height: 40px;
+  padding: 0 40px;
+  border-radius: 10px;
   border-color: var(--prototype-line);
   background: var(--prototype-card);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
@@ -3139,10 +3138,10 @@ body {
   content: "";
   position: absolute;
   z-index: 1;
-  left: 17px;
+  left: 14px;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border: 2px solid var(--prototype-muted);
   border-radius: 999px;
   transform: translateY(-50%);
@@ -3153,9 +3152,9 @@ body {
   content: "";
   position: absolute;
   z-index: 1;
-  left: 30px;
-  top: calc(50% + 8px);
-  width: 8px;
+  left: 25px;
+  top: calc(50% + 6px);
+  width: 7px;
   height: 2px;
   border-radius: 999px;
   background: var(--prototype-muted);
