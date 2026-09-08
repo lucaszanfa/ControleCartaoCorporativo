@@ -251,6 +251,13 @@ function escaparBuscaGlobal(texto) {
   return String(texto ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
+const MESES_BUSCA_GLOBAL = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+function mesExtensoBuscaGlobal(dataISO) {
+  const mes = Number(String(dataISO || "").split("-")[1]);
+  return MESES_BUSCA_GLOBAL[mes - 1] || "";
+}
+
 async function carregarBuscaGlobal() {
   if (buscaGlobalCache && Date.now() - buscaGlobalCacheCriadoEm < 10000) return buscaGlobalCache;
   const [comprasRes, cartoesRes] = await Promise.allSettled([
@@ -260,7 +267,21 @@ async function carregarBuscaGlobal() {
   const compras = comprasRes.status === "fulfilled" ? comprasRes.value : [];
   const cartoes = cartoesRes.status === "fulfilled" ? cartoesRes.value : [];
   buscaGlobalCache = [
-    ...compras.map((compra) => ({ tipo: "Compra", titulo: compra.fornecedor || "Compra sem fornecedor", detalhe: [compra.cartao, compra.departamento, compra.status].filter(Boolean).join(" • "), href: `compra-cartao.html?compraId=${compra.id}`, texto: `${compra.fornecedor || ""} ${compra.cartao || ""} ${compra.departamento || ""} ${compra.status || ""}` })),
+    ...compras.map((compra) => {
+      const dataFormatada = formatarData(compra.dataCompra);
+      const valorFormatado = moeda(compra.valor);
+      return {
+        tipo: "Compra",
+        titulo: compra.fornecedor || "Compra sem fornecedor",
+        detalhe: [dataFormatada, valorFormatado, compra.cartao, compra.status].filter(Boolean).join(" • "),
+        href: `compra-cartao.html?compraId=${compra.id}`,
+        texto: [
+          compra.fornecedor, compra.cartao, compra.departamento, compra.status,
+          compra.responsavel, compra.motivo, dataFormatada, mesExtensoBuscaGlobal(compra.dataCompra),
+          valorFormatado, compra.valor
+        ].filter(Boolean).join(" ")
+      };
+    }),
     ...cartoes.map((cartao) => ({ tipo: "Cartão", titulo: cartao.nomeCartao || cartao.nome || "Cartão", detalhe: [cartao.departamento, cartao.status, cartao.ultimos4Digitos ? `final ${cartao.ultimos4Digitos}` : ""].filter(Boolean).join(" • "), href: "cartoes.html", texto: `${cartao.nomeCartao || ""} ${cartao.departamento || ""} ${cartao.status || ""} ${cartao.ultimos4Digitos || ""}` })),
     { tipo: "Relatório", titulo: "Relatórios de cartão", detalhe: "Gastos e pendências", href: "relatorios-cartao.html", texto: "relatorio cartao gastos pendencias pdf" },
     { tipo: "Página", titulo: "Pendências", detalhe: "Compras aguardando conclusão e conciliação com fatura", href: "compras-pendentes.html", texto: "compras pendentes sem comprovante concluir teams conciliacao fatura divergencia" },
