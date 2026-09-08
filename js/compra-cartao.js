@@ -143,6 +143,10 @@ function exibirErroCarregamentoCompraCartao() {
 }
 
 async function initCompraCartao() {
+  if (compraVisualizacaoId) {
+    abrirDetalheCompra(compraVisualizacaoId);
+  }
+
   let cartoes, setoresDetalhados, fornecedores, usuariosDisponiveis;
   try {
     [cartoes, setoresDetalhados, fornecedores, usuariosDisponiveis] = await Promise.all([
@@ -178,10 +182,6 @@ async function initCompraCartao() {
 
   await carregarComprasCartao();
   atualizarResumoCartao();
-
-  if (compraVisualizacaoId) {
-    await abrirDetalheCompra(compraVisualizacaoId);
-  }
 }
 
 function carregarTransacaoParaNovaCompra() {
