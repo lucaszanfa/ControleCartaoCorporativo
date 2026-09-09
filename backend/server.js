@@ -2428,6 +2428,21 @@ app.post("/api/alertas-cartao/:id/enviar-teams", async (request, response) => {
     if (alerta.tipo_alerta === "compra_sem_registro") {
       alerta.destinatarios_departamento = await usuariosComAcessoAoCartao(alerta.cartao_id);
     }
+
+    const baseUrl = process.env.APP_BASE_URL || `${request.protocol}://${request.get("host")}`;
+    alerta.url_resolucao = alerta.compra_cartao_id
+      ? `${baseUrl}/compra-cartao.html?${new URLSearchParams({ compraId: alerta.compra_cartao_id, alertaId: alerta.id })}`
+      : `${baseUrl}/compra-cartao.html?${new URLSearchParams({
+          transacaoId: alerta.transacao_fatura_id || "",
+          cartaoId: alerta.cartao_id || "",
+          departamentoId: alerta.departamento_id || "",
+          dataCompra: alerta.data_transacao || "",
+          valor: alerta.valor || "",
+          fornecedor: alerta.estabelecimento || "",
+          categoria: "outros",
+          alertaId: alerta.id
+        })}`;
+
     const envio = await sendTeamsAlert(alerta);
     const atualizado = await get(
       "UPDATE alertas_cartao SET enviado_teams = 1, data_envio_teams = CURRENT_TIMESTAMP, vezes_enviado_teams = coalesce(vezes_enviado_teams, 0) + 1, status = 'enviado' WHERE id = ? RETURNING vezes_enviado_teams, data_envio_teams",
