@@ -213,6 +213,7 @@ function mapCompraCartao(row) {
     departamento: row.departamento,
     responsavelCompraId: row.responsavel_compra_id,
     responsavel: row.responsavel,
+    titularCartao: row.titular_cartao || null,
     dataCompra: row.data_compra,
     valor: row.valor,
     fornecedor: row.fornecedor,
@@ -245,13 +246,14 @@ function cardJoinSql() {
 
 function compraJoinSql() {
   return `SELECT cc.*, c.nome_cartao AS cartao, c.ultimos_4_digitos, s.nome AS departamento, u.nome AS responsavel,
-                 cp.nome AS criado_por, ap.nome AS atualizado_por
+                 cp.nome AS criado_por, ap.nome AS atualizado_por, tc.nome AS titular_cartao
           FROM compras_cartao cc
           JOIN cartoes_corporativos c ON c.id = cc.cartao_id
           JOIN setores s ON s.id = cc.departamento_id
           LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id
           LEFT JOIN usuarios cp ON cp.id = cc.criado_por_id
-          LEFT JOIN usuarios ap ON ap.id = cc.atualizado_por_id`;
+          LEFT JOIN usuarios ap ON ap.id = cc.atualizado_por_id
+          LEFT JOIN usuarios tc ON tc.id = c.responsavel_id`;
 }
 
 function daysDiff(a, b) {
@@ -347,6 +349,43 @@ async function cartoesPermitidosParaUsuario(usuarioId, tipo) {
     return permissoes.filter((linha) => linha[coluna]).map((linha) => linha.cartao_id);
   }
   return await cartoesDoDepartamentoUsuario(usuarioId);
+}
+
+async function usuariosComAcessoAoCartao(cartaoId) {
+  const cartao = await get(
+    `SELECT c.departamento_id, c.responsavel_id, c.gerente_id, s.nome AS departamento
+     FROM cartoes_corporativos c JOIN setores s ON s.id = c.departamento_id
+     WHERE c.id = ?`,
+    [cartaoId]
+  );
+  if (!cartao) return [];
+
+  const porPermissao = await all(
+    `SELECT u.id, u.nome, u.email
+     FROM permissoes_cartao_usuario p JOIN usuarios u ON u.id = p.usuario_id
+     WHERE p.cartao_id = ? AND p.pode_ver_compras = 1 AND u.status = 'ativo' AND coalesce(u.email, '') != ''`,
+    [cartaoId]
+  );
+
+  const porDepartamento = await all(
+    `SELECT u.id, u.nome, u.email
+     FROM usuarios u
+     WHERE u.status = 'ativo' AND coalesce(u.email, '') != '' AND lower(u.setor) = lower(?)
+       AND NOT EXISTS (SELECT 1 FROM permissoes_cartao_usuario p2 WHERE p2.usuario_id = u.id)`,
+    [cartao.departamento]
+  );
+
+  const titularEGerente = await all(
+    `SELECT id, nome, email FROM usuarios
+     WHERE id IN (?, ?) AND status = 'ativo' AND coalesce(email, '') != ''`,
+    [cartao.responsavel_id, cartao.gerente_id]
+  );
+
+  const mapa = new Map();
+  for (const usuario of [...porPermissao, ...porDepartamento, ...titularEGerente]) {
+    mapa.set(usuario.id, usuario);
+  }
+  return [...mapa.values()].sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
 function calcularAvisoPeriodoFatura(transacoes, mesReferencia, anoReferencia) {
@@ -1201,12 +1240,15 @@ app.post("/api/compras-cartao/:id/enviar-pendencia-teams", async (request, respo
               u.nome AS responsavel,
               u.email AS comprador_email,
               g.nome AS gerente,
-              g.email AS gerente_email
+              g.email AS gerente_email,
+              tc.nome AS titular_cartao,
+              tc.email AS titular_cartao_email
        FROM compras_cartao cc
        JOIN cartoes_corporativos c ON c.id = cc.cartao_id
        JOIN setores s ON s.id = cc.departamento_id
        LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id
        LEFT JOIN usuarios g ON g.id = c.gerente_id
+       LEFT JOIN usuarios tc ON tc.id = c.responsavel_id
        WHERE cc.id = ?`,
       [request.params.id]
     );
@@ -1218,10 +1260,10 @@ app.post("/api/compras-cartao/:id/enviar-pendencia-teams", async (request, respo
 
     const compra = mapCompraCartao(row);
     const pendencias = pendenciasCadastroCompra(compra);
-    const temResponsavel = Boolean(row.responsavel_compra_id && row.comprador_email);
-    const tipo = temResponsavel
-      ? pendencias.includes("Comprovante") ? "compra_sem_comprovante" : "compra_fora_padrao"
-      : "compra_sem_registro";
+    // Esta compra ja existe no sistema, entao o alerta e sempre individual
+    // (pra pessoa responsavel, ou pro titular do cartao quando nao houver responsavel definido) -
+    // nunca "sem registro", que e exclusivo de transacoes da fatura sem compra nenhuma.
+    const tipo = pendencias.includes("Comprovante") ? "compra_sem_comprovante" : "compra_fora_padrao";
     const baseUrl = process.env.APP_BASE_URL || `${request.protocol}://${request.get("host")}`;
     const urlResolucao = `${baseUrl}/compra-cartao.html?compraId=${row.id}`;
 
@@ -1234,16 +1276,13 @@ app.post("/api/compras-cartao/:id/enviar-pendencia-teams", async (request, respo
       data_compra: row.data_compra,
       estabelecimento: row.fornecedor,
       valor: row.valor,
-      comprador_nome: row.responsavel || "",
-      comprador_email: row.comprador_email || "",
+      comprador_nome: row.responsavel || row.titular_cartao || "",
+      comprador_email: row.comprador_email || row.titular_cartao_email || "",
       gerente_nome: row.gerente || "",
       gerente_email: row.gerente_email || "",
       mensagem: `Compra pendente de conclusão. Falta resolver: ${pendencias.join(", ") || "Revisão"}.`,
       url_resolucao: urlResolucao,
-      destinatarios_departamento: temResponsavel ? [] : await all(
-        "SELECT id, nome, email FROM usuarios WHERE status = 'ativo' AND lower(setor) = lower(?) AND email IS NOT NULL AND email != '' ORDER BY nome",
-        [row.departamento]
-      )
+      destinatarios_departamento: []
     });
 
     const atualizada = await get(
@@ -2276,13 +2315,17 @@ app.get("/api/alertas-cartao", async (request, response) => {
   const sql = `SELECT a.*, c.nome_cartao AS cartao, c.ultimos_4_digitos, s.nome AS departamento, g.nome AS gerente,
                       coalesce(t.estabelecimento, cc.fornecedor) AS estabelecimento,
                       coalesce(t.valor, cc.valor) AS valor,
-                      coalesce(t.data_transacao, cc.data_compra) AS data_transacao
+                      coalesce(t.data_transacao, cc.data_compra) AS data_transacao,
+                      tc.nome AS titular_cartao,
+                      uc.nome AS comprador_nome
                FROM alertas_cartao a
                JOIN cartoes_corporativos c ON c.id = a.cartao_id
                JOIN setores s ON s.id = a.departamento_id
                JOIN usuarios g ON g.id = a.gerente_id
                LEFT JOIN transacoes_fatura t ON t.id = a.transacao_fatura_id
                LEFT JOIN compras_cartao cc ON cc.id = a.compra_cartao_id
+               LEFT JOIN usuarios tc ON tc.id = c.responsavel_id
+               LEFT JOIN usuarios uc ON uc.id = cc.responsavel_compra_id
                ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
                ORDER BY a.criado_em DESC`;
   let alertas = await all(sql, params);
@@ -2383,10 +2426,7 @@ app.post("/api/alertas-cartao/:id/enviar-teams", async (request, response) => {
     );
     if (!alerta) return response.status(404).json({ erro: "Alerta nao encontrado." });
     if (alerta.tipo_alerta === "compra_sem_registro") {
-      alerta.destinatarios_departamento = await all(
-        "SELECT id, nome, email FROM usuarios WHERE status = 'ativo' AND lower(setor) = lower(?) AND email IS NOT NULL AND email != '' ORDER BY nome",
-        [alerta.departamento]
-      );
+      alerta.destinatarios_departamento = await usuariosComAcessoAoCartao(alerta.cartao_id);
     }
     const envio = await sendTeamsAlert(alerta);
     const atualizado = await get(

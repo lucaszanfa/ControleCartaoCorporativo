@@ -101,6 +101,8 @@ function alertaParaPendente(alerta) {
     status: statusAlertaParaCompra(alerta),
     pendencias: pendenciasDoAlerta(alerta),
     origem: "alerta",
+    responsavel: alerta.comprador_nome || null,
+    titularCartao: alerta.titular_cartao || null,
     vezesTeams: alerta.vezes_enviado_teams || 0,
     dataUltimoEnvioTeams: alerta.data_envio_teams || null
   };
@@ -124,21 +126,24 @@ function teamsEnvioInfoHtml(compra) {
 }
 
 function destinoTeams(compra) {
-  const temResponsavel = Boolean(compra.responsavel || compra.compradorNome || compra.compradorEmail || compra.responsavelCompraId);
-  const semRegistro = compra.status === "sem_registro" || compra.origem === "alerta" && !compra.compraId;
+  // "Sem registro" e o unico caso sem compra nenhuma no sistema - todos os outros
+  // (sem comprovante, fora do padrao) tem uma compra de verdade, entao sempre vao
+  // individualmente pra pessoa responsavel (ou pro titular do cartao, na falta dela).
+  const semRegistro = compra.status === "sem_registro" || (compra.origem === "alerta" && !compra.compraId);
 
-  if (temResponsavel && !semRegistro) {
+  if (!semRegistro) {
+    const nomeIndividual = compra.responsavel || compra.compradorNome || compra.titularCartao;
     return {
       tipo: "individual",
-      titulo: compra.responsavel || compra.compradorNome || "responsavel pela compra",
-      descricao: "A mensagem sera enviada individualmente para a pessoa responsavel pela compra, com o link para concluir o cadastro."
+      titulo: nomeIndividual || "responsavel pela compra",
+      descricao: "A mensagem sera enviada individualmente para a pessoa responsavel pela compra (ou para o titular do cartao, quando nao houver responsavel definido), com o link para concluir o cadastro."
     };
   }
 
   return {
     tipo: "grupo",
-    titulo: compra.departamento ? `grupo do departamento ${compra.departamento}` : `grupo do cartao ${compra.cartao || "-"}`,
-    descricao: "Como a compra nao tem responsavel definido ou veio como sem registro, a mensagem sera enviada para o grupo responsavel pelo cartao/departamento."
+    titulo: `grupo do cartao ${compra.cartao || "-"}`,
+    descricao: "Esta transacao da fatura nao tem compra registrada no sistema, entao a mensagem sera enviada para o grupo de todas as pessoas com acesso a este cartao no Teams."
   };
 }
 
