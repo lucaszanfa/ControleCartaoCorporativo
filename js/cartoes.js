@@ -29,9 +29,9 @@ async function initCartoes() {
     document.getElementById("novoCartaoBtn").disabled = true;
     return;
   }
-  preencherSelect(document.getElementById("departamentoIds"), setoresCartoes, "id", "nome");
+  renderizarListaCheckbox(document.getElementById("departamentoIdsLista"), setoresCartoes, "Nenhum departamento cadastrado.");
   preencherSelect(document.getElementById("filtroDepartamento"), setoresCartoes, "id", "nome", "Todos");
-  preencherSelect(document.getElementById("responsavelIds"), usuariosDisponiveis, "id", "nome");
+  renderizarListaCheckbox(document.getElementById("responsavelIdsLista"), usuariosDisponiveis, "Nenhum usuário cadastrado.");
   preencherSelect(document.getElementById("bancoId"), bancosDisponiveis, "id", "nome");
   await carregarCartoes();
 }
@@ -83,10 +83,27 @@ async function carregarCartoes() {
   atualizarResumoCartoes();
 }
 
-function selecionarValoresMultiplos(select, valores) {
+function renderizarListaCheckbox(container, itens, textoVazio) {
+  if (!itens.length) {
+    container.innerHTML = `<div class="checkbox-list-empty">${textoVazio}</div>`;
+    return;
+  }
+  container.innerHTML = itens.map((item) => `
+    <label class="checkbox-list-item">
+      <input type="checkbox" value="${item.id}">
+      <span>${item.nome}</span>
+    </label>
+  `).join("");
+}
+
+function valoresMarcadosCheckbox(container) {
+  return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
+}
+
+function marcarValoresCheckbox(container, valores) {
   const selecionados = new Set((valores || []).map(String));
-  Array.from(select.options).forEach((opcao) => {
-    opcao.selected = selecionados.has(opcao.value);
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = selecionados.has(input.value);
   });
 }
 
@@ -95,8 +112,8 @@ function editarCartao(id) {
   if (!cartao) return;
   document.getElementById("cartaoId").value = cartao.id;
   document.getElementById("nomeCartao").value = cartao.nomeCartao;
-  selecionarValoresMultiplos(document.getElementById("departamentoIds"), cartao.departamentoIds);
-  selecionarValoresMultiplos(document.getElementById("responsavelIds"), cartao.responsavelIds);
+  marcarValoresCheckbox(document.getElementById("departamentoIdsLista"), cartao.departamentoIds);
+  marcarValoresCheckbox(document.getElementById("responsavelIdsLista"), cartao.responsavelIds);
   document.getElementById("bancoId").value = cartao.bancoId;
   document.getElementById("ultimos4Digitos").value = cartao.ultimos4Digitos;
   document.getElementById("status").value = cartao.status;
@@ -115,10 +132,17 @@ async function alternarCartao(id, status) {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const id = document.getElementById("cartaoId").value;
+  const departamentoIds = valoresMarcadosCheckbox(document.getElementById("departamentoIdsLista"));
+  const responsavelIds = valoresMarcadosCheckbox(document.getElementById("responsavelIdsLista"));
+  if (!departamentoIds.length || !responsavelIds.length) {
+    msg.textContent = "Marque ao menos um departamento e um responsável.";
+    msg.classList.remove("hidden");
+    return;
+  }
   const payload = {
     nomeCartao: document.getElementById("nomeCartao").value,
-    departamentoIds: Array.from(document.getElementById("departamentoIds").selectedOptions).map((opcao) => opcao.value),
-    responsavelIds: Array.from(document.getElementById("responsavelIds").selectedOptions).map((opcao) => opcao.value),
+    departamentoIds,
+    responsavelIds,
     bancoId: document.getElementById("bancoId").value,
     ultimos4Digitos: document.getElementById("ultimos4Digitos").value,
     status: document.getElementById("status").value,

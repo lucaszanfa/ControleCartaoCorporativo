@@ -60,14 +60,16 @@
           <input id="cartaoId" type="hidden">
           <label>Nome do cartão <input id="nomeCartao" required></label>
           <label>Banco <select id="bancoId" required></select></label>
-          <label>Departamentos
-            <select id="departamentoIds" multiple size="5" required></select>
-            <small class="field-hint">Segure Ctrl (ou Cmd no Mac) para selecionar mais de um.</small>
-          </label>
-          <label>Responsáveis
-            <select id="responsavelIds" multiple size="5" required></select>
-            <small class="field-hint">Segure Ctrl (ou Cmd no Mac) para selecionar mais de um.</small>
-          </label>
+          <div class="checkbox-list-field">
+            <span class="checkbox-list-label">Departamentos</span>
+            <div id="departamentoIdsLista" class="checkbox-list"></div>
+            <small class="field-hint">Marque um ou mais departamentos.</small>
+          </div>
+          <div class="checkbox-list-field">
+            <span class="checkbox-list-label">Responsáveis</span>
+            <div id="responsavelIdsLista" class="checkbox-list"></div>
+            <small class="field-hint">Marque um ou mais responsáveis.</small>
+          </div>
           <label>Últimos 4 dígitos <input id="ultimos4Digitos" maxlength="4" pattern="[0-9]{4}" required></label>
           <label>Status
             <select id="status">
