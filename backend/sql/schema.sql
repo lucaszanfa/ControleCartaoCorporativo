@@ -43,6 +43,32 @@ CREATE TABLE IF NOT EXISTS cartoes_corporativos (
   FOREIGN KEY (banco_id) REFERENCES bancos(id)
 );
 
+CREATE TABLE IF NOT EXISTS cartao_departamentos (
+  cartao_id INTEGER NOT NULL,
+  departamento_id INTEGER NOT NULL,
+  PRIMARY KEY (cartao_id, departamento_id),
+  FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
+  FOREIGN KEY (departamento_id) REFERENCES setores(id)
+);
+ALTER TABLE cartao_departamentos ADD COLUMN IF NOT EXISTS id SERIAL;
+
+CREATE TABLE IF NOT EXISTS cartao_responsaveis (
+  cartao_id INTEGER NOT NULL,
+  usuario_id INTEGER NOT NULL,
+  PRIMARY KEY (cartao_id, usuario_id),
+  FOREIGN KEY (cartao_id) REFERENCES cartoes_corporativos(id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+);
+ALTER TABLE cartao_responsaveis ADD COLUMN IF NOT EXISTS id SERIAL;
+
+INSERT INTO cartao_departamentos (cartao_id, departamento_id)
+  SELECT id, departamento_id FROM cartoes_corporativos
+  ON CONFLICT DO NOTHING;
+
+INSERT INTO cartao_responsaveis (cartao_id, usuario_id)
+  SELECT id, responsavel_id FROM cartoes_corporativos
+  ON CONFLICT DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS permissoes_cartao_usuario (
   id SERIAL PRIMARY KEY,
   usuario_id INTEGER NOT NULL,

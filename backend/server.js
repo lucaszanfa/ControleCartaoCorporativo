@@ -77,6 +77,8 @@ async function ensureCartoesSeed() {
     "INSERT INTO cartoes_corporativos (nome_cartao, departamento_id, responsavel_id, gerente_id, ultimos_4_digitos, limite_mensal, status, observacao) VALUES (?, ?, ?, ?, ?, ?, 'ativo', ?)",
     ["Cartão Limpeza/Copa", copa.id, anaAtual.id, gerenteId, "9134", 1500, "Compras de copa e limpeza"]
   );
+  await vincularCartaoDepartamentosResponsaveis(cartaoAdm.id, [administrativo.id], [mariaAtual.id]);
+  await vincularCartaoDepartamentosResponsaveis(cartaoCopa.id, [copa.id], [anaAtual.id]);
 
   await run(
     "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -182,21 +184,36 @@ function extensionFromMime(mimeType, originalName) {
 }
 
 function mapCartao(row) {
+  const departamentos = row.departamentos_json || [];
+  const responsaveis = row.responsaveis_json || [];
   return {
     id: row.id,
     nomeCartao: row.nome_cartao,
-    departamentoId: row.departamento_id,
-    departamento: row.departamento,
-    responsavelId: row.responsavel_id,
-    responsavel: row.responsavel,
-    gerenteId: row.gerente_id,
-    gerente: row.gerente,
+    departamentos,
+    departamentoIds: departamentos.map((item) => item.id),
+    departamentoId: departamentos[0]?.id ?? row.departamento_id,
+    departamento: departamentos.map((item) => item.nome).join(", ") || null,
+    responsaveis,
+    responsavelIds: responsaveis.map((item) => item.id),
+    responsavelId: responsaveis[0]?.id ?? row.responsavel_id,
+    responsavel: responsaveis.map((item) => item.nome).join(", ") || null,
     bancoId: row.banco_id || null,
     banco: row.banco || null,
     ultimos4Digitos: row.ultimos_4_digitos,
     status: row.status,
     observacao: row.observacao || ""
   };
+}
+
+async function vincularCartaoDepartamentosResponsaveis(cartaoId, departamentoIds, responsavelIds) {
+  await run("DELETE FROM cartao_departamentos WHERE cartao_id = ?", [cartaoId]);
+  for (const departamentoId of [...new Set(departamentoIds)]) {
+    await run("INSERT INTO cartao_departamentos (cartao_id, departamento_id) VALUES (?, ?) ON CONFLICT DO NOTHING", [cartaoId, departamentoId]);
+  }
+  await run("DELETE FROM cartao_responsaveis WHERE cartao_id = ?", [cartaoId]);
+  for (const usuarioId of [...new Set(responsavelIds)]) {
+    await run("INSERT INTO cartao_responsaveis (cartao_id, usuario_id) VALUES (?, ?) ON CONFLICT DO NOTHING", [cartaoId, usuarioId]);
+  }
 }
 
 function compraCartaoAutomatica(row) {
@@ -236,11 +253,14 @@ function mapCompraCartao(row) {
 }
 
 function cardJoinSql() {
-  return `SELECT c.*, s.nome AS departamento, r.nome AS responsavel, g.nome AS gerente, b.nome AS banco
+  return `SELECT c.*, b.nome AS banco,
+            (SELECT json_agg(json_build_object('id', s.id, 'nome', s.nome) ORDER BY s.nome)
+             FROM cartao_departamentos cd JOIN setores s ON s.id = cd.departamento_id
+             WHERE cd.cartao_id = c.id) AS departamentos_json,
+            (SELECT json_agg(json_build_object('id', u.id, 'nome', u.nome) ORDER BY u.nome)
+             FROM cartao_responsaveis cr JOIN usuarios u ON u.id = cr.usuario_id
+             WHERE cr.cartao_id = c.id) AS responsaveis_json
           FROM cartoes_corporativos c
-          JOIN setores s ON s.id = c.departamento_id
-          JOIN usuarios r ON r.id = c.responsavel_id
-          JOIN usuarios g ON g.id = c.gerente_id
           LEFT JOIN bancos b ON b.id = c.banco_id`;
 }
 
@@ -332,7 +352,9 @@ async function cartoesDoDepartamentoUsuario(usuarioId) {
   const usuario = await get("SELECT setor FROM usuarios WHERE id = ?", [usuarioId]);
   if (!usuario?.setor) return [];
   const cartoes = await all(
-    `SELECT c.id FROM cartoes_corporativos c JOIN setores s ON s.id = c.departamento_id WHERE lower(s.nome) = lower(?)`,
+    `SELECT DISTINCT cd.cartao_id AS id
+     FROM cartao_departamentos cd JOIN setores s ON s.id = cd.departamento_id
+     WHERE lower(s.nome) = lower(?)`,
     [usuario.setor]
   );
   return cartoes.map((cartao) => cartao.id);
@@ -352,13 +374,12 @@ async function cartoesPermitidosParaUsuario(usuarioId, tipo) {
 }
 
 async function usuariosComAcessoAoCartao(cartaoId) {
-  const cartao = await get(
-    `SELECT c.departamento_id, c.responsavel_id, c.gerente_id, s.nome AS departamento
-     FROM cartoes_corporativos c JOIN setores s ON s.id = c.departamento_id
-     WHERE c.id = ?`,
+  const departamentos = await all(
+    `SELECT s.nome FROM cartao_departamentos cd JOIN setores s ON s.id = cd.departamento_id WHERE cd.cartao_id = ?`,
     [cartaoId]
   );
-  if (!cartao) return [];
+  if (!departamentos.length) return [];
+  const nomesDepartamentos = departamentos.map((item) => item.nome.toLowerCase());
 
   const porPermissao = await all(
     `SELECT u.id, u.nome, u.email
@@ -370,19 +391,20 @@ async function usuariosComAcessoAoCartao(cartaoId) {
   const porDepartamento = await all(
     `SELECT u.id, u.nome, u.email
      FROM usuarios u
-     WHERE u.status = 'ativo' AND coalesce(u.email, '') != '' AND lower(u.setor) = lower(?)
+     WHERE u.status = 'ativo' AND coalesce(u.email, '') != '' AND lower(u.setor) = ANY(?)
        AND NOT EXISTS (SELECT 1 FROM permissoes_cartao_usuario p2 WHERE p2.usuario_id = u.id)`,
-    [cartao.departamento]
+    [nomesDepartamentos]
   );
 
-  const titularEGerente = await all(
-    `SELECT id, nome, email FROM usuarios
-     WHERE id IN (?, ?) AND status = 'ativo' AND coalesce(email, '') != ''`,
-    [cartao.responsavel_id, cartao.gerente_id]
+  const responsaveis = await all(
+    `SELECT u.id, u.nome, u.email
+     FROM cartao_responsaveis cr JOIN usuarios u ON u.id = cr.usuario_id
+     WHERE cr.cartao_id = ? AND u.status = 'ativo' AND coalesce(u.email, '') != ''`,
+    [cartaoId]
   );
 
   const mapa = new Map();
-  for (const usuario of [...porPermissao, ...porDepartamento, ...titularEGerente]) {
+  for (const usuario of [...porPermissao, ...porDepartamento, ...responsaveis]) {
     mapa.set(usuario.id, usuario);
   }
   return [...mapa.values()].sort((a, b) => a.nome.localeCompare(b.nome));
@@ -1053,7 +1075,7 @@ app.get("/api/cartoes", async (request, response) => {
     const where = [];
     const params = [];
     if (request.query.departamentoId) {
-      where.push("c.departamento_id = ?");
+      where.push("EXISTS (SELECT 1 FROM cartao_departamentos cd WHERE cd.cartao_id = c.id AND cd.departamento_id = ?)");
       params.push(request.query.departamentoId);
     }
     if (request.query.status) {
@@ -1085,13 +1107,16 @@ app.get("/api/cartoes/:id", async (request, response) => {
 app.post("/api/cartoes", async (request, response) => {
   try {
     assertNoSensitiveCardData(request.body);
-    const { nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status, observacao } = request.body;
-    if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId || !bancoId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável, gerente e banco." });
+    const { nomeCartao, departamentoIds, responsavelIds, bancoId, ultimos4Digitos, status, observacao } = request.body;
+    const deptos = (Array.isArray(departamentoIds) ? departamentoIds : []).filter(Boolean);
+    const resps = (Array.isArray(responsavelIds) ? responsavelIds : []).filter(Boolean);
+    if (!nomeCartao || !deptos.length || !resps.length || !bancoId) return response.status(400).json({ erro: "Preencha nome, ao menos um departamento, ao menos um responsável e banco." });
     if (!validateLast4(ultimos4Digitos)) return response.status(400).json({ erro: "Últimos 4 dígitos devem conter exatamente 4 números." });
     const result = await run(
       "INSERT INTO cartoes_corporativos (nome_cartao, departamento_id, responsavel_id, gerente_id, banco_id, ultimos_4_digitos, status, observacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status || "ativo", observacao || ""]
+      [nomeCartao, deptos[0], resps[0], resps[0], bancoId, ultimos4Digitos, status || "ativo", observacao || ""]
     );
+    await vincularCartaoDepartamentosResponsaveis(result.id, deptos, resps);
     response.status(201).json({ id: result.id });
   } catch (error) {
     response.status(400).json({ erro: error.message });
@@ -1101,13 +1126,16 @@ app.post("/api/cartoes", async (request, response) => {
 app.put("/api/cartoes/:id", async (request, response) => {
   try {
     assertNoSensitiveCardData(request.body);
-    const { nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status, observacao } = request.body;
-    if (!nomeCartao || !departamentoId || !responsavelId || !gerenteId || !bancoId) return response.status(400).json({ erro: "Preencha nome, departamento, responsável, gerente e banco." });
+    const { nomeCartao, departamentoIds, responsavelIds, bancoId, ultimos4Digitos, status, observacao } = request.body;
+    const deptos = (Array.isArray(departamentoIds) ? departamentoIds : []).filter(Boolean);
+    const resps = (Array.isArray(responsavelIds) ? responsavelIds : []).filter(Boolean);
+    if (!nomeCartao || !deptos.length || !resps.length || !bancoId) return response.status(400).json({ erro: "Preencha nome, ao menos um departamento, ao menos um responsável e banco." });
     if (!validateLast4(ultimos4Digitos)) return response.status(400).json({ erro: "Últimos 4 dígitos devem conter exatamente 4 números." });
     await run(
       "UPDATE cartoes_corporativos SET nome_cartao = ?, departamento_id = ?, responsavel_id = ?, gerente_id = ?, banco_id = ?, ultimos_4_digitos = ?, status = ?, observacao = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?",
-      [nomeCartao, departamentoId, responsavelId, gerenteId, bancoId, ultimos4Digitos, status || "ativo", observacao || "", request.params.id]
+      [nomeCartao, deptos[0], resps[0], resps[0], bancoId, ultimos4Digitos, status || "ativo", observacao || "", request.params.id]
     );
+    await vincularCartaoDepartamentosResponsaveis(request.params.id, deptos, resps);
     response.json({ mensagem: "Cartão atualizado." });
   } catch (error) {
     response.status(400).json({ erro: error.message });
@@ -1291,7 +1319,7 @@ app.post("/api/compras-cartao/:id/enviar-pendencia-teams", async (request, respo
     );
 
     response.json({
-      mensagem: temResponsavel
+      mensagem: (row.responsavel || row.titular_cartao)
         ? "Mensagem enviada/simulada para o responsavel pela compra."
         : "Mensagem enviada/simulada para o grupo do departamento.",
       envio,

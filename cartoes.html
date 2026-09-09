@@ -59,10 +59,15 @@
         <form id="cartaoForm" class="form-grid form-grid-two">
           <input id="cartaoId" type="hidden">
           <label>Nome do cartão <input id="nomeCartao" required></label>
-          <label>Departamento <select id="departamentoId" required></select></label>
-          <label>Responsável <select id="responsavelId" required></select></label>
-          <label>Gerente <select id="gerenteId" required></select></label>
           <label>Banco <select id="bancoId" required></select></label>
+          <label>Departamentos
+            <select id="departamentoIds" multiple size="5" required></select>
+            <small class="field-hint">Segure Ctrl (ou Cmd no Mac) para selecionar mais de um.</small>
+          </label>
+          <label>Responsáveis
+            <select id="responsavelIds" multiple size="5" required></select>
+            <small class="field-hint">Segure Ctrl (ou Cmd no Mac) para selecionar mais de um.</small>
+          </label>
           <label>Últimos 4 dígitos <input id="ultimos4Digitos" maxlength="4" pattern="[0-9]{4}" required></label>
           <label>Status
             <select id="status">
@@ -100,7 +105,6 @@
                 <th>Cartão</th>
                 <th>Departamento</th>
                 <th>Responsável</th>
-                <th>Gerente</th>
                 <th>Banco</th>
                 <th>Final</th>
                 <th>Status</th>

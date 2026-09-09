@@ -29,10 +29,9 @@ async function initCartoes() {
     document.getElementById("novoCartaoBtn").disabled = true;
     return;
   }
-  preencherSelect(document.getElementById("departamentoId"), setoresCartoes, "id", "nome");
+  preencherSelect(document.getElementById("departamentoIds"), setoresCartoes, "id", "nome");
   preencherSelect(document.getElementById("filtroDepartamento"), setoresCartoes, "id", "nome", "Todos");
-  preencherSelect(document.getElementById("responsavelId"), usuariosDisponiveis, "id", "nome");
-  preencherSelect(document.getElementById("gerenteId"), usuariosDisponiveis, "id", "nome");
+  preencherSelect(document.getElementById("responsavelIds"), usuariosDisponiveis, "id", "nome");
   preencherSelect(document.getElementById("bancoId"), bancosDisponiveis, "id", "nome");
   await carregarCartoes();
 }
@@ -40,7 +39,7 @@ async function initCartoes() {
 function atualizarResumoCartoes() {
   const total = cartoes.length;
   const ativos = cartoes.filter((cartao) => cartao.status === "ativo").length;
-  const departamentos = new Set(cartoes.map((cartao) => cartao.departamento).filter(Boolean)).size;
+  const departamentos = new Set(cartoes.flatMap((cartao) => cartao.departamentoIds || [])).size;
   const percentualAtivos = total ? Math.round((ativos / total) * 100) : 0;
 
   document.getElementById("cartoesResumoTotal").textContent = total;
@@ -56,7 +55,7 @@ async function carregarCartoes() {
   if (document.getElementById("filtroStatus").value) qs.set("status", document.getElementById("filtroStatus").value);
   cartoes = await (await fetch(`/api/cartoes?${qs}`)).json();
   document.getElementById("cartoesTabela").innerHTML = cartoes.map((cartao) => {
-    const cor = corPorDepartamento(cartao.departamento);
+    const cor = corPorDepartamento((cartao.departamento || "").split(",")[0].trim());
     return `
       <tr class="report-data-row corporate-card-row ${cartao.status === "inativo" ? "row-inactive" : ""}">
         <td>
@@ -65,9 +64,8 @@ async function carregarCartoes() {
             <strong>${cartao.nomeCartao}</strong>
           </div>
         </td>
-        <td>${cartao.departamento}</td>
-        <td>${cartao.responsavel}</td>
-        <td>${cartao.gerente}</td>
+        <td>${cartao.departamento || "-"}</td>
+        <td>${cartao.responsavel || "-"}</td>
         <td>${cartao.banco || "-"}</td>
         <td><span class="corporate-card-final">•••• ${cartao.ultimos4Digitos}</span></td>
         <td><span class="${classeStatus(cartao.status)}">${cartao.status}</span></td>
@@ -85,14 +83,20 @@ async function carregarCartoes() {
   atualizarResumoCartoes();
 }
 
+function selecionarValoresMultiplos(select, valores) {
+  const selecionados = new Set((valores || []).map(String));
+  Array.from(select.options).forEach((opcao) => {
+    opcao.selected = selecionados.has(opcao.value);
+  });
+}
+
 function editarCartao(id) {
   const cartao = cartoes.find((item) => item.id === id);
   if (!cartao) return;
   document.getElementById("cartaoId").value = cartao.id;
   document.getElementById("nomeCartao").value = cartao.nomeCartao;
-  document.getElementById("departamentoId").value = cartao.departamentoId;
-  document.getElementById("responsavelId").value = cartao.responsavelId;
-  document.getElementById("gerenteId").value = cartao.gerenteId;
+  selecionarValoresMultiplos(document.getElementById("departamentoIds"), cartao.departamentoIds);
+  selecionarValoresMultiplos(document.getElementById("responsavelIds"), cartao.responsavelIds);
   document.getElementById("bancoId").value = cartao.bancoId;
   document.getElementById("ultimos4Digitos").value = cartao.ultimos4Digitos;
   document.getElementById("status").value = cartao.status;
@@ -113,9 +117,8 @@ form.addEventListener("submit", async (event) => {
   const id = document.getElementById("cartaoId").value;
   const payload = {
     nomeCartao: document.getElementById("nomeCartao").value,
-    departamentoId: document.getElementById("departamentoId").value,
-    responsavelId: document.getElementById("responsavelId").value,
-    gerenteId: document.getElementById("gerenteId").value,
+    departamentoIds: Array.from(document.getElementById("departamentoIds").selectedOptions).map((opcao) => opcao.value),
+    responsavelIds: Array.from(document.getElementById("responsavelIds").selectedOptions).map((opcao) => opcao.value),
     bancoId: document.getElementById("bancoId").value,
     ultimos4Digitos: document.getElementById("ultimos4Digitos").value,
     status: document.getElementById("status").value,
