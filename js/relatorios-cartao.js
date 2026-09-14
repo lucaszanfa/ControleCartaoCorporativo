@@ -198,8 +198,9 @@ function desenharGraficoTempo(relatorio) {
     if (!atualMultiMes && !anteriorMultiMes) {
       desenharGraficoTempoParPeriodos(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, { dataInicial, dataFinal, prevInicio, prevFim });
     } else {
-      const meses = Array.from(new Set([...mesesEntre(dataInicial, dataFinal), ...mesesEntre(prevInicio, prevFim)])).sort();
-      desenharGraficoTempoComparativo(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, meses);
+      const mesesAtual = mesesEntre(dataInicial, dataFinal);
+      const mesesAnterior = mesesEntre(prevInicio, prevFim);
+      desenharGraficoTempoComparativo(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, mesesAtual, mesesAnterior);
     }
   } else {
     desenharGraficoTempoSimples(canvas, relatorio.comprasPeriodo);
@@ -286,23 +287,36 @@ function desenharGraficoTempoParPeriodos(canvas, comprasAtual, comprasAnterior, 
   });
 }
 
-function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, meses) {
+function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, mesesAtual, mesesAnterior) {
   const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
   const mapaAtual = agruparValorPorMes(comprasAtual);
   const mapaAnterior = agruparValorPorMes(comprasAnterior);
 
-  if (!meses.length) {
+  const quantidade = Math.max(mesesAtual.length, mesesAnterior.length);
+  if (!quantidade) {
     ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
     ctx.textAlign = "center";
     ctx.fillText("Sem dados para exibir.", canvas.width / 2, canvas.height / 2);
     return;
   }
 
-  const pontos = meses.map((chave) => ({
-    label: rotuloMesAno(chave),
-    atual: mapaAtual.get(chave) || 0,
-    anterior: mapaAnterior.get(chave) || 0
-  }));
+  // Alinha os dois períodos pela posição relativa do mês (1º mês do período atual
+  // com o 1º mês do período anterior, e assim por diante), em vez de casar por
+  // ano-mês absoluto — do contrário, comparar anos diferentes gera uma coluna por
+  // mês de cada ano (até 21 colunas), a maioria com só uma das duas barras.
+  const pontos = Array.from({ length: quantidade }, (_, index) => {
+    const chaveAtual = mesesAtual[index];
+    const chaveAnterior = mesesAnterior[index];
+    const rotuloAtual = chaveAtual ? rotuloMesAno(chaveAtual) : null;
+    const rotuloAnterior = chaveAnterior ? rotuloMesAno(chaveAnterior) : null;
+    return {
+      label: rotuloAtual || rotuloAnterior || `Mês ${index + 1}`,
+      atual: chaveAtual ? (mapaAtual.get(chaveAtual) || 0) : 0,
+      anterior: chaveAnterior ? (mapaAnterior.get(chaveAnterior) || 0) : 0,
+      rotuloAtual,
+      rotuloAnterior
+    };
+  });
 
   const ticks = calcularTicksEixoY(Math.max(1, ...pontos.map((item) => Math.max(item.atual, item.anterior))));
   const valorTopo = ticks[ticks.length - 1] || 1;
@@ -321,9 +335,10 @@ function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, 
     const centroGrupo = margem + index * grupo + grupo / 2;
 
     [
-      { valor: item.anterior, cor: ["#cbd5e1", "#94a3b8"], deslocamento: -(barraLargura + espacoEntreBarras / 2), rotulo: "Período anterior" },
-      { valor: item.atual, cor: escuro ? ["#22d3ee", "#0f766e"] : ["#2563eb", "#14b8a6"], deslocamento: espacoEntreBarras / 2, rotulo: "Atual" }
-    ].forEach(({ valor, cor, deslocamento, rotulo }) => {
+      { valor: item.anterior, cor: ["#cbd5e1", "#94a3b8"], deslocamento: -(barraLargura + espacoEntreBarras / 2), rotulo: "Período anterior", mesRotulo: item.rotuloAnterior },
+      { valor: item.atual, cor: escuro ? ["#22d3ee", "#0f766e"] : ["#2563eb", "#14b8a6"], deslocamento: espacoEntreBarras / 2, rotulo: "Atual", mesRotulo: item.rotuloAtual }
+    ].forEach(({ valor, cor, deslocamento, rotulo, mesRotulo }) => {
+      if (!mesRotulo) return;
       const h = (valor / valorTopo) * altura;
       const x = centroGrupo + deslocamento;
       const y = baseY - h;
@@ -335,7 +350,7 @@ function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, 
       ctx.roundRect(x, y, barraLargura, Math.max(h, 0), 6);
       ctx.fill();
 
-      barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${rotulo} — ${item.label}: ${moeda(valor)}` });
+      barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${rotulo} — ${mesRotulo}: ${moeda(valor)}` });
     });
 
     ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
