@@ -618,7 +618,6 @@ async function renderComparativoPeriodoAnterior(totalAtual) {
     return;
   }
 
-  barra.classList.remove("hidden");
   const prevInicio = document.getElementById("comparaDataInicial").value;
   const prevFim = document.getElementById("comparaDataFinal").value;
   if (!prevInicio || !prevFim) {
