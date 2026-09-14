@@ -5456,6 +5456,23 @@ textarea {
   min-width: 260px;
 }
 
+.card-report-period-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.card-report-period-field-comparativo {
+  padding: 8px 12px 10px;
+  border: 1px dashed var(--prototype-line);
+  border-radius: 10px;
+  background: var(--prototype-card-soft);
+}
+
+.card-report-period-field-comparativo.hidden {
+  display: none;
+}
+
 .card-report-period-inputs {
   display: flex;
   align-items: center;
@@ -5477,30 +5494,6 @@ textarea {
   font-size: 13px;
   font-weight: 850;
   cursor: pointer;
-}
-
-.card-report-compare-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: -8px 0 18px;
-  padding: 12px 22px;
-  border: 1px solid var(--prototype-line);
-  border-radius: 14px;
-  background: var(--prototype-card-soft);
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 850;
-}
-
-.card-report-compare-bar.hidden {
-  display: none;
-}
-
-.card-report-compare-bar input {
-  min-height: 38px;
-  border-radius: 10px;
-  font-weight: 800;
 }
 
 .card-report-compare-toggle input {

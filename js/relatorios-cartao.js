@@ -129,7 +129,11 @@ function rotuloBucket(chave, granularidade) {
     return `T${trimestre}/${ano.slice(2)}`;
   }
   const [ano, mes] = chave.split("-").map(Number);
-  return new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+  const nomeMes = new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  // Formato compacto ("ago/26") em vez de "ago de 26": no gráfico de
+  // comparação cabem até 12 colunas lado a lado e o rótulo mais longo
+  // esbarrava no vizinho, deixando o eixo ilegível.
+  return `${nomeMes}/${String(ano).slice(2)}`;
 }
 
 // Reduz a lista de meses do período aos buckets únicos (mês, trimestre ou
@@ -187,6 +191,17 @@ function calcularMargemEixoY(ctx, ticks) {
   ctx.font = "12px Arial";
   const larguras = ticks.map((valor) => ctx.measureText(moeda(valor).replace("R$", "R$ ")).width);
   return Math.max(50, Math.ceil(Math.max(...larguras)) + 18);
+}
+
+// Escolhe fonte e espaçamento do rótulo de cada coluna com base na largura
+// disponível por grupo: com poucas colunas usa fonte normal e mostra todas;
+// com muitas colunas apertadas, reduz a fonte e, no limite, mostra só uma a
+// cada duas para não sobrepor o texto do vizinho.
+function planoRotulosEixoX(grupoLargura, quantidade) {
+  if (grupoLargura >= 50) return { fonte: 12, pular: 1 };
+  if (grupoLargura >= 36) return { fonte: 11, pular: 1 };
+  if (quantidade > 8) return { fonte: 10, pular: 2 };
+  return { fonte: 10, pular: 1 };
 }
 
 function desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro) {
@@ -269,9 +284,10 @@ function desenharGraficoTempoUnico(canvas, compras, meses, granularidade) {
 
   desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro);
 
-  const barraLargura = Math.min(56, largura / pontos.length * 0.45);
+  const grupo = largura / pontos.length;
+  const barraLargura = Math.min(56, grupo * 0.45);
+  const rotuloPlano = planoRotulosEixoX(grupo, pontos.length);
   pontos.forEach((item, index) => {
-    const grupo = largura / pontos.length;
     const h = (item.total / valorTopo) * altura;
     const x = margem + index * grupo + (grupo - barraLargura) / 2;
     const y = baseY - h;
@@ -282,10 +298,13 @@ function desenharGraficoTempoUnico(canvas, compras, meses, granularidade) {
     ctx.beginPath();
     ctx.roundRect(x, y, barraLargura, h, 7);
     ctx.fill();
-    ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
-    ctx.textAlign = "center";
-    ctx.font = "700 12px Arial";
-    ctx.fillText(item.label, x + barraLargura / 2, baseY + 24);
+
+    if (index % rotuloPlano.pular === 0) {
+      ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
+      ctx.textAlign = "center";
+      ctx.font = `700 ${rotuloPlano.fonte}px Arial`;
+      ctx.fillText(item.label, x + barraLargura / 2, baseY + 24);
+    }
 
     barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${item.label}: ${moeda(item.total)}` });
   });
@@ -386,6 +405,7 @@ function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, 
   const grupo = largura / pontos.length;
   const barraLargura = Math.min(34, grupo * 0.28);
   const espacoEntreBarras = 6;
+  const rotuloPlano = planoRotulosEixoX(grupo, pontos.length);
 
   pontos.forEach((item, index) => {
     const centroGrupo = margem + index * grupo + grupo / 2;
@@ -409,10 +429,12 @@ function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, 
       barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${rotulo} — ${mesRotulo}: ${moeda(valor)}` });
     });
 
-    ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
-    ctx.textAlign = "center";
-    ctx.font = "700 12px Arial";
-    ctx.fillText(item.label, centroGrupo, baseY + 24);
+    if (index % rotuloPlano.pular === 0) {
+      ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
+      ctx.textAlign = "center";
+      ctx.font = `700 ${rotuloPlano.fonte}px Arial`;
+      ctx.fillText(item.label, centroGrupo, baseY + 24);
+    }
   });
 }
 
@@ -580,14 +602,17 @@ function sincronizarPeriodoComparativoPadrao() {
 
 async function renderComparativoPeriodoAnterior(totalAtual) {
   const elemento = document.getElementById("resumoTotalComparativo");
-  const barra = document.getElementById("compararPeriodoBar");
+  const campoComparativo = document.getElementById("campoPeriodoComparativo");
+  const labelAtual = document.getElementById("labelPeriodoAtual");
   if (!elemento) return;
   const ativo = document.getElementById("compararPeriodoAnterior")?.checked;
+
+  if (labelAtual) labelAtual.textContent = ativo ? "Atual" : "Período";
+  if (campoComparativo) campoComparativo.classList.toggle("hidden", !ativo);
 
   if (!ativo) {
     elemento.textContent = "";
     elemento.className = "card-report-kpi-delta hidden";
-    barra.classList.add("hidden");
     if (ultimoRelatorioCartao) ultimoRelatorioCartao.comprasPeriodoAnterior = null;
     desenharGraficoTempo(ultimoRelatorioCartao || {});
     return;
@@ -832,7 +857,8 @@ function configurarEventos() {
     document.getElementById("compararPeriodoAnterior").checked = false;
     document.getElementById("comparaDataInicial").value = "";
     document.getElementById("comparaDataFinal").value = "";
-    document.getElementById("compararPeriodoBar").classList.add("hidden");
+    document.getElementById("campoPeriodoComparativo").classList.add("hidden");
+    document.getElementById("labelPeriodoAtual").textContent = "Período";
     carregarRelatoriosCartao();
   });
 
