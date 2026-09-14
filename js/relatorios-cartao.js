@@ -711,7 +711,7 @@ function renderTabelas({ porCartao, porDepartamento, comprasPeriodo }) {
         formatarData(r.data_compra),
         `<strong>${r.cartao}</strong>`,
         r.departamento,
-        r.responsavel,
+        r.responsavel || "-",
         r.fornecedor,
         `<span class="report-money-pill">${moeda(r.valor)}</span>`,
         `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`,
@@ -821,7 +821,7 @@ function baixarPdfRelatorioCartao() {
         formatarData(r.data_compra),
         r.cartao,
         r.departamento,
-        r.responsavel,
+        r.responsavel || "-",
         r.fornecedor,
         moeda(r.valor),
         String(r.status || "-").replaceAll("_", " ")

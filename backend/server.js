@@ -2644,7 +2644,7 @@ app.get("/api/relatorios-cartao/compras", async (request, response) => {
                            FROM compras_cartao cc
                            JOIN cartoes_corporativos c ON c.id = cc.cartao_id
                            JOIN setores s ON s.id = cc.departamento_id
-                           JOIN usuarios u ON u.id = cc.responsavel_compra_id
+                           LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id
                            ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
                            ORDER BY cc.data_compra DESC, cc.id DESC`, params));
 });
