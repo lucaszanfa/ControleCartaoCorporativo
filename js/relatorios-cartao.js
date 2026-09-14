@@ -67,16 +67,71 @@ function renderResumo({ porCartao, porDepartamento, pendencias }) {
   document.getElementById("resumoPendencias").textContent = totalPendencias;
 }
 
-function prepararCanvasRelatorioCartao(canvas) {
-  const ctx = canvas.getContext("2d");
+// ---- Infraestrutura de canvas responsivo -----------------------------------
+// Os dois gráficos são desenhados em Canvas 2D "na mão" (não há Chart.js ou
+// biblioteca similar no projeto). Isso significa que não existem "instâncias"
+// de gráfico para destruir, mas existe um problema equivalente: se o canvas
+// não acompanha o tamanho real do seu contêiner, ele fica com resolução fixa
+// (borrado quando esticado por CSS, ou desperdiçando espaço quando o
+// contêiner é maior). A função abaixo redimensiona o canvas para o tamanho
+// real exibido (em pixels físicos, usando devicePixelRatio) e devolve as
+// dimensões lógicas em pixels de CSS — todo o código de desenho abaixo usa
+// essas dimensões lógicas, nunca canvas.width/height diretamente.
+function prepararCanvasRelatorioCartao(canvas, alturaPreferida) {
   const escuro = document.documentElement.dataset.theme === "dark";
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  const dpr = window.devicePixelRatio || 1;
+  const largura = Math.max(canvas.clientWidth || canvas.parentElement?.clientWidth || 0, 240);
+  const altura = alturaPreferida || canvas.clientHeight || 260;
+  const larguraPx = Math.max(1, Math.round(largura * dpr));
+  const alturaPx = Math.max(1, Math.round(altura * dpr));
+
+  // Só reatribui width/height quando o valor muda de fato: escrever nesses
+  // atributos sempre reseta e limpa o bitmap do canvas, então fazer isso a
+  // cada frame sem necessidade seria desperdício e poderia mascarar outros
+  // bugs de redesenho.
+  if (canvas.width !== larguraPx || canvas.height !== alturaPx) {
+    canvas.width = larguraPx;
+    canvas.height = alturaPx;
+  }
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, largura, altura);
+  const grad = ctx.createLinearGradient(0, 0, 0, altura);
   grad.addColorStop(0, escuro ? "#071d33" : "#ffffff");
   grad.addColorStop(1, escuro ? "#061426" : "#f8fbff");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  return { ctx, escuro };
+  ctx.fillRect(0, 0, largura, altura);
+  return { ctx, escuro, largura, altura };
+}
+
+// Registra (uma única vez por canvas, via WeakMap) um ResizeObserver que
+// observa o CONTÊINER PAI do canvas — nunca o próprio canvas — e dispara um
+// redesenho quando a largura realmente muda. Observar o pai evita loop de
+// realimentação (o canvas nunca dispara o próprio observer ao ser
+// redimensionado) e o guard por WeakMap evita registrar o mesmo observer
+// duas vezes se a função de setup for chamada mais de uma vez.
+const observadoresRedimensionamento = new WeakMap();
+
+function garantirRedesenhoResponsivo(canvas, redesenhar) {
+  if (!canvas || observadoresRedimensionamento.has(canvas)) return;
+  const alvo = canvas.parentElement || canvas;
+  let larguraAnterior = alvo.clientWidth;
+  let quadroAgendado = null;
+
+  const observer = new ResizeObserver(() => {
+    if (quadroAgendado) cancelAnimationFrame(quadroAgendado);
+    quadroAgendado = requestAnimationFrame(() => {
+      quadroAgendado = null;
+      const larguraAtual = alvo.clientWidth;
+      if (Math.abs(larguraAtual - larguraAnterior) < 1) return;
+      larguraAnterior = larguraAtual;
+      redesenhar();
+    });
+  });
+
+  observer.observe(alvo);
+  observadoresRedimensionamento.set(canvas, observer);
 }
 
 function mesesEntre(dataInicioISO, dataFimISO) {
@@ -162,10 +217,6 @@ function agruparValorPorBucket(compras, granularidade) {
   return mapa;
 }
 
-function formatarIntervaloCurto(dataInicioISO, dataFimISO) {
-  return `${formatarData(dataInicioISO)} – ${formatarData(dataFimISO)}`;
-}
-
 function calcularTicksEixoY(valorMaximo, quantidade = 4) {
   if (!valorMaximo || valorMaximo <= 0) return [0, 1];
   const passoBruto = valorMaximo / quantidade;
@@ -221,164 +272,45 @@ function desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largur
 
 let barrasGraficoTempo = [];
 
-function desenharGraficoTempo(relatorio) {
-  const canvas = document.getElementById("graficoCartaoTempo");
-  const legenda = document.getElementById("graficoCartaoTempoLegenda");
-  if (!canvas) return;
-  const comparativoAtivo = Boolean(document.getElementById("compararPeriodoAnterior")?.checked && relatorio.comprasPeriodoAnterior);
-  const escuro = document.documentElement.dataset.theme === "dark";
-  barrasGraficoTempo = [];
-
+// Monta os pontos do gráfico a partir do relatório (função pura, sem tocar em
+// canvas/DOM). `relatorio.anterior` é o único indicador de "modo comparação":
+// ele só existe quando o carregamento buscou e trouxe de volta os dados do
+// período anterior — nunca um estado "meio carregado" (ver
+// carregarRelatoriosCartao), então esta função nunca vê uma comparação
+// parcialmente pronta.
+function construirDadosGraficoTempo(relatorio) {
   const dataInicial = document.getElementById("filtroDataInicial").value;
   const dataFinal = document.getElementById("filtroDataFinal").value;
   const mesesAtual = mesesEntre(dataInicial, dataFinal);
+  const comparando = Boolean(relatorio.anterior);
 
-  if (comparativoAtivo) {
-    const prevInicio = document.getElementById("comparaDataInicial").value;
-    const prevFim = document.getElementById("comparaDataFinal").value;
-    const atualMultiMes = !dataInicial || !dataFinal || dataInicial.slice(0, 7) !== dataFinal.slice(0, 7);
-    const anteriorMultiMes = !prevInicio || !prevFim || prevInicio.slice(0, 7) !== prevFim.slice(0, 7);
-
-    if (!atualMultiMes && !anteriorMultiMes) {
-      if (legenda) {
-        const corAtual = escuro ? "#22d3ee" : "#2563eb";
-        legenda.innerHTML = `<span class="card-report-trend-legend-item"><i style="background:${corAtual}"></i>Atual</span><span class="card-report-trend-legend-item"><i style="background:#94a3b8"></i>Período anterior</span>`;
-      }
-      desenharGraficoTempoParPeriodos(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, { dataInicial, dataFinal, prevInicio, prevFim });
-    } else {
-      const mesesAnterior = mesesEntre(prevInicio, prevFim);
-      const granularidade = escolherGranularidade(Math.max(mesesAtual.length, mesesAnterior.length));
-      if (legenda) {
-        const corAtual = escuro ? "#22d3ee" : "#2563eb";
-        legenda.innerHTML = `<span class="card-report-trend-legend-item"><i style="background:${corAtual}"></i>Atual</span><span class="card-report-trend-legend-item"><i style="background:#94a3b8"></i>Período anterior</span><span class="card-report-trend-legend-item">${rotuloGranularidade(granularidade)}</span>`;
-      }
-      desenharGraficoTempoComparativo(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, mesesAtual, mesesAnterior, granularidade);
-    }
-  } else {
+  if (!comparando) {
     const granularidade = escolherGranularidade(mesesAtual.length || 1);
-    if (legenda) legenda.textContent = rotuloGranularidade(granularidade);
-    desenharGraficoTempoUnico(canvas, relatorio.comprasPeriodo, mesesAtual, granularidade);
-  }
-}
-
-function desenharGraficoTempoUnico(canvas, compras, meses, granularidade) {
-  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
-
-  if (!meses.length) {
-    ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
-    ctx.textAlign = "center";
-    ctx.fillText("Selecione um período para exibir o gráfico.", canvas.width / 2, canvas.height / 2);
-    return;
+    const buckets = bucketizarMeses(mesesAtual, granularidade);
+    const mapa = agruparValorPorBucket(relatorio.comprasPeriodo, granularidade);
+    const pontos = buckets.map((chave) => ({
+      label: rotuloBucket(chave, granularidade),
+      atual: mapa.get(chave) || 0,
+      anterior: null
+    }));
+    return { comparando: false, granularidade, pontos };
   }
 
-  const buckets = bucketizarMeses(meses, granularidade);
-  const mapa = agruparValorPorBucket(compras, granularidade);
-  const pontos = buckets.map((chave) => ({ label: rotuloBucket(chave, granularidade), total: mapa.get(chave) || 0 }));
+  const prevInicio = document.getElementById("comparaDataInicial").value;
+  const prevFim = document.getElementById("comparaDataFinal").value;
+  const mesesAnterior = mesesEntre(prevInicio, prevFim);
+  const granularidade = escolherGranularidade(Math.max(mesesAtual.length, mesesAnterior.length, 1));
 
-  const ticks = calcularTicksEixoY(Math.max(1, ...pontos.map((item) => item.total)));
-  const valorTopo = ticks[ticks.length - 1] || 1;
-  const margem = calcularMargemEixoY(ctx, ticks);
-  const altura = canvas.height - 78;
-  const baseY = altura + 34;
-  const largura = canvas.width - margem - 20;
-
-  desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro);
-
-  const grupo = largura / pontos.length;
-  const barraLargura = Math.min(56, grupo * 0.45);
-  const rotuloPlano = planoRotulosEixoX(grupo, pontos.length);
-  pontos.forEach((item, index) => {
-    const h = (item.total / valorTopo) * altura;
-    const x = margem + index * grupo + (grupo - barraLargura) / 2;
-    const y = baseY - h;
-    const grad = ctx.createLinearGradient(0, y, 0, baseY);
-    grad.addColorStop(0, escuro ? "#22d3ee" : "#2563eb");
-    grad.addColorStop(1, escuro ? "#0f766e" : "#14b8a6");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect(x, y, barraLargura, h, 7);
-    ctx.fill();
-
-    if (index % rotuloPlano.pular === 0) {
-      ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
-      ctx.textAlign = "center";
-      ctx.font = `700 ${rotuloPlano.fonte}px Arial`;
-      ctx.fillText(item.label, x + barraLargura / 2, baseY + 24);
-    }
-
-    barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${item.label}: ${moeda(item.total)}` });
-  });
-}
-
-function desenharGraficoTempoParPeriodos(canvas, comprasAtual, comprasAnterior, periodos) {
-  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
-  const totalAtual = (comprasAtual || []).reduce((soma, compra) => soma + Number(compra.valor || 0), 0);
-  const totalAnterior = (comprasAnterior || []).reduce((soma, compra) => soma + Number(compra.valor || 0), 0);
-
-  const ticks = calcularTicksEixoY(Math.max(totalAtual, totalAnterior));
-  const valorTopo = ticks[ticks.length - 1] || 1;
-  const margem = calcularMargemEixoY(ctx, ticks);
-  const altura = canvas.height - 78;
-  const baseY = altura + 34;
-  const largura = canvas.width - margem - 20;
-
-  desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro);
-
-  const barraLargura = Math.min(90, largura * 0.22);
-  const espacoEntreBarras = largura * 0.14;
-  const centro = margem + largura / 2;
-
-  const barras = [
-    { valor: totalAnterior, cor: ["#cbd5e1", "#94a3b8"], x: centro - espacoEntreBarras / 2 - barraLargura, rotulo: "Período anterior", intervalo: formatarIntervaloCurto(periodos.prevInicio, periodos.prevFim) },
-    { valor: totalAtual, cor: escuro ? ["#22d3ee", "#0f766e"] : ["#2563eb", "#14b8a6"], x: centro + espacoEntreBarras / 2, rotulo: "Atual", intervalo: formatarIntervaloCurto(periodos.dataInicial, periodos.dataFinal) }
-  ];
-
-  barras.forEach(({ valor, cor, x, rotulo, intervalo }) => {
-    const h = (valor / valorTopo) * altura;
-    const y = baseY - h;
-    const grad = ctx.createLinearGradient(0, y, 0, baseY);
-    grad.addColorStop(0, cor[0]);
-    grad.addColorStop(1, cor[1]);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect(x, y, barraLargura, Math.max(h, 0), 8);
-    ctx.fill();
-
-    ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
-    ctx.textAlign = "center";
-    ctx.font = "700 12px Arial";
-    ctx.fillText(rotulo, x + barraLargura / 2, baseY + 20);
-    ctx.font = "11px Arial";
-    ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
-    ctx.fillText(intervalo, x + barraLargura / 2, baseY + 35);
-
-    barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${rotulo} (${intervalo}): ${moeda(valor)}` });
-  });
-}
-
-function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, mesesAtual, mesesAnterior, granularidade) {
-  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
-  const mapaAtual = agruparValorPorBucket(comprasAtual, granularidade);
-  const mapaAnterior = agruparValorPorBucket(comprasAnterior, granularidade);
-
-  // Reduz cada período aos seus buckets únicos (mês/trimestre/ano) antes de
-  // alinhar — isso é o que limita o gráfico a, no máximo, ~12 colunas mesmo
-  // quando o período selecionado cobre vários anos.
+  // Reduz cada período aos seus buckets únicos (mês/trimestre/ano) e alinha
+  // pela posição relativa (1º bucket do atual com o 1º do anterior, e assim
+  // por diante) — do contrário, comparar anos diferentes geraria uma coluna
+  // por bucket de cada ano em vez de colunas pareadas.
   const bucketsAtual = bucketizarMeses(mesesAtual, granularidade);
   const bucketsAnterior = bucketizarMeses(mesesAnterior, granularidade);
+  const mapaAtual = agruparValorPorBucket(relatorio.comprasPeriodo, granularidade);
+  const mapaAnterior = agruparValorPorBucket(relatorio.anterior.comprasPeriodo, granularidade);
   const quantidade = Math.max(bucketsAtual.length, bucketsAnterior.length);
-  if (!quantidade) {
-    ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
-    ctx.textAlign = "center";
-    ctx.fillText("Sem dados para exibir.", canvas.width / 2, canvas.height / 2);
-    return;
-  }
 
-  // Alinha os dois períodos pela posição relativa do bucket (1º bucket do
-  // período atual com o 1º bucket do período anterior, e assim por diante),
-  // em vez de casar por chave absoluta — do contrário, comparar anos
-  // diferentes gera uma coluna por bucket de cada ano, a maioria com só uma
-  // das duas barras.
   const pontos = Array.from({ length: quantidade }, (_, index) => {
     const chaveAtual = bucketsAtual[index];
     const chaveAnterior = bucketsAnterior[index];
@@ -386,54 +318,118 @@ function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, 
     const rotuloAnterior = chaveAnterior ? rotuloBucket(chaveAnterior, granularidade) : null;
     return {
       label: rotuloAtual || rotuloAnterior || `Período ${index + 1}`,
-      atual: chaveAtual ? (mapaAtual.get(chaveAtual) || 0) : 0,
-      anterior: chaveAnterior ? (mapaAnterior.get(chaveAnterior) || 0) : 0,
+      // null (não 0) marca "esse período não cobre essa posição" — o
+      // desenho usa isso para não pintar uma barra fantasma de valor zero.
+      atual: chaveAtual ? (mapaAtual.get(chaveAtual) || 0) : null,
+      anterior: chaveAnterior ? (mapaAnterior.get(chaveAnterior) || 0) : null,
       rotuloAtual,
       rotuloAnterior
     };
   });
 
-  const ticks = calcularTicksEixoY(Math.max(1, ...pontos.map((item) => Math.max(item.atual, item.anterior))));
+  return { comparando: true, granularidade, pontos };
+}
+
+function atualizarLegendaGraficoTempo(dados) {
+  const legenda = document.getElementById("graficoCartaoTempoLegenda");
+  if (!legenda) return;
+  if (!dados.comparando) {
+    legenda.textContent = rotuloGranularidade(dados.granularidade);
+    return;
+  }
+  const escuro = document.documentElement.dataset.theme === "dark";
+  const corAtual = escuro ? "#22d3ee" : "#2563eb";
+  legenda.innerHTML = `<span class="card-report-trend-legend-item"><i style="background:${corAtual}"></i>Atual</span><span class="card-report-trend-legend-item"><i style="background:#94a3b8"></i>Período anterior</span><span class="card-report-trend-legend-item">${rotuloGranularidade(dados.granularidade)}</span>`;
+}
+
+function desenharGraficoTempo(relatorio) {
+  const canvas = document.getElementById("graficoCartaoTempo");
+  if (!canvas) return;
+  const dados = construirDadosGraficoTempo(relatorio);
+  atualizarLegendaGraficoTempo(dados);
+  renderizarGraficoTempo(canvas, dados);
+}
+
+// Único desenhista para os dois modos (com e sem comparação). Antes existiam
+// três funções quase idênticas (modo único, "dois totais lado a lado" e
+// "comparativo mês a mês") — qualquer correção precisava ser replicada nas
+// três, e foi assim que um bug (variável órfã) passou despercebido. Agora é
+// uma função só: sem comparação desenha uma barra por ponto; comparando,
+// desenha o par atual/anterior lado a lado, pulando o lado que não tem dado
+// naquela posição (em vez de desenhar uma barra de altura zero).
+function renderizarGraficoTempo(canvas, dados) {
+  const { ctx, escuro, largura: larguraCanvas, altura: alturaCanvas } = prepararCanvasRelatorioCartao(canvas);
+  barrasGraficoTempo = [];
+
+  if (!dados.pontos.length) {
+    ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
+    ctx.textAlign = "center";
+    ctx.fillText("Selecione um período para exibir o gráfico.", larguraCanvas / 2, alturaCanvas / 2);
+    return;
+  }
+
+  const valores = dados.pontos.flatMap((ponto) => [ponto.atual, ponto.anterior]).filter((valor) => valor != null);
+  const ticks = calcularTicksEixoY(Math.max(1, ...valores, 0));
   const valorTopo = ticks[ticks.length - 1] || 1;
   const margem = calcularMargemEixoY(ctx, ticks);
-  const altura = canvas.height - 78;
+  const altura = alturaCanvas - 78;
   const baseY = altura + 34;
-  const largura = canvas.width - margem - 20;
+  const largura = larguraCanvas - margem - 20;
 
   desenharGradeEixoY(ctx, ticks, valorTopo, margem, altura, baseY, largura, escuro);
 
-  const grupo = largura / pontos.length;
-  const barraLargura = Math.min(34, grupo * 0.28);
+  const grupo = largura / dados.pontos.length;
+  const rotuloPlano = planoRotulosEixoX(grupo, dados.pontos.length);
+  const barraLarguraSimples = Math.min(56, grupo * 0.45);
+  // Com poucos grupos (ex.: "este mês" vs "mês passado", só 1 grupo) as
+  // barras podem ficar bem largas, como um comparativo de totais; com muitos
+  // grupos ficam finas, como o gráfico mensal de sempre.
+  const larguraMaximaDupla = dados.pontos.length <= 2 ? 90 : 34;
+  const proporcaoDupla = dados.pontos.length <= 2 ? 0.32 : 0.28;
+  const barraLarguraDupla = Math.min(larguraMaximaDupla, grupo * proporcaoDupla);
   const espacoEntreBarras = 6;
-  const rotuloPlano = planoRotulosEixoX(grupo, pontos.length);
 
-  pontos.forEach((item, index) => {
+  dados.pontos.forEach((ponto, index) => {
     const centroGrupo = margem + index * grupo + grupo / 2;
 
-    [
-      { valor: item.anterior, cor: ["#cbd5e1", "#94a3b8"], deslocamento: -(barraLargura + espacoEntreBarras / 2), rotulo: "Período anterior", mesRotulo: item.rotuloAnterior },
-      { valor: item.atual, cor: escuro ? ["#22d3ee", "#0f766e"] : ["#2563eb", "#14b8a6"], deslocamento: espacoEntreBarras / 2, rotulo: "Atual", mesRotulo: item.rotuloAtual }
-    ].forEach(({ valor, cor, deslocamento, rotulo, mesRotulo }) => {
-      if (!mesRotulo) return;
+    if (!dados.comparando) {
+      const valor = ponto.atual || 0;
       const h = (valor / valorTopo) * altura;
-      const x = centroGrupo + deslocamento;
+      const x = centroGrupo - barraLarguraSimples / 2;
       const y = baseY - h;
       const grad = ctx.createLinearGradient(0, y, 0, baseY);
-      grad.addColorStop(0, cor[0]);
-      grad.addColorStop(1, cor[1]);
+      grad.addColorStop(0, escuro ? "#22d3ee" : "#2563eb");
+      grad.addColorStop(1, escuro ? "#0f766e" : "#14b8a6");
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.roundRect(x, y, barraLargura, Math.max(h, 0), 6);
+      ctx.roundRect(x, y, barraLarguraSimples, h, 7);
       ctx.fill();
-
-      barrasGraficoTempo.push({ x, y, width: barraLargura, height: Math.max(h, 4), detalhe: `${rotulo} — ${mesRotulo}: ${moeda(valor)}` });
-    });
+      barrasGraficoTempo.push({ x, y, width: barraLarguraSimples, height: Math.max(h, 4), detalhe: `${ponto.label}: ${moeda(valor)}` });
+    } else {
+      [
+        { valor: ponto.anterior, cor: ["#cbd5e1", "#94a3b8"], deslocamento: -(barraLarguraDupla + espacoEntreBarras / 2), rotulo: "Período anterior", rotuloPeriodo: ponto.rotuloAnterior },
+        { valor: ponto.atual, cor: escuro ? ["#22d3ee", "#0f766e"] : ["#2563eb", "#14b8a6"], deslocamento: espacoEntreBarras / 2, rotulo: "Atual", rotuloPeriodo: ponto.rotuloAtual }
+      ].forEach(({ valor, cor, deslocamento, rotulo, rotuloPeriodo }) => {
+        if (valor == null) return;
+        const h = (valor / valorTopo) * altura;
+        const x = centroGrupo + deslocamento;
+        const y = baseY - h;
+        const grad = ctx.createLinearGradient(0, y, 0, baseY);
+        grad.addColorStop(0, cor[0]);
+        grad.addColorStop(1, cor[1]);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barraLarguraDupla, Math.max(h, 0), 6);
+        ctx.fill();
+        barrasGraficoTempo.push({ x, y, width: barraLarguraDupla, height: Math.max(h, 4), detalhe: `${rotulo} — ${rotuloPeriodo}: ${moeda(valor)}` });
+      });
+    }
 
     if (index % rotuloPlano.pular === 0) {
       ctx.fillStyle = escuro ? "#dbeafe" : "#475569";
       ctx.textAlign = "center";
       ctx.font = `700 ${rotuloPlano.fonte}px Arial`;
-      ctx.fillText(item.label, centroGrupo, baseY + 24);
+      ctx.fillText(ponto.label, centroGrupo, baseY + 24);
     }
   });
 }
@@ -452,10 +448,12 @@ function configurarTooltipGraficoTempo() {
 
   canvas.addEventListener("mousemove", (event) => {
     const rect = canvas.getBoundingClientRect();
-    const escalaX = canvas.width / rect.width;
-    const escalaY = canvas.height / rect.height;
-    const x = (event.clientX - rect.left) * escalaX;
-    const y = (event.clientY - rect.top) * escalaY;
+    // As barras em barrasGraficoTempo são posicionadas em pixels lógicos de
+    // CSS (prepararCanvasRelatorioCartao já compensa o devicePixelRatio via
+    // ctx.setTransform), então a posição do mouse relativa ao canvas não
+    // precisa de nenhum fator de escala extra.
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
 
     const barra = barrasGraficoTempo.find((item) => x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height);
     if (barra) {
@@ -475,58 +473,116 @@ function configurarTooltipGraficoTempo() {
   });
 }
 
-function dadosDistribuicaoAtual(relatorio) {
-  if (abaRelatorioCartaoAtiva === "departamento") {
-    return {
-      titulo: "Por departamento",
-      itens: relatorio.porDepartamento.map((item) => ({ nome: item.departamento, total: Number(item.total_gasto || 0) }))
-    };
+// Agrupa itens excedentes em "Outros" preservando a soma real (em vez de
+// simplesmente cortar no 6º item), tanto para o modo simples (campo `total`)
+// quanto para o comparativo (campos `atual`/`anterior`) — os campos que não
+// existem no item somam 0 e não afetam o resultado.
+function agruparPrincipaisEOutros(itens, limitePrincipais = 5, limiteTotal = 6) {
+  if (itens.length <= limiteTotal) return itens;
+  const principais = itens.slice(0, limitePrincipais);
+  const restante = itens.slice(limitePrincipais);
+  const agregado = restante.reduce((acc, item) => ({
+    total: acc.total + (item.total || 0),
+    atual: acc.atual + (item.atual || 0),
+    anterior: acc.anterior + (item.anterior || 0)
+  }), { total: 0, atual: 0, anterior: 0 });
+  return [...principais, { nome: "Outros", subtitulo: `${restante.length} categorias`, ...agregado }];
+}
+
+// Monta os dados da "Distribuição dos gastos" (função pura). Sem comparação,
+// devolve a mesma lista de sempre para o donut. Comparando, casa cada
+// categoria (cartão ou departamento) do período atual com a mesma categoria
+// do período anterior pelo nome — incluindo categorias que só existem em um
+// dos dois períodos (ficam com o outro lado em 0) — e ordena pelo maior valor
+// entre os dois períodos.
+function construirDadosDistribuicao(relatorio) {
+  const porDepartamentoAtivo = abaRelatorioCartaoAtiva === "departamento";
+  const chaveLista = porDepartamentoAtivo ? "porDepartamento" : "porCartao";
+  const campoNome = porDepartamentoAtivo ? "departamento" : "cartao";
+  const titulo = porDepartamentoAtivo ? "Por departamento" : "Por cartão";
+  const listaAtual = relatorio[chaveLista] || [];
+  const comparando = Boolean(relatorio.anterior);
+
+  if (!comparando) {
+    const itens = listaAtual
+      .map((item) => ({ nome: item[campoNome], subtitulo: porDepartamentoAtivo ? null : item.departamento, total: Number(item.total_gasto || 0) }))
+      .filter((item) => item.total > 0)
+      .sort((a, b) => b.total - a.total);
+    return { comparando: false, titulo, itens: agruparPrincipaisEOutros(itens) };
   }
-  return {
-    titulo: "Por cartão",
-    itens: relatorio.porCartao.map((item) => ({ nome: item.cartao, subtitulo: item.departamento, total: Number(item.total_gasto || 0) }))
-  };
+
+  const listaAnterior = relatorio.anterior[chaveLista] || [];
+  const mapaAnterior = new Map(listaAnterior.map((item) => [item[campoNome], Number(item.total_gasto || 0)]));
+  const nomesVistos = new Set();
+  const combinados = [];
+
+  listaAtual.forEach((item) => {
+    const nome = item[campoNome];
+    nomesVistos.add(nome);
+    combinados.push({
+      nome,
+      subtitulo: porDepartamentoAtivo ? null : item.departamento,
+      atual: Number(item.total_gasto || 0),
+      anterior: mapaAnterior.get(nome) || 0
+    });
+  });
+  listaAnterior.forEach((item) => {
+    const nome = item[campoNome];
+    if (nomesVistos.has(nome)) return;
+    combinados.push({ nome, subtitulo: null, atual: 0, anterior: Number(item.total_gasto || 0) });
+  });
+
+  const itens = combinados
+    .filter((item) => item.atual > 0 || item.anterior > 0)
+    .sort((a, b) => Math.max(b.atual, b.anterior) - Math.max(a.atual, a.anterior));
+
+  return { comparando: true, titulo, itens: agruparPrincipaisEOutros(itens) };
 }
 
 function desenharGraficoDistribuicao(relatorio) {
+  const dados = construirDadosDistribuicao(relatorio);
+  const tituloEl = document.getElementById("graficoCartaoDistribuicaoTitulo");
+  if (tituloEl) tituloEl.textContent = dados.titulo;
+
+  const layoutDonut = document.getElementById("distribuicaoDonutLayout");
+  const layoutComparativo = document.getElementById("distribuicaoComparativaLista");
+  if (layoutDonut) layoutDonut.classList.toggle("hidden", dados.comparando);
+  if (layoutComparativo) layoutComparativo.classList.toggle("hidden", !dados.comparando);
+
+  if (dados.comparando) {
+    renderizarDistribuicaoComparativa(dados.itens);
+  } else {
+    renderizarDonutDistribuicao(dados.itens);
+  }
+}
+
+// Modo sem comparação: donut de sempre, só que agora com centro/raio
+// calculados a partir do tamanho real do canvas (responsivo), em vez de
+// valores fixos que assumiam um canvas de 260x260.
+function renderizarDonutDistribuicao(itens) {
   const canvas = document.getElementById("graficoCartaoDistribuicao");
   if (!canvas) return;
-  const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
-  const { titulo, itens } = dadosDistribuicaoAtual(relatorio);
-  const positivos = itens.filter((item) => item.total > 0).sort((a, b) => b.total - a.total);
-
-  // Mostra no máximo 5 fatias + "Outros" (em vez de simplesmente cortar no
-  // 6º item) para que o "Total" e os percentuais no centro/legenda sempre
-  // reflitam a soma real de todos os cartões/departamentos, não só dos
-  // primeiros da lista.
-  const limitePrincipais = 5;
-  let dados = positivos;
-  if (positivos.length > 6) {
-    const principais = positivos.slice(0, limitePrincipais);
-    const restante = positivos.slice(limitePrincipais);
-    const totalRestante = restante.reduce((soma, item) => soma + item.total, 0);
-    dados = [...principais, { nome: "Outros", subtitulo: `${restante.length} categorias`, total: totalRestante }];
-  }
-  const total = dados.reduce((soma, item) => soma + item.total, 0);
+  const { ctx, escuro, largura, altura } = prepararCanvasRelatorioCartao(canvas);
+  const total = itens.reduce((soma, item) => soma + item.total, 0);
+  const cx = largura / 2;
+  const cy = altura / 2;
+  const raioExterno = Math.max(40, Math.min(largura, altura) / 2 - 16);
+  const raioInterno = raioExterno * 0.587;
   let inicio = -Math.PI / 2;
-  const cx = 130;
-  const cy = 130;
-  const raio = 92;
-  document.getElementById("graficoCartaoDistribuicaoTitulo").textContent = titulo;
 
-  if (!dados.length) {
+  if (!itens.length) {
     ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
     ctx.textAlign = "center";
-    ctx.fillText("Sem dados para exibir.", canvas.width / 2, canvas.height / 2);
+    ctx.fillText("Sem dados para exibir.", largura / 2, altura / 2);
     document.getElementById("legendaCartaoDistribuicao").innerHTML = "";
     return;
   }
 
-  dados.forEach((item, index) => {
+  itens.forEach((item, index) => {
     const angulo = (item.total / total) * Math.PI * 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, raio, inicio, inicio + angulo);
-    ctx.arc(cx, cy, 54, inicio + angulo, inicio, true);
+    ctx.arc(cx, cy, raioExterno, inicio, inicio + angulo);
+    ctx.arc(cx, cy, raioInterno, inicio + angulo, inicio, true);
     ctx.closePath();
     ctx.fillStyle = coresRelatorioCartao[index % coresRelatorioCartao.length];
     ctx.fill();
@@ -535,7 +591,7 @@ function desenharGraficoDistribuicao(relatorio) {
 
   ctx.fillStyle = escuro ? "#071d33" : "#ffffff";
   ctx.beginPath();
-  ctx.arc(cx, cy, 50, 0, Math.PI * 2);
+  ctx.arc(cx, cy, Math.max(0, raioInterno - 4), 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = escuro ? "#f8fbff" : "#0f1b3d";
   ctx.textAlign = "center";
@@ -545,7 +601,7 @@ function desenharGraficoDistribuicao(relatorio) {
   ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
   ctx.fillText("Total", cx, cy + 18);
 
-  document.getElementById("legendaCartaoDistribuicao").innerHTML = dados.map((item, index) => {
+  document.getElementById("legendaCartaoDistribuicao").innerHTML = itens.map((item, index) => {
     const percentual = total ? ((item.total / total) * 100).toFixed(1).replace(".", ",") : "0";
     const tituloCompleto = item.subtitulo ? `${item.nome} (${item.subtitulo})` : item.nome;
     const detalhe = item.subtitulo ? `${item.subtitulo} · ${moeda(item.total)}` : moeda(item.total);
@@ -554,6 +610,63 @@ function desenharGraficoDistribuicao(relatorio) {
         <span title="${tituloCompleto}"><i style="background:${coresRelatorioCartao[index % coresRelatorioCartao.length]}"></i>${item.nome}</span>
         <strong>${percentual}%</strong>
         <small>${detalhe}</small>
+      </div>
+    `;
+  }).join("");
+}
+
+// Modo com comparação: barras horizontais Atual/Anterior + variação %, uma
+// por categoria. Escolhida em vez de dois donuts lado a lado porque comparar
+// duas roscas de cores diferentes fatia a fatia é visualmente difícil — a
+// pergunta que importa aqui ("esse cartão gastou mais ou menos que no
+// período anterior, e quanto?") fica direta com duas barras emparelhadas e
+// um selo de variação, sem depender de decorar cores entre dois círculos
+// separados. É HTML puro (sem canvas): mais simples de manter, naturalmente
+// responsivo e acessível, sem precisar de outro observer de redimensionamento.
+function renderizarDistribuicaoComparativa(itens) {
+  const container = document.getElementById("distribuicaoComparativaLista");
+  if (!container) return;
+
+  if (!itens.length) {
+    container.innerHTML = `<p class="card-report-compare-bars-empty">Sem dados para exibir.</p>`;
+    return;
+  }
+
+  const maiorValor = Math.max(1, ...itens.flatMap((item) => [item.atual, item.anterior]));
+
+  container.innerHTML = itens.map((item) => {
+    const percAtual = Math.max(2, Math.round((item.atual / maiorValor) * 100));
+    const percAnterior = Math.max(2, Math.round((item.anterior / maiorValor) * 100));
+    const tituloCompleto = item.subtitulo ? `${item.nome} (${item.subtitulo})` : item.nome;
+
+    let variacaoHtml;
+    if (item.anterior > 0) {
+      const variacao = ((item.atual - item.anterior) / item.anterior) * 100;
+      const subiu = variacao > 0.05;
+      const desceu = variacao < -0.05;
+      const classe = subiu ? "is-up" : desceu ? "is-down" : "is-flat";
+      const seta = subiu ? "↑" : desceu ? "↓" : "→";
+      variacaoHtml = `<span class="card-report-compare-bar-delta ${classe}">${seta} ${Math.abs(variacao).toFixed(1).replace(".", ",")}%</span>`;
+    } else if (item.atual > 0) {
+      variacaoHtml = `<span class="card-report-compare-bar-delta is-up">Novo</span>`;
+    } else {
+      variacaoHtml = `<span class="card-report-compare-bar-delta is-down">Zerado</span>`;
+    }
+
+    return `
+      <div class="card-report-compare-bar-row">
+        <div class="card-report-compare-bar-head">
+          <span title="${tituloCompleto}">${item.nome}</span>
+          ${variacaoHtml}
+        </div>
+        <div class="card-report-compare-bar-line">
+          <span class="card-report-compare-bar-track"><span class="card-report-compare-bar-fill is-atual" style="width:${percAtual}%"></span></span>
+          <span class="card-report-compare-bar-value">${moeda(item.atual)}</span>
+        </div>
+        <div class="card-report-compare-bar-line">
+          <span class="card-report-compare-bar-track"><span class="card-report-compare-bar-fill is-anterior" style="width:${percAnterior}%"></span></span>
+          <span class="card-report-compare-bar-value">${moeda(item.anterior)}</span>
+        </div>
       </div>
     `;
   }).join("");
@@ -600,34 +713,27 @@ function sincronizarPeriodoComparativoPadrao() {
   document.getElementById("comparaDataFinal").value = padrao.fim;
 }
 
-async function renderComparativoPeriodoAnterior(totalAtual) {
-  const elemento = document.getElementById("resumoTotalComparativo");
+// Reflete o estado do toggle "Comparar" nos campos de período (mostra/some o
+// campo "Período anterior" e troca o rótulo "Período" <-> "Atual"). Devolve
+// se a comparação está ativa, para quem chama decidir se busca o anterior.
+function atualizarCampoPeriodoComparativo() {
+  const ativo = Boolean(document.getElementById("compararPeriodoAnterior")?.checked);
   const campoComparativo = document.getElementById("campoPeriodoComparativo");
   const labelAtual = document.getElementById("labelPeriodoAtual");
-  if (!elemento) return;
-  const ativo = document.getElementById("compararPeriodoAnterior")?.checked;
-
   if (labelAtual) labelAtual.textContent = ativo ? "Atual" : "Período";
   if (campoComparativo) campoComparativo.classList.toggle("hidden", !ativo);
+  return ativo;
+}
 
-  if (!ativo) {
-    elemento.textContent = "";
-    elemento.className = "card-report-kpi-delta hidden";
-    if (ultimoRelatorioCartao) ultimoRelatorioCartao.comprasPeriodoAnterior = null;
-    desenharGraficoTempo(ultimoRelatorioCartao || {});
-    return;
-  }
+function somaTotalGasto(lista) {
+  return (lista || []).reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
+}
 
-  const prevInicio = document.getElementById("comparaDataInicial").value;
-  const prevFim = document.getElementById("comparaDataFinal").value;
-  if (!prevInicio || !prevFim) {
-    elemento.textContent = "";
-    elemento.className = "card-report-kpi-delta hidden";
-    if (ultimoRelatorioCartao) ultimoRelatorioCartao.comprasPeriodoAnterior = null;
-    desenharGraficoTempo(ultimoRelatorioCartao || {});
-    return;
-  }
-
+// Busca as três coisas do período anterior necessárias para os gráficos:
+// total por cartão e por departamento (para a distribuição comparativa) e a
+// lista de compras (para o gráfico de tempo). Chamada só quando a comparação
+// está ativa e as duas datas do período anterior estão preenchidas.
+async function buscarDadosPeriodoAnterior(prevInicio, prevFim) {
   const qs = new URLSearchParams();
   const departamentoId = document.getElementById("filtroDepartamento").value;
   const cartaoId = document.getElementById("filtroCartao").value;
@@ -641,15 +747,33 @@ async function renderComparativoPeriodoAnterior(totalAtual) {
   const qsCompras = new URLSearchParams(qs);
   if (status) qsCompras.set("status", status);
 
-  const periodoTexto = `${formatarData(prevInicio)} – ${formatarData(prevFim)}`;
-  const [porCartaoAnterior, comprasAnterior] = await Promise.all([
+  const [porCartao, porDepartamento, comprasPeriodo] = await Promise.all([
     fetch(`/api/relatorios-cartao/gastos-por-cartao?${qs.toString()}`).then((r) => r.json()),
+    fetch(`/api/relatorios-cartao/gastos-por-departamento?${qs.toString()}`).then((r) => r.json()),
     fetch(`/api/relatorios-cartao/compras?${qsCompras.toString()}`).then((r) => r.json())
   ]);
-  const totalAnterior = porCartaoAnterior.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
 
-  if (ultimoRelatorioCartao) ultimoRelatorioCartao.comprasPeriodoAnterior = comprasAnterior;
-  desenharGraficoTempo(ultimoRelatorioCartao || {});
+  return { porCartao, porDepartamento, comprasPeriodo };
+}
+
+// Atualiza só o texto de variação (↑/↓ X% vs período anterior) abaixo do KPI
+// "Total gasto". Não desenha nada — os gráficos já são desenhados por
+// renderVisualRelatorioCartao a partir do mesmo `relatorio.anterior`.
+function atualizarDeltaTotal(relatorio) {
+  const elemento = document.getElementById("resumoTotalComparativo");
+  if (!elemento) return;
+
+  if (!relatorio.anterior) {
+    elemento.textContent = "";
+    elemento.className = "card-report-kpi-delta hidden";
+    return;
+  }
+
+  const totalAtual = somaTotalGasto(relatorio.porCartao);
+  const totalAnterior = somaTotalGasto(relatorio.anterior.porCartao);
+  const prevInicio = document.getElementById("comparaDataInicial").value;
+  const prevFim = document.getElementById("comparaDataFinal").value;
+  const periodoTexto = `${formatarData(prevInicio)} – ${formatarData(prevFim)}`;
 
   if (!totalAnterior) {
     elemento.textContent = `Sem gastos no período comparado (${periodoTexto})`;
@@ -719,7 +843,17 @@ function renderTabelas({ porCartao, porDepartamento, comprasPeriodo }) {
     : vazio(8, "Nenhuma compra encontrada para o período selecionado.");
 }
 
+// Contador monotônico: cada chamada pega o próximo número e, quando sua
+// resposta chega, só aplica os dados na tela se ainda for a chamada mais
+// recente. Sem isso, trocar de filtro rapidamente (ex.: cartão, depois
+// departamento) pode fazer uma resposta mais VELHA chegar depois de uma mais
+// NOVA e sobrescrever a tela com dados desatualizados.
+let solicitacaoRelatorioCartaoAtual = 0;
+
 async function carregarRelatoriosCartao() {
+  const idSolicitacao = ++solicitacaoRelatorioCartaoAtual;
+  const comparando = atualizarCampoPeriodoComparativo();
+
   const query = qsRelatorio();
   const suffix = query ? `?${query}` : "";
   const comprasFiltro = qsComprasPeriodo();
@@ -727,28 +861,37 @@ async function carregarRelatoriosCartao() {
     ? Promise.resolve({ blocked: comprasFiltro.blocked, rows: [] })
     : fetch(`/api/relatorios-cartao/compras${comprasFiltro.query ? `?${comprasFiltro.query}` : ""}`).then((r) => r.json()).then((rows) => ({ blocked: "", rows }));
 
-  const [porCartao, porDepartamento, pendencias, comprasResultado] = await Promise.all([
+  const prevInicio = document.getElementById("comparaDataInicial").value;
+  const prevFim = document.getElementById("comparaDataFinal").value;
+  const anteriorPromise = comparando && prevInicio && prevFim
+    ? buscarDadosPeriodoAnterior(prevInicio, prevFim)
+    : Promise.resolve(null);
+
+  const [porCartao, porDepartamento, pendencias, comprasResultado, anterior] = await Promise.all([
     fetch(`/api/relatorios-cartao/gastos-por-cartao${suffix}`).then((r) => r.json()),
     fetch(`/api/relatorios-cartao/gastos-por-departamento${suffix}`).then((r) => r.json()),
     fetch(`/api/relatorios-cartao/pendencias${suffix}`).then((r) => r.json()),
-    comprasPromise
+    comprasPromise,
+    anteriorPromise
   ]);
+
+  if (idSolicitacao !== solicitacaoRelatorioCartaoAtual) return; // resposta desatualizada, descarta
 
   ultimoRelatorioCartao = {
     porCartao,
     porDepartamento,
     pendencias,
     comprasPeriodo: comprasResultado.rows,
-    comprasBloqueadas: comprasResultado.blocked || ""
+    comprasBloqueadas: comprasResultado.blocked || "",
+    anterior
   };
   renderResumo({ porCartao, porDepartamento, pendencias });
   renderTabelas({ porCartao, porDepartamento, pendencias, comprasPeriodo: comprasResultado.rows });
   renderVisualRelatorioCartao();
+  atualizarDeltaTotal(ultimoRelatorioCartao);
   if (comprasResultado.blocked) {
     document.getElementById("comprasPeriodoTabela").innerHTML = vazio(8, comprasResultado.blocked);
   }
-  const totalAtual = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
-  renderComparativoPeriodoAnterior(totalAtual);
 }
 
 function textoSelecionadoCartao(id) {
@@ -856,8 +999,6 @@ function configurarEventos() {
     document.getElementById("compararPeriodoAnterior").checked = false;
     document.getElementById("comparaDataInicial").value = "";
     document.getElementById("comparaDataFinal").value = "";
-    document.getElementById("campoPeriodoComparativo").classList.add("hidden");
-    document.getElementById("labelPeriodoAtual").textContent = "Período";
     carregarRelatoriosCartao();
   });
 
@@ -867,17 +1008,11 @@ function configurarEventos() {
     if (event.target.checked && !document.getElementById("comparaDataInicial").value) {
       sincronizarPeriodoComparativoPadrao();
     }
-    const porCartao = ultimoRelatorioCartao?.porCartao || [];
-    const totalAtual = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
-    renderComparativoPeriodoAnterior(totalAtual);
+    carregarRelatoriosCartao();
   });
 
   ["comparaDataInicial", "comparaDataFinal"].forEach((id) => {
-    document.getElementById(id).addEventListener("change", () => {
-      const porCartao = ultimoRelatorioCartao?.porCartao || [];
-      const totalAtual = porCartao.reduce((sum, item) => sum + Number(item.total_gasto || 0), 0);
-      renderComparativoPeriodoAnterior(totalAtual);
-    });
+    document.getElementById(id).addEventListener("change", carregarRelatoriosCartao);
   });
 
   document.getElementById("alternarFiltrosAvancados").addEventListener("click", () => {
@@ -915,11 +1050,25 @@ function configurarEventos() {
   });
 }
 
+// Registra (uma única vez) o redesenho responsivo dos dois gráficos: quando
+// o contêiner muda de largura (janela redimensionada, sidebar recolhida,
+// orientação do celular mudando), redesenha com os últimos dados já
+// carregados — sem refazer nenhuma requisição.
+function configurarResponsividadeGraficos() {
+  garantirRedesenhoResponsivo(document.getElementById("graficoCartaoTempo"), () => {
+    if (ultimoRelatorioCartao) desenharGraficoTempo(ultimoRelatorioCartao);
+  });
+  garantirRedesenhoResponsivo(document.getElementById("graficoCartaoDistribuicao"), () => {
+    if (ultimoRelatorioCartao) desenharGraficoDistribuicao(ultimoRelatorioCartao);
+  });
+}
+
 async function initRelatoriosCartao() {
   await carregarFiltros();
   definirPeriodoPadraoMesAtual();
   configurarEventos();
   configurarTooltipGraficoTempo();
+  configurarResponsividadeGraficos();
   await carregarRelatoriosCartao();
 }
 

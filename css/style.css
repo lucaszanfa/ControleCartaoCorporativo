@@ -5800,6 +5800,7 @@ textarea {
   width: 100%;
   max-width: 100%;
   height: auto;
+  max-height: 300px;
   border-radius: 14px;
 }
 
@@ -5861,6 +5862,121 @@ textarea {
   color: var(--text-muted);
   font-weight: 780;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Modo de comparação da "Distribuição dos gastos": barras horizontais
+   Atual/Anterior + variação %, uma linha por categoria. Alterna com o donut
+   via classe .hidden, controlada pelo JS (nunca os dois ao mesmo tempo). */
+.card-report-compare-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.card-report-compare-bars.hidden {
+  display: none;
+}
+
+.card-report-compare-bars-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.card-report-compare-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.card-report-compare-bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.card-report-compare-bar-head span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-main);
+  font-weight: 850;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-report-compare-bar-delta {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.card-report-compare-bar-delta.is-up {
+  color: #ef4444;
+}
+
+.card-report-compare-bar-delta.is-down {
+  color: #10b981;
+}
+
+.card-report-compare-bar-delta.is-flat {
+  color: var(--text-muted);
+}
+
+/* Trilho + valor lado a lado (flex), em vez de texto sobreposto à barra —
+   assim o valor sempre cai sobre o fundo neutro do cartão, nunca por cima do
+   preenchimento colorido, sem precisar de blend-mode ou cor condicional. */
+.card-report-compare-bar-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.card-report-compare-bar-track {
+  flex: 1 1 auto;
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--prototype-card-soft);
+  overflow: hidden;
+}
+
+.card-report-compare-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width .2s ease;
+}
+
+.card-report-compare-bar-fill.is-atual {
+  background: linear-gradient(90deg, #2563eb, #14b8a6);
+}
+
+:root[data-theme="dark"] .card-report-compare-bar-fill.is-atual {
+  background: linear-gradient(90deg, #22d3ee, #0f766e);
+}
+
+.card-report-compare-bar-fill.is-anterior {
+  background: #94a3b8;
+}
+
+.card-report-compare-bar-value {
+  flex: 0 0 auto;
+  min-width: 74px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
