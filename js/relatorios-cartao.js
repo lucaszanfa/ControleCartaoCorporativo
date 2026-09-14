@@ -79,33 +79,6 @@ function prepararCanvasRelatorioCartao(canvas) {
   return { ctx, escuro };
 }
 
-function filtrarComprasPorMes(compras, mesOffset) {
-  const hoje = new Date();
-  const data = new Date(hoje.getFullYear(), hoje.getMonth() + mesOffset, 1);
-  const prefixo = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
-  return {
-    label: data.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", ""),
-    total: compras
-      .filter((compra) => String(compra.data_compra || "").startsWith(prefixo))
-      .reduce((soma, compra) => soma + Number(compra.valor || 0), 0)
-  };
-}
-
-function agruparValorPorMes(compras) {
-  const mapa = new Map();
-  (compras || []).forEach((compra) => {
-    const chave = String(compra.data_compra || "").slice(0, 7);
-    if (!chave) return;
-    mapa.set(chave, (mapa.get(chave) || 0) + Number(compra.valor || 0));
-  });
-  return mapa;
-}
-
-function rotuloMesAno(chaveAnoMes) {
-  const [ano, mes] = chaveAnoMes.split("-").map(Number);
-  return new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
-}
-
 function mesesEntre(dataInicioISO, dataFimISO) {
   if (!dataInicioISO || !dataFimISO) return [];
   const resultado = [];
@@ -122,6 +95,67 @@ function mesesEntre(dataInicioISO, dataFimISO) {
     }
   }
   return resultado;
+}
+
+// Agrupamento adaptativo do eixo do tempo: até 12 meses o gráfico mostra um
+// mês por coluna; de 13 a 36 meses agrupa por trimestre; acima disso, por ano.
+// Isso evita que um período longo (ex.: um ano inteiro ou vários anos) gere
+// dezenas de colunas apertadas e ilegíveis no eixo X.
+function escolherGranularidade(quantidadeMeses) {
+  if (quantidadeMeses <= 12) return "mes";
+  if (quantidadeMeses <= 36) return "trimestre";
+  return "ano";
+}
+
+function rotuloGranularidade(granularidade) {
+  if (granularidade === "trimestre") return "Por trimestre";
+  if (granularidade === "ano") return "Por ano";
+  return "Por mês";
+}
+
+function chaveBucket(chaveAnoMes, granularidade) {
+  if (granularidade === "ano") return chaveAnoMes.slice(0, 4);
+  if (granularidade === "trimestre") {
+    const [ano, mes] = chaveAnoMes.split("-").map(Number);
+    return `${ano}-T${Math.ceil(mes / 3)}`;
+  }
+  return chaveAnoMes;
+}
+
+function rotuloBucket(chave, granularidade) {
+  if (granularidade === "ano") return chave;
+  if (granularidade === "trimestre") {
+    const [ano, trimestre] = chave.split("-T");
+    return `T${trimestre}/${ano.slice(2)}`;
+  }
+  const [ano, mes] = chave.split("-").map(Number);
+  return new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+}
+
+// Reduz a lista de meses do período aos buckets únicos (mês, trimestre ou
+// ano), preservando a ordem cronológica.
+function bucketizarMeses(meses, granularidade) {
+  const vistos = new Set();
+  const resultado = [];
+  meses.forEach((mes) => {
+    const chave = chaveBucket(mes, granularidade);
+    if (!vistos.has(chave)) {
+      vistos.add(chave);
+      resultado.push(chave);
+    }
+  });
+  return resultado;
+}
+
+function agruparValorPorBucket(compras, granularidade) {
+  const mapa = new Map();
+  (compras || []).forEach((compra) => {
+    const anoMes = String(compra.data_compra || "").slice(0, 7);
+    if (!anoMes) return;
+    const chave = chaveBucket(anoMes, granularidade);
+    mapa.set(chave, (mapa.get(chave) || 0) + Number(compra.valor || 0));
+  });
+  return mapa;
 }
 
 function formatarIntervaloCurto(dataInicioISO, dataFimISO) {
@@ -180,36 +214,52 @@ function desenharGraficoTempo(relatorio) {
   const escuro = document.documentElement.dataset.theme === "dark";
   barrasGraficoTempo = [];
 
-  if (legenda) {
-    const corAtual = escuro ? "#22d3ee" : "#2563eb";
-    legenda.innerHTML = comparativoAtivo
-      ? `<span class="card-report-trend-legend-item"><i style="background:${corAtual}"></i>Atual</span><span class="card-report-trend-legend-item"><i style="background:#94a3b8"></i>Período anterior</span>`
-      : "Últimos 6 meses";
-  }
+  const dataInicial = document.getElementById("filtroDataInicial").value;
+  const dataFinal = document.getElementById("filtroDataFinal").value;
+  const mesesAtual = mesesEntre(dataInicial, dataFinal);
 
   if (comparativoAtivo) {
-    const dataInicial = document.getElementById("filtroDataInicial").value;
-    const dataFinal = document.getElementById("filtroDataFinal").value;
     const prevInicio = document.getElementById("comparaDataInicial").value;
     const prevFim = document.getElementById("comparaDataFinal").value;
     const atualMultiMes = !dataInicial || !dataFinal || dataInicial.slice(0, 7) !== dataFinal.slice(0, 7);
     const anteriorMultiMes = !prevInicio || !prevFim || prevInicio.slice(0, 7) !== prevFim.slice(0, 7);
 
     if (!atualMultiMes && !anteriorMultiMes) {
+      if (legenda) {
+        const corAtual = escuro ? "#22d3ee" : "#2563eb";
+        legenda.innerHTML = `<span class="card-report-trend-legend-item"><i style="background:${corAtual}"></i>Atual</span><span class="card-report-trend-legend-item"><i style="background:#94a3b8"></i>Período anterior</span>`;
+      }
       desenharGraficoTempoParPeriodos(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, { dataInicial, dataFinal, prevInicio, prevFim });
     } else {
-      const mesesAtual = mesesEntre(dataInicial, dataFinal);
       const mesesAnterior = mesesEntre(prevInicio, prevFim);
-      desenharGraficoTempoComparativo(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, mesesAtual, mesesAnterior);
+      const granularidade = escolherGranularidade(Math.max(mesesAtual.length, mesesAnterior.length));
+      if (legenda) {
+        const corAtual = escuro ? "#22d3ee" : "#2563eb";
+        legenda.innerHTML = `<span class="card-report-trend-legend-item"><i style="background:${corAtual}"></i>Atual</span><span class="card-report-trend-legend-item"><i style="background:#94a3b8"></i>Período anterior</span><span class="card-report-trend-legend-item">${rotuloGranularidade(granularidade)}</span>`;
+      }
+      desenharGraficoTempoComparativo(canvas, relatorio.comprasPeriodo, relatorio.comprasPeriodoAnterior, mesesAtual, mesesAnterior, granularidade);
     }
   } else {
-    desenharGraficoTempoSimples(canvas, relatorio.comprasPeriodo);
+    const granularidade = escolherGranularidade(mesesAtual.length || 1);
+    if (legenda) legenda.textContent = rotuloGranularidade(granularidade);
+    desenharGraficoTempoUnico(canvas, relatorio.comprasPeriodo, mesesAtual, granularidade);
   }
 }
 
-function desenharGraficoTempoSimples(canvas, compras) {
+function desenharGraficoTempoUnico(canvas, compras, meses, granularidade) {
   const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
-  const pontos = [-5, -4, -3, -2, -1, 0].map((offset) => filtrarComprasPorMes(compras, offset));
+
+  if (!meses.length) {
+    ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
+    ctx.textAlign = "center";
+    ctx.fillText("Selecione um período para exibir o gráfico.", canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  const buckets = bucketizarMeses(meses, granularidade);
+  const mapa = agruparValorPorBucket(compras, granularidade);
+  const pontos = buckets.map((chave) => ({ label: rotuloBucket(chave, granularidade), total: mapa.get(chave) || 0 }));
+
   const ticks = calcularTicksEixoY(Math.max(1, ...pontos.map((item) => item.total)));
   const valorTopo = ticks[ticks.length - 1] || 1;
   const margem = calcularMargemEixoY(ctx, ticks);
@@ -287,12 +337,17 @@ function desenharGraficoTempoParPeriodos(canvas, comprasAtual, comprasAnterior, 
   });
 }
 
-function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, mesesAtual, mesesAnterior) {
+function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, mesesAtual, mesesAnterior, granularidade) {
   const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
-  const mapaAtual = agruparValorPorMes(comprasAtual);
-  const mapaAnterior = agruparValorPorMes(comprasAnterior);
+  const mapaAtual = agruparValorPorBucket(comprasAtual, granularidade);
+  const mapaAnterior = agruparValorPorBucket(comprasAnterior, granularidade);
 
-  const quantidade = Math.max(mesesAtual.length, mesesAnterior.length);
+  // Reduz cada período aos seus buckets únicos (mês/trimestre/ano) antes de
+  // alinhar — isso é o que limita o gráfico a, no máximo, ~12 colunas mesmo
+  // quando o período selecionado cobre vários anos.
+  const bucketsAtual = bucketizarMeses(mesesAtual, granularidade);
+  const bucketsAnterior = bucketizarMeses(mesesAnterior, granularidade);
+  const quantidade = Math.max(bucketsAtual.length, bucketsAnterior.length);
   if (!quantidade) {
     ctx.fillStyle = escuro ? "#b8c7da" : "#64748b";
     ctx.textAlign = "center";
@@ -300,17 +355,18 @@ function desenharGraficoTempoComparativo(canvas, comprasAtual, comprasAnterior, 
     return;
   }
 
-  // Alinha os dois períodos pela posição relativa do mês (1º mês do período atual
-  // com o 1º mês do período anterior, e assim por diante), em vez de casar por
-  // ano-mês absoluto — do contrário, comparar anos diferentes gera uma coluna por
-  // mês de cada ano (até 21 colunas), a maioria com só uma das duas barras.
+  // Alinha os dois períodos pela posição relativa do bucket (1º bucket do
+  // período atual com o 1º bucket do período anterior, e assim por diante),
+  // em vez de casar por chave absoluta — do contrário, comparar anos
+  // diferentes gera uma coluna por bucket de cada ano, a maioria com só uma
+  // das duas barras.
   const pontos = Array.from({ length: quantidade }, (_, index) => {
-    const chaveAtual = mesesAtual[index];
-    const chaveAnterior = mesesAnterior[index];
-    const rotuloAtual = chaveAtual ? rotuloMesAno(chaveAtual) : null;
-    const rotuloAnterior = chaveAnterior ? rotuloMesAno(chaveAnterior) : null;
+    const chaveAtual = bucketsAtual[index];
+    const chaveAnterior = bucketsAnterior[index];
+    const rotuloAtual = chaveAtual ? rotuloBucket(chaveAtual, granularidade) : null;
+    const rotuloAnterior = chaveAnterior ? rotuloBucket(chaveAnterior, granularidade) : null;
     return {
-      label: rotuloAtual || rotuloAnterior || `Mês ${index + 1}`,
+      label: rotuloAtual || rotuloAnterior || `Período ${index + 1}`,
       atual: chaveAtual ? (mapaAtual.get(chaveAtual) || 0) : 0,
       anterior: chaveAnterior ? (mapaAnterior.get(chaveAnterior) || 0) : 0,
       rotuloAtual,
@@ -415,7 +471,20 @@ function desenharGraficoDistribuicao(relatorio) {
   if (!canvas) return;
   const { ctx, escuro } = prepararCanvasRelatorioCartao(canvas);
   const { titulo, itens } = dadosDistribuicaoAtual(relatorio);
-  const dados = itens.filter((item) => item.total > 0).slice(0, 6);
+  const positivos = itens.filter((item) => item.total > 0).sort((a, b) => b.total - a.total);
+
+  // Mostra no máximo 5 fatias + "Outros" (em vez de simplesmente cortar no
+  // 6º item) para que o "Total" e os percentuais no centro/legenda sempre
+  // reflitam a soma real de todos os cartões/departamentos, não só dos
+  // primeiros da lista.
+  const limitePrincipais = 5;
+  let dados = positivos;
+  if (positivos.length > 6) {
+    const principais = positivos.slice(0, limitePrincipais);
+    const restante = positivos.slice(limitePrincipais);
+    const totalRestante = restante.reduce((soma, item) => soma + item.total, 0);
+    dados = [...principais, { nome: "Outros", subtitulo: `${restante.length} categorias`, total: totalRestante }];
+  }
   const total = dados.reduce((soma, item) => soma + item.total, 0);
   let inicio = -Math.PI / 2;
   const cx = 130;
@@ -740,15 +809,19 @@ function baixarPdfRelatorioCartao() {
 }
 
 function configurarEventos() {
-  ["filtroDepartamento", "filtroCartao", "filtroStatus", "filtroDataInicial", "filtroDataFinal"].forEach((id) => {
+  ["filtroDepartamento", "filtroCartao", "filtroStatus"].forEach((id) => {
     document.getElementById(id).addEventListener("change", carregarRelatoriosCartao);
   });
 
   ["filtroDataInicial", "filtroDataFinal"].forEach((id) => {
     document.getElementById(id).addEventListener("change", () => {
+      // Resincroniza o período de comparação padrão ANTES de recarregar, senão
+      // o recálculo do "vs período anterior" roda com a data de comparação
+      // antiga (a sincronização só reflete no gráfico na alteração seguinte).
       if (document.getElementById("compararPeriodoAnterior").checked) {
         sincronizarPeriodoComparativoPadrao();
       }
+      carregarRelatoriosCartao();
     });
   });
 
