@@ -111,6 +111,7 @@ function iniciaisUsuario() {
 }
 
 const ICONES_SVG = {
+  pesquisa: '<circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path>',
   dashboard: '<path d="M4 13.5 12 6l8 7.5"></path><path d="M6.5 12.5V20h11v-7.5"></path><path d="M10 20v-5h4v5"></path>',
   cadastro: '<rect x="5" y="4" width="14" height="16" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h4"></path>',
   estoque: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"></path><path d="m4 7.5 8 4.5 8-4.5M12 12v9"></path>',
@@ -368,6 +369,7 @@ function aplicarMenuPrincipal() {
   const podeVerFaturas = podeVerCartoesGerenciais || usuarioTemCartaoComPermissao("ver");
   const cartoes = [
     { href: "compra-cartao.html", label: "Registrar compra", icon: "compra" },
+    { href: "pesquisar-compras.html", label: "Pesquisar compras", icon: "pesquisa" },
     { href: "compras-pendentes.html", label: "Pendências", icon: "pendentes" },
     ...(podeVerFaturas ? [{ href: "faturas-cartao.html", label: "Faturas", icon: "faturas" }] : []),
     ...(podeVerFaturas ? [{ href: "relatorios-cartao.html", label: "Relatórios de cartão", icon: "relatorios" }] : []),

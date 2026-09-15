@@ -10939,3 +10939,5 @@ body.sidebar-collapsed .sidebar-brand {
   font-weight: 800;
   margin-right: 4px;
 }
+
+.sidebar a[href="pesquisar-compras.html"] .nav-label { white-space: normal; }

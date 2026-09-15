@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pesquisar compras | Cartões Corporativos</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/pesquisar-compras.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar"></aside>
+    <main class="main-content purchase-search-page">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Histórico de compras</span>
+          <h1>Pesquisar compras</h1>
+          <p class="topbar-subtitle">Encontre compras e parcelas dos cartões que você tem permissão de consultar.</p>
+        </div>
+        <span class="user-chip">Usuário</span>
+      </header>
+      <section class="card report-filter-card">
+        <form id="pesquisaForm">
+          <fieldset id="pesquisaCampos" disabled>
+            <legend class="hidden">Filtros de pesquisa</legend>
+            <div class="purchase-search-grid">
+              <label class="purchase-search-text">Buscar compras
+                <input id="pesquisaTexto" type="search" placeholder="Fornecedor, responsável, motivo ou cartão..." autocomplete="off">
+              </label>
+              <label>Fornecedor
+                <input id="pesquisaFornecedor" type="search" placeholder="Nome do fornecedor" autocomplete="off">
+              </label>
+              <label>Cartão
+                <select id="pesquisaCartao"><option value="">Todos os cartões permitidos</option></select>
+              </label>
+              <label>Situação
+                <select id="pesquisaStatus">
+                  <option value="">Todas as situações</option>
+                  <option value="pendentes">Pendentes (todas)</option>
+                  <option value="conferida">Conferida / conciliada</option>
+                  <option value="registrada">Registrada</option>
+                  <option value="sem_comprovante">Sem comprovante</option>
+                  <option value="aguardando_fatura">Aguardando fatura</option>
+                  <option value="aguardando_conferencia">Aguardando conferência</option>
+                  <option value="divergente">Divergente</option>
+                  <option value="resolvida">Resolvida</option>
+                  <option value="cancelada">Cancelada</option>
+                </select>
+              </label>
+              <label>Data inicial da compra<input id="pesquisaInicio" type="date"></label>
+              <label>Data final da compra<input id="pesquisaFim" type="date"></label>
+            </div>
+            <div class="purchase-search-actions">
+              <button type="submit" class="btn btn-primary">Pesquisar</button>
+              <button type="button" id="pesquisaLimpar" class="btn btn-secondary">Limpar filtros</button>
+            </div>
+          </fieldset>
+        </form>
+        <p class="purchase-search-hint">O período usa a data da compra ou da parcela. Transações da fatura ainda sem compra cadastrada ficam em <a href="compras-pendentes.html?tab=conciliacao">Pendências</a>.</p>
+      </section>
+      <p id="pesquisaErro" class="alert-error hidden" role="alert"></p>
+      <section class="card report-workspace-card" id="pesquisaResultados" aria-busy="true">
+        <div class="section-header">
+          <div><h2>Compras encontradas</h2><p id="pesquisaResumo" role="status" aria-live="polite">Carregando compras...</p></div>
+          <button type="button" id="pesquisaAtualizar" class="btn btn-secondary" disabled>Atualizar</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th scope="col">Data</th><th scope="col">Fornecedor</th><th scope="col">Cartão</th><th scope="col">Responsável</th><th scope="col">Parcela</th><th scope="col">Valor</th><th scope="col">Situação</th><th scope="col">Detalhes</th></tr></thead>
+            <tbody id="pesquisaTabela"><tr><td colspan="8" class="empty-state">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+        <nav class="purchase-search-pagination" aria-label="Páginas dos resultados">
+          <button id="pesquisaAnterior" type="button" class="btn btn-secondary" disabled>Anterior</button>
+          <span id="pesquisaPagina" aria-live="polite"></span>
+          <button id="pesquisaProxima" type="button" class="btn btn-secondary" disabled>Próxima</button>
+        </nav>
+      </section>
+    </main>
+  </div>
+  <script src="js/dados.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cartoes-utils.js"></script>
+  <script src="js/pesquisar-compras.js"></script>
+</body>
+</html>

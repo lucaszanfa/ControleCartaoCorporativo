@@ -1,0 +1,14 @@
+.purchase-search-page fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.purchase-search-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.purchase-search-grid label { display: grid; gap: 8px; min-width: 0; }
+.purchase-search-grid input, .purchase-search-grid select { width: 100%; min-width: 0; }
+.purchase-search-text { grid-column: span 2; }
+.purchase-search-actions, .purchase-search-pagination { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+.purchase-search-pagination { justify-content: flex-end; }
+.purchase-search-hint { font-size: .875rem; margin-top: 16px; opacity: .8; }
+.purchase-search-page td small { display: block; opacity: .75; }
+.purchase-search-page td:nth-child(6) { white-space: nowrap; }
+@media (max-width: 1050px) { .purchase-search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .purchase-search-grid { grid-template-columns: 1fr; } .purchase-search-text { grid-column: auto; } .purchase-search-pagination { justify-content: center; } }
+
+.purchase-search-page .alert-error { padding: 12px 16px; border: 1px solid #dc2626; border-radius: 8px; color: #b91c1c; background: #fef2f2; }
