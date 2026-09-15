@@ -134,3 +134,25 @@ Ela cobre correspondencias, ambiguidades, repeticao, vinculos entre faturas,
 resolucao manual, rollback e isolamento do contexto das conexoes concorrentes.
 A verificacao de bloqueios/indices em um PostgreSQL real e o ensaio no navegador
 continuam sendo etapas de homologacao antes da publicacao.
+
+## Marcacao manual de lancamento externo
+
+Nas telas Pesquisar compras e Registrar compra, e nos detalhes de cada compra,
+o checkbox de lancamento externo informa se o registro ja foi lancado no outro
+sistema da empresa. Nao chama API externa e nao altera o status de conciliacao.
+Cada parcela tem uma marcacao independente. Compras existentes e novas comecam
+sem marcacao; a edicao de outros campos nao redefine esse estado.
+
+O filtro Lancamento no sistema externo permite consultar lancadas e nao lancadas.
+Quem tem permissao de alterar compras do cartao pode marcar/desmarcar; usuarios
+com apenas consulta visualizam o estado. As verificacoes seguem a identificacao
+de usuario e as regras de cartao existentes no projeto.
+
+A inicializacao normal do servidor adiciona as colunas de marcacao, autor, data e
+versao em compras_cartao, de forma idempotente, pelo schema.sql. Reinicie o backend
+para aplicar essas colunas antes de usar a nova interface. A marcacao e a auditoria
+sao gravadas na mesma transacao. Uma versao desatualizada retorna conflito (409),
+sem sobrescrever a alteracao de outra pessoa.
+
+Os testes automatizados e a previa visual usam dados ficticios; nao aplicam a
+migracao nem escrevem no banco real.

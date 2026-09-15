@@ -263,6 +263,7 @@ function renderizarComprasCartao() {
       </td>
       <td><span class="report-money-pill">${moeda(compra.valor)}</span></td>
       <td><span class="${classeStatus(compra.status)}">${compra.status === "aguardando_fatura" ? "aguardando fatura" : compra.status}</span></td>
+      <td>${LancamentoManual.html(compra)}</td>
       <td>
         ${podeVerDetalhes
           ? `<button class="btn btn-secondary btn-compact" type="button" onclick="abrirDetalheCompra(${compra.id})">Ver detalhes</button>`
@@ -667,6 +668,7 @@ async function abrirDetalheCompra(id) {
       </article>
     </section>
 
+    <section class="purchase-detail-lancamento"><h3>Lançamento no sistema externo</h3>${LancamentoManual.html(compra)}<p>Marcação manual desta compra ou parcela, independente da conciliação da fatura.</p></section>
     <div class="purchase-detail-layout">
       <section class="purchase-detail-info-grid">
         ${detalheCompraCampo("Data da compra", formatarData(compra.dataCompra), "calendario")}
@@ -1022,3 +1024,9 @@ document.getElementById("compraCartaoForm").addEventListener("submit", async (ev
 });
 
 initCompraCartao();
+
+document.addEventListener('lancamento-compra-atualizado', event => {
+  const compra = comprasCartaoCache.find(item => Number(item.id) === Number(event.detail.id));
+  if (compra) Object.assign(compra, event.detail);
+  renderizarComprasCartao();
+});

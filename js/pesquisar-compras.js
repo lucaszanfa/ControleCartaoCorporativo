@@ -17,6 +17,8 @@ function filtrarPesquisaCompras(compras, cartoesPermitidos, filtros = {}) {
   return compras.filter(compra => {
     if (!ids.has(String(compra.cartaoId))) return false;
     if (filtros.cartao && String(compra.cartaoId) !== filtros.cartao) return false;
+    if (filtros.lancamento === 'sim' && !compra.lancadoExternamente) return false;
+    if (filtros.lancamento === 'nao' && compra.lancadoExternamente) return false;
     const data = String(compra.dataCompra || '').slice(0, 10);
     if (filtros.inicio && data < filtros.inicio) return false;
     if (filtros.fim && data > filtros.fim) return false;
@@ -71,21 +73,23 @@ async function iniciarPesquisaCompras() {
         '<td>' + escaparPesquisaCompra(compra.responsavel || 'Não informado') + '</td>' +
         '<td>' + escaparPesquisaCompra(parcela) + '</td><td>' + moeda(compra.valor) + '</td>' +
         '<td><span class="' + classeStatus(compra.status) + '">' + escaparPesquisaCompra(status) + '</span></td>' +
+        '<td>' + LancamentoManual.html(compra) + '</td>' +
         '<td><a class="btn btn-secondary btn-compact" href="compra-cartao.html?verCompraId=' + encodeURIComponent(compra.id) + '" aria-label="Ver compra de ' + escaparPesquisaCompra(compra.fornecedor || 'fornecedor não informado') + '">Ver detalhes</a></td></tr>';
-    }).join('') : '<tr><td colspan="8" class="empty-state">' + (cartoes.length ? 'Nenhuma compra encontrada. Ajuste ou limpe os filtros.' : 'Nenhum cartão disponível para consulta. Verifique suas permissões com o administrador.') + '</td></tr>';
+    }).join('') : '<tr><td colspan="9" class="empty-state">' + (cartoes.length ? 'Nenhuma compra encontrada. Ajuste ou limpe os filtros.' : 'Nenhum cartão disponível para consulta. Verifique suas permissões com o administrador.') + '</td></tr>';
     el('pesquisaPagina').textContent = filtradas.length ? (inicio + 1) + '–' + (inicio + itens.length) + ' de ' + filtradas.length + ' · Página ' + pagina + ' de ' + paginas : '';
     el('pesquisaAnterior').disabled = pagina <= 1 || !filtradas.length;
     el('pesquisaProxima').disabled = pagina >= paginas || !filtradas.length;
   }
 
-  function pesquisar() {
+  function pesquisar(reiniciarPagina = true) {
     if (carregando) return;
     const filtros = {
       texto: el('pesquisaTexto').value, fornecedor: el('pesquisaFornecedor').value,
       cartao: el('pesquisaCartao').value, status: el('pesquisaStatus').value,
+      lancamento: el('pesquisaLancamento').value,
       inicio: el('pesquisaInicio').value, fim: el('pesquisaFim').value
     };
-    pagina = 1;
+    if (reiniciarPagina !== false) pagina = 1;
     if (filtros.inicio && filtros.fim && filtros.inicio > filtros.fim) {
       mensagemErro('A data inicial deve ser anterior ou igual à data final.');
       filtradas = [];
@@ -119,7 +123,7 @@ async function iniciarPesquisaCompras() {
     el('pesquisaResultados').setAttribute('aria-busy', 'true');
     mensagemErro();
     resumo.textContent = 'Carregando compras...';
-    tabela.innerHTML = '<tr><td colspan="8" class="empty-state">Carregando...</td></tr>';
+    tabela.innerHTML = '<tr><td colspan="9" class="empty-state">Carregando...</td></tr>';
     compras = [];
     cartoes = [];
     filtradas = [];
@@ -139,7 +143,7 @@ async function iniciarPesquisaCompras() {
     } catch (error) {
       mensagemErro(error.message || 'Não foi possível carregar as compras.');
       resumo.textContent = 'Pesquisa indisponível.';
-      tabela.innerHTML = '<tr><td colspan="8" class="empty-state">Não foi possível carregar os resultados.</td></tr>';
+      tabela.innerHTML = '<tr><td colspan="9" class="empty-state">Não foi possível carregar os resultados.</td></tr>';
     } finally {
       carregando = false;
       el('pesquisaAtualizar').disabled = false;
@@ -147,6 +151,11 @@ async function iniciarPesquisaCompras() {
     }
   }
 
+  document.addEventListener('lancamento-compra-atualizado', event => {
+    const compra = compras.find(item => Number(item.id) === Number(event.detail.id));
+    if (compra) Object.assign(compra, event.detail);
+    pesquisar(false);
+  });
   form.addEventListener('submit', event => { event.preventDefault(); pesquisar(); });
   form.addEventListener('input', pesquisar);
   el('pesquisaLimpar').addEventListener('click', () => { form.reset(); pesquisar(); el('pesquisaTexto').focus(); });

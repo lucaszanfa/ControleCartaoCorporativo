@@ -26,3 +26,9 @@ test('pendentes inclui parcelas futuras e compras sem comprovante', () => {
 test('valores exibidos nao executam HTML', () => {
   assert.equal(escaparPesquisaCompra('<script>"&'), '&lt;script&gt;&quot;&amp;');
 });
+
+test('filtro de lancamento externo e independente da conciliacao', () => {
+  const itens = compras.map(c => ({ ...c, lancadoExternamente: c.id === 2 }));
+  assert.deepEqual(filtrarPesquisaCompras(itens, permitidos, { lancamento: 'sim' }).map(c => c.id), [2]);
+  assert.deepEqual(filtrarPesquisaCompras(itens, permitidos, { lancamento: 'nao', status: 'conferida' }).map(c => c.id), [1]);
+});

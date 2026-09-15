@@ -111,6 +111,13 @@ CREATE TABLE IF NOT EXISTS compras_cartao (
 ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS vezes_alerta_teams INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS data_ultimo_alerta_teams TEXT;
 
+-- Marcacao manual independente do status de conciliacao; cada parcela tem seu estado.
+ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS lancado_externamente BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS lancamento_atualizado_por_id INTEGER REFERENCES usuarios(id);
+ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS lancamento_atualizado_em TIMESTAMPTZ;
+ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS lancamento_versao INTEGER NOT NULL DEFAULT 0;
+
+
 CREATE TABLE IF NOT EXISTS faturas_cartao (
   id SERIAL PRIMARY KEY,
   cartao_id INTEGER NOT NULL,

@@ -10941,3 +10941,12 @@ body.sidebar-collapsed .sidebar-brand {
 }
 
 .sidebar a[href="pesquisar-compras.html"] .nav-label { white-space: normal; }
+
+.lancamento-manual { min-width: 125px; }
+.lancamento-manual label { display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; }
+.lancamento-manual input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: 0 0 auto; accent-color: #2563eb; }
+.lancamento-manual small { display: block; max-width: 240px; margin-top: 5px; font-size: 11px; }
+.lancamento-manual input:disabled + span { opacity: .65; }
+.purchase-detail-lancamento { padding: 16px; margin: 16px 0; border: 1px solid var(--borda-suave); border-radius: 12px; }
+.purchase-detail-lancamento h3 { margin: 0 0 12px; }
+.purchase-detail-lancamento p { margin: 10px 0 0; font-size: 13px; }

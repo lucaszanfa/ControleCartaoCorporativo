@@ -5,6 +5,7 @@ const { PDFParse } = require("pdf-parse");
 const { loadEnv } = require("./config");
 const { initDb, all, get, run, ensureCartaoBancoSeed } = require("./db");
 const { withConciliacao, selecionarCorrespondencia } = require("./conciliacao");
+const { criarAtualizadorLancamento, mapLancamento } = require("./lancamentoCompra");
 const { sendTeamsAlert } = require("./teamsNotificationService");
 
 loadEnv();
@@ -240,6 +241,7 @@ function mapCompraCartao(row) {
     comprovanteUrl: row.comprovante_url || "",
     observacao: row.observacao || "",
     status: row.status,
+    ...mapLancamento(row),
     parcelaAtual: row.parcela_atual || 1,
     parcelaTotal: row.parcela_total || 1,
     parcelamentoGrupoId: row.parcelamento_grupo_id || null,
@@ -267,14 +269,15 @@ function cardJoinSql() {
 
 function compraJoinSql() {
   return `SELECT cc.*, c.nome_cartao AS cartao, c.ultimos_4_digitos, s.nome AS departamento, u.nome AS responsavel,
-                 cp.nome AS criado_por, ap.nome AS atualizado_por, tc.nome AS titular_cartao
+                 cp.nome AS criado_por, ap.nome AS atualizado_por, tc.nome AS titular_cartao, lp.nome AS lancamento_atualizado_por
           FROM compras_cartao cc
           JOIN cartoes_corporativos c ON c.id = cc.cartao_id
           JOIN setores s ON s.id = cc.departamento_id
           LEFT JOIN usuarios u ON u.id = cc.responsavel_compra_id
           LEFT JOIN usuarios cp ON cp.id = cc.criado_por_id
           LEFT JOIN usuarios ap ON ap.id = cc.atualizado_por_id
-          LEFT JOIN usuarios tc ON tc.id = c.responsavel_id`;
+          LEFT JOIN usuarios tc ON tc.id = c.responsavel_id
+          LEFT JOIN usuarios lp ON lp.id = cc.lancamento_atualizado_por_id`;
 }
 
 function daysDiff(a, b) {
@@ -1778,6 +1781,22 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
   const pendencia = vincularPendencia ? await tentarAtualizarPendenciaPorCompra(request.params.id, transacaoFaturaId) : { atualizada: false };
   const alerta = await resolverAlertaAposAtualizarCompra(request.params.id, alertaId);
   response.json({ mensagem: "Compra atualizada.", pendenciaAtualizada: pendencia.atualizada, statusConciliacao: pendencia.status || null, alertaResolvido: alerta.resolvido, motivoAlerta: alerta.motivo || null, parcelas: podeParcelarAgora ? totalParcelas : compraAtual.parcela_total });
+});
+
+const atualizarLancamentoCompra = criarAtualizadorLancamento({
+  db: require("./db"), cartoesPermitidosParaUsuario, registrarAuditoria
+});
+
+app.patch("/api/compras-cartao/:id/lancamento-externo", async (request, response) => {
+  try {
+    const resultado = await atualizarLancamentoCompra({
+      compraId: Number(request.params.id), usuarioId: Number(request.body?.usuarioLogadoId),
+      lancado: request.body?.lancado, versao: request.body?.versao
+    });
+    response.json(resultado);
+  } catch (error) {
+    response.status(error.status || 500).json({ erro: error.status ? error.message : "Não foi possível salvar a marcação. Atualize a lista para conferir o estado atual." });
+  }
 });
 
 app.patch("/api/compras-cartao/:id/status", async (request, response) => {
