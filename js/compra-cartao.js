@@ -835,18 +835,46 @@ function escolherPendenciaCompativelModal(pendencias) {
   const vincularBtn = document.getElementById("vincularPendenciaBtn");
   const novaCompraBtn = document.getElementById("registrarNovaCompraBtn");
 
-  conteudo.innerHTML = `
-    ${detalheItem("Data na fatura", formatarData(primeira.dataTransacao))}
-    ${detalheItem("Cartao", primeira.cartao)}
-    ${detalheItem("Departamento", primeira.departamento)}
-    ${detalheItem("Estabelecimento", primeira.estabelecimento)}
-    ${detalheItem("Valor", moeda(primeira.valor))}
-    ${detalheItem("Status", primeira.statusConciliacao, "full-width")}
+  const renderDetalhes = (item) => `
+    ${detalheItem("Data na fatura", formatarData(item.dataTransacao))}
+    ${detalheItem("Cartao", item.cartao)}
+    ${detalheItem("Departamento", item.departamento)}
+    ${detalheItem("Estabelecimento", item.estabelecimento)}
+    ${detalheItem("Valor", moeda(item.valor))}
+    ${detalheItem("Status", item.statusConciliacao, "full-width")}
     <div class="detail-item full-width">
       <span>Decisao</span>
       <strong>Confira se a compra que voce acabou de preencher corresponde a esta pendencia da fatura.</strong>
     </div>
   `;
+  conteudo.innerHTML = renderDetalhes(primeira);
+  novaCompraBtn.textContent = compraEdicaoId ? "Salvar sem vincular" : "Registrar como nova compra";
+  if (pendencias.length > 1) {
+    const label = document.createElement("label");
+    label.textContent = "Selecione a transa\u00e7\u00e3o da fatura";
+    const select = document.createElement("select");
+    select.id = "pendenciaCompativelSelecionada";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Selecione uma transa\u00e7\u00e3o";
+    select.appendChild(placeholder);
+    pendencias.forEach((item, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `#${item.id} - ${formatarData(item.dataTransacao)} - ${item.estabelecimento} - ${moeda(item.valor)}`;
+      select.appendChild(option);
+    });
+    vincularBtn.disabled = true;
+    const detalhes = document.createElement("div");
+    select.addEventListener("change", () => {
+      vincularBtn.disabled = select.value === "";
+      detalhes.innerHTML = select.value === "" ? "" : renderDetalhes(pendencias[Number(select.value)]);
+    });
+    label.appendChild(select);
+    conteudo.replaceChildren(label, detalhes);
+  } else {
+    vincularBtn.disabled = false;
+  }
   modal.classList.remove("hidden");
 
   return new Promise((resolve) => {
@@ -856,7 +884,11 @@ function escolherPendenciaCompativelModal(pendencias) {
       novaCompraBtn.removeEventListener("click", novaCompra);
       resolve(pendencia);
     };
-    const vincular = () => finalizar(primeira);
+    const vincular = () => {
+      const select = document.getElementById("pendenciaCompativelSelecionada");
+      if (select && select.value === "") return;
+      finalizar(select ? pendencias[Number(select.value)] : primeira);
+    };
     const novaCompra = () => finalizar(null);
 
     vincularBtn.addEventListener("click", vincular);
@@ -926,6 +958,10 @@ document.getElementById("compraCartaoForm").addEventListener("submit", async (ev
   }
 
   if (compraEdicaoId) {
+    const pendencias = await buscarPendenciasCompativeis({ ...payload, compraId: compraEdicaoId });
+    const escolhida = await escolherPendenciaCompativelModal(pendencias);
+    payload.vincularPendencia = Boolean(escolhida);
+    payload.transacaoFaturaId = escolhida?.id || null;
     payload.alertaId = alertaResolucaoId;
     payload.status = payload.comprovanteUrl ? "registrada" : "sem_comprovante";
     const res = await fetch(`/api/compras-cartao/${compraEdicaoId}`, {
@@ -934,7 +970,7 @@ document.getElementById("compraCartaoForm").addEventListener("submit", async (ev
       body: JSON.stringify(payload)
     });
     const data = await res.json();
-    mensagem.textContent = data.erro || (data.alertaResolvido ? "Compra atualizada e alerta resolvido." : "Compra atualizada. Ainda existe informação pendente para resolver o alerta.");
+    mensagem.textContent = data.erro || (data.pendenciaAtualizada ? "Compra atualizada e vinculada a fatura." : null) || (data.alertaResolvido ? "Compra atualizada e alerta resolvido." : "Compra atualizada. Ainda existe informação pendente para resolver o alerta.");
     mensagem.classList.remove("hidden");
     await carregarComprasCartao();
     return;

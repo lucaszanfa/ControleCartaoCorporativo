@@ -4,6 +4,7 @@ const cors = require("cors");
 const { PDFParse } = require("pdf-parse");
 const { loadEnv } = require("./config");
 const { initDb, all, get, run, ensureCartaoBancoSeed } = require("./db");
+const { withConciliacao, selecionarCorrespondencia } = require("./conciliacao");
 const { sendTeamsAlert } = require("./teamsNotificationService");
 
 loadEnv();
@@ -485,6 +486,7 @@ async function ensureAlertasComprasSemComprovante() {
 }
 
 async function buscarPendenciasCompativeisCompra(compra) {
+  if (compra.id && await get("SELECT id FROM conciliacoes_cartao WHERE compra_cartao_id = ?", [compra.id])) return [];
   const transacoes = await all(
     `SELECT t.*, c.nome_cartao AS cartao, s.nome AS departamento
      FROM transacoes_fatura t
@@ -493,7 +495,7 @@ async function buscarPendenciasCompativeisCompra(compra) {
      LEFT JOIN conciliacoes_cartao co ON co.transacao_fatura_id = t.id
      WHERE t.cartao_id = ?
        AND t.status_conciliacao IN ('pendente', 'sem_registro')
-       AND (co.id IS NULL OR co.status = 'sem_registro')
+       AND (co.id IS NULL OR (co.status = 'sem_registro' AND co.compra_cartao_id IS NULL))
      ORDER BY ABS((t.data_transacao)::date - (?)::date) ASC, t.id ASC`,
     [compra.cartao_id, compra.data_compra]
   );
@@ -545,61 +547,63 @@ async function buscarComprasSemelhantes(compra) {
 }
 
 async function tentarAtualizarPendenciaPorCompra(compraId, transacaoId = null) {
-  const compra = await get(
-    `SELECT cc.*, c.gerente_id
-     FROM compras_cartao cc
-     JOIN cartoes_corporativos c ON c.id = cc.cartao_id
-     WHERE cc.id = ?`,
-    [compraId]
-  );
-
-  if (!compra) return { atualizada: false };
-
-  const candidatas = await buscarPendenciasCompativeisCompra(compra);
-  const candidataResumo = transacaoId
-    ? candidatas.find((transacao) => Number(transacao.id) === Number(transacaoId))
-    : candidatas[0];
-
-  if (!candidataResumo) return { atualizada: false };
-
-  const candidata = await get("SELECT * FROM transacoes_fatura WHERE id = ?", [candidataResumo.id]);
-
-  const status = compra.comprovante_url ? "conciliada" : "aguardando_comprovante";
-  const diferencaValor = Number((candidata.valor - compra.valor).toFixed(2));
-  const diferencaDias = daysDiff(candidata.data_transacao, compra.data_compra);
-  const conciliacao = await get("SELECT id FROM conciliacoes_cartao WHERE transacao_fatura_id = ?", [candidata.id]);
-
-  if (conciliacao) {
-    await run(
-      "UPDATE conciliacoes_cartao SET compra_cartao_id = ?, status = ?, diferenca_valor = ?, diferenca_dias = ?, observacao = ?, conciliado_em = CURRENT_TIMESTAMP WHERE id = ?",
-      [compra.id, status, diferencaValor, diferencaDias, "Atualizada automaticamente apos registro da compra", conciliacao.id]
+  return withConciliacao(async () => {
+    const compra = await get(
+      `SELECT cc.*, c.gerente_id
+       FROM compras_cartao cc
+       JOIN cartoes_corporativos c ON c.id = cc.cartao_id
+       WHERE cc.id = ?`,
+      [compraId]
     );
-  } else {
+
+    if (!compra || compra.status === "cancelada") return { atualizada: false };
+
+    const candidatas = await buscarPendenciasCompativeisCompra(compra);
+    const candidataResumo = transacaoId
+      ? candidatas.find((transacao) => Number(transacao.id) === Number(transacaoId))
+      : (candidatas.length === 1 ? candidatas[0] : null);
+
+    if (!candidataResumo) return { atualizada: false };
+
+    const candidata = await get("SELECT * FROM transacoes_fatura WHERE id = ?", [candidataResumo.id]);
+
+    const status = compra.comprovante_url ? "conciliada" : "aguardando_comprovante";
+    const diferencaValor = Number((candidata.valor - compra.valor).toFixed(2));
+    const diferencaDias = daysDiff(candidata.data_transacao, compra.data_compra);
+    const conciliacao = await get("SELECT id FROM conciliacoes_cartao WHERE transacao_fatura_id = ?", [candidata.id]);
+
+    if (conciliacao) {
+      await run(
+        "UPDATE conciliacoes_cartao SET compra_cartao_id = ?, status = ?, diferenca_valor = ?, diferenca_dias = ?, observacao = ?, conciliado_em = CURRENT_TIMESTAMP WHERE id = ?",
+        [compra.id, status, diferencaValor, diferencaDias, "Atualizada automaticamente apos registro da compra", conciliacao.id]
+      );
+    } else {
+      await run(
+        "INSERT INTO conciliacoes_cartao (transacao_fatura_id, compra_cartao_id, cartao_id, status, diferenca_valor, diferenca_dias, observacao, conciliado_em) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+        [candidata.id, compra.id, compra.cartao_id, status, diferencaValor, diferencaDias, "Atualizada automaticamente apos registro da compra"]
+      );
+    }
+
+    await run("UPDATE transacoes_fatura SET status_conciliacao = ? WHERE id = ?", [status, candidata.id]);
+    await run("UPDATE compras_cartao SET status = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?", [status === "conciliada" ? "conferida" : "sem_comprovante", compra.id]);
     await run(
-      "INSERT INTO conciliacoes_cartao (transacao_fatura_id, compra_cartao_id, cartao_id, status, diferenca_valor, diferenca_dias, observacao, conciliado_em) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-      [candidata.id, compra.id, compra.cartao_id, status, diferencaValor, diferencaDias, "Atualizada automaticamente apos registro da compra"]
+      `UPDATE alertas_cartao
+       SET status = 'resolvido',
+           compra_cartao_id = ?,
+           resolvido_em = CURRENT_TIMESTAMP,
+           observacao_resolucao = ?
+       WHERE tipo_alerta = 'compra_sem_registro'
+         AND transacao_fatura_id = ?
+         AND status != 'resolvido'`,
+      [compra.id, "Compra registrada no sistema e vinculada automaticamente a fatura.", candidata.id]
     );
-  }
 
-  await run("UPDATE transacoes_fatura SET status_conciliacao = ? WHERE id = ?", [status, candidata.id]);
-  await run("UPDATE compras_cartao SET status = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?", [status === "conciliada" ? "conferida" : "sem_comprovante", compra.id]);
-  await run(
-    `UPDATE alertas_cartao
-     SET status = 'resolvido',
-         compra_cartao_id = ?,
-         resolvido_em = CURRENT_TIMESTAMP,
-         observacao_resolucao = ?
-     WHERE tipo_alerta = 'compra_sem_registro'
-       AND transacao_fatura_id = ?
-       AND status != 'resolvido'`,
-    [compra.id, "Compra registrada no sistema e vinculada automaticamente a fatura.", candidata.id]
-  );
+    if (status === "aguardando_comprovante") {
+      await criarAlertaCompraSemComprovante(compra.id);
+    }
 
-  if (status === "aguardando_comprovante") {
-    await criarAlertaCompraSemComprovante(compra.id);
-  }
-
-  return { atualizada: true, transacaoId: candidata.id, status };
+    return { atualizada: true, transacaoId: candidata.id, status };
+  });
 }
 
 async function resolverAlertaAposAtualizarCompra(compraId, alertaId) {
@@ -1339,13 +1343,14 @@ app.get("/api/compras-cartao/:id", async (request, response) => {
 
 app.post("/api/compras-cartao/pendencias-compativeis", async (request, response) => {
   try {
-    const { cartaoId, dataCompra, valor, fornecedor } = request.body;
+    const { compraId, cartaoId, dataCompra, valor, fornecedor } = request.body;
     if (!cartaoId || !dataCompra || !valor || !fornecedor) {
       response.json([]);
       return;
     }
 
     const pendencias = await buscarPendenciasCompativeisCompra({
+      id: compraId,
       cartao_id: cartaoId,
       data_compra: dataCompra,
       valor: Number(valor),
@@ -2169,129 +2174,145 @@ app.delete("/api/faturas-cartao/:id/transacoes/:transacaoId", async (request, re
 });
 
 app.post("/api/conciliacoes-cartao/rodar/:faturaId", async (request, response) => {
-  const transacoes = await all(
-    `SELECT t.*, c.departamento_id, c.gerente_id, c.nome_cartao, c.ultimos_4_digitos, s.nome AS departamento
-     FROM transacoes_fatura t
-     JOIN cartoes_corporativos c ON c.id = t.cartao_id
-     JOIN setores s ON s.id = c.departamento_id
-     WHERE t.fatura_id = ?`,
-    [request.params.faturaId]
-  );
-  let gerados = 0;
-
-  for (const transacao of transacoes) {
-    const conciliacaoExistente = await get("SELECT id, status FROM conciliacoes_cartao WHERE transacao_fatura_id = ?", [transacao.id]);
-    if (conciliacaoExistente && ["conciliada", "resolvida"].includes(conciliacaoExistente.status)) continue;
-
-    const compras = await all(
-      "SELECT * FROM compras_cartao WHERE cartao_id = ? AND status != 'cancelada'",
-      [transacao.cartao_id]
-    );
-    const valorIgual = compras.find((compra) => compra.valor === transacao.valor && Math.abs(daysDiff(transacao.data_transacao, compra.data_compra)) <= 2 && similarText(transacao.estabelecimento, compra.fornecedor));
-    const valorDivergente = compras.find((compra) => Math.abs(daysDiff(transacao.data_transacao, compra.data_compra)) <= 2 && similarText(transacao.estabelecimento, compra.fornecedor));
-    const dataDivergente = compras.find((compra) => compra.valor === transacao.valor && similarText(transacao.estabelecimento, compra.fornecedor));
-    let compra = valorIgual || valorDivergente || dataDivergente || null;
-    let status = "sem_registro";
-    let diferencaValor = 0;
-    let diferencaDias = 0;
-
-    if (valorIgual) {
-      status = valorIgual.comprovante_url ? "conciliada" : "aguardando_comprovante";
-    } else if (valorDivergente) {
-      status = "valor_divergente";
-    } else if (dataDivergente) {
-      status = "data_divergente";
-    }
-
-    if (compra) {
-      diferencaValor = Number((transacao.valor - compra.valor).toFixed(2));
-      diferencaDias = daysDiff(transacao.data_transacao, compra.data_compra);
-    }
-
-    if (conciliacaoExistente) {
-      await run(
-        "UPDATE conciliacoes_cartao SET compra_cartao_id = ?, status = ?, diferenca_valor = ?, diferenca_dias = ?, observacao = ?, conciliado_por_id = ?, conciliado_em = CURRENT_TIMESTAMP WHERE id = ?",
-        [compra?.id || null, status, diferencaValor, diferencaDias, "Conciliação automática", request.body.conciliadoPorId || null, conciliacaoExistente.id]
+  try {
+    const resultado = await withConciliacao(async () => {
+      const fatura = await get("SELECT id FROM faturas_cartao WHERE id = ?", [request.params.faturaId]);
+      if (!fatura) {
+        const error = new Error("Fatura nao encontrada.");
+        error.status = 404;
+        throw error;
+      }
+      const transacoes = await all(
+        `SELECT t.*, c.departamento_id, c.gerente_id, c.nome_cartao, c.ultimos_4_digitos, s.nome AS departamento
+         FROM transacoes_fatura t
+         JOIN cartoes_corporativos c ON c.id = t.cartao_id
+         JOIN setores s ON s.id = c.departamento_id
+         WHERE t.fatura_id = ? ORDER BY t.id`,
+        [request.params.faturaId]
       );
-    } else {
-      await run(
-        "INSERT INTO conciliacoes_cartao (transacao_fatura_id, compra_cartao_id, cartao_id, status, diferenca_valor, diferenca_dias, observacao, conciliado_por_id, conciliado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-        [transacao.id, compra?.id || null, transacao.cartao_id, status, diferencaValor, diferencaDias, "Conciliação automática", request.body.conciliadoPorId || null]
+      let gerados = 0;
+      let ambiguas = 0;
+
+      for (const transacao of transacoes) {
+        const conciliacaoExistente = await get("SELECT id, status, compra_cartao_id FROM conciliacoes_cartao WHERE transacao_fatura_id = ?", [transacao.id]);
+        if (conciliacaoExistente && ["conciliada", "resolvida"].includes(conciliacaoExistente.status)) continue;
+
+        const compras = conciliacaoExistente?.compra_cartao_id
+          ? await all("SELECT * FROM compras_cartao WHERE id = ? AND status != 'cancelada'", [conciliacaoExistente.compra_cartao_id])
+          : await all(
+          `SELECT cc.* FROM compras_cartao cc
+           WHERE cc.cartao_id = ? AND cc.status != 'cancelada'
+             AND NOT EXISTS (SELECT 1 FROM conciliacoes_cartao co WHERE co.compra_cartao_id = cc.id)
+           ORDER BY cc.id`,
+          [transacao.cartao_id]
+        );
+        const { compra, status, ambigua } = selecionarCorrespondencia(transacao, compras, { daysDiff, similarText });
+        // Reavalia um vinculo pendente apenas com a propria compra, sem troca automatica.
+        if (conciliacaoExistente?.compra_cartao_id && !compra) continue;
+        if (ambigua) ambiguas += 1;
+        const observacao = ambigua
+          ? "Mais de uma compra compativel. Abra a compra existente em Registrar compra, clique em editar e salve para escolher a pendencia da fatura."
+          : "Conciliacao automatica";
+        let diferencaValor = 0;
+        let diferencaDias = 0;
+
+        if (compra) {
+          diferencaValor = Number((transacao.valor - compra.valor).toFixed(2));
+          diferencaDias = daysDiff(transacao.data_transacao, compra.data_compra);
+        }
+
+        if (conciliacaoExistente) {
+          await run(
+            "UPDATE conciliacoes_cartao SET compra_cartao_id = ?, status = ?, diferenca_valor = ?, diferenca_dias = ?, observacao = ?, conciliado_por_id = ?, conciliado_em = CURRENT_TIMESTAMP WHERE id = ?",
+            [compra?.id || null, status, diferencaValor, diferencaDias, observacao, request.body.conciliadoPorId || null, conciliacaoExistente.id]
+          );
+        } else {
+          await run(
+            "INSERT INTO conciliacoes_cartao (transacao_fatura_id, compra_cartao_id, cartao_id, status, diferenca_valor, diferenca_dias, observacao, conciliado_por_id, conciliado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            [transacao.id, compra?.id || null, transacao.cartao_id, status, diferencaValor, diferencaDias, observacao, request.body.conciliadoPorId || null]
+          );
+        }
+        await run("UPDATE transacoes_fatura SET status_conciliacao = ? WHERE id = ?", [status, transacao.id]);
+        if (compra && status === "conciliada") await run("UPDATE compras_cartao SET status = 'conferida' WHERE id = ?", [compra.id]);
+        if (compra && status !== "conciliada") await run("UPDATE compras_cartao SET status = ? WHERE id = ?", [status === "aguardando_comprovante" ? "sem_comprovante" : "divergente", compra.id]);
+
+        const alertTypes = {
+          sem_registro: "compra_sem_registro",
+          valor_divergente: "valor_divergente",
+          data_divergente: "data_divergente",
+          aguardando_comprovante: "compra_sem_comprovante"
+        };
+
+        await run(
+          `UPDATE alertas_cartao
+           SET status = 'resolvido', resolvido_em = CURRENT_TIMESTAMP, observacao_resolucao = 'Resolvido automaticamente ao reprocessar a conciliação.'
+           WHERE transacao_fatura_id = ?
+             AND status != 'resolvido'
+             AND tipo_alerta IN ('compra_sem_registro', 'valor_divergente', 'data_divergente', 'compra_sem_comprovante')
+             AND tipo_alerta != ?`,
+          [transacao.id, alertTypes[status] || ""]
+        );
+
+        if (alertTypes[status]) {
+          await criarAlertaCartao({
+            cartaoId: transacao.cartao_id,
+            departamentoId: transacao.departamento_id,
+            gerenteId: transacao.gerente_id,
+            transacaoId: transacao.id,
+            compraId: compra?.id || null,
+            tipo: alertTypes[status],
+            mensagem: ambigua ? observacao : ""
+          });
+        }
+        gerados += 1;
+      }
+
+      const pendencias = await get("SELECT COUNT(*)::int AS total FROM transacoes_fatura WHERE fatura_id = ? AND status_conciliacao != 'conciliada'", [request.params.faturaId]);
+      await run("UPDATE faturas_cartao SET status = ? WHERE id = ?", [pendencias.total ? "com_pendencias" : "conciliada", request.params.faturaId]);
+      const pendenciasAtuais = await all(
+        `SELECT t.id AS "transacaoId",
+                co.compra_cartao_id AS "compraId",
+                (
+                  SELECT a.id
+                  FROM alertas_cartao a
+                  WHERE a.status != 'resolvido'
+                    AND a.transacao_fatura_id = t.id
+                    AND coalesce(a.compra_cartao_id, 0) = coalesce(co.compra_cartao_id, 0)
+                  ORDER BY a.id DESC
+                  LIMIT 1
+                ) AS "alertaId",
+                coalesce(co.status, t.status_conciliacao) AS status,
+                 co.observacao AS "observacaoConciliacao",
+                 (co.compra_cartao_id IS NULL AND co.observacao LIKE 'Mais de uma compra compativel.%') AS ambigua,
+                t.data_transacao AS "dataTransacao",
+                t.estabelecimento,
+                t.valor,
+                t.cartao_id AS "cartaoId",
+                c.nome_cartao AS cartao,
+                c.ultimos_4_digitos AS "ultimos4Digitos",
+                c.departamento_id AS "departamentoId",
+                s.nome AS departamento,
+                cc.fornecedor AS "compraFornecedor",
+                cc.data_compra AS "compraData",
+                cc.valor AS "compraValor",
+                coalesce(co.diferenca_valor, 0) AS "diferencaValor",
+                coalesce(co.diferenca_dias, 0) AS "diferencaDias"
+         FROM transacoes_fatura t
+         JOIN cartoes_corporativos c ON c.id = t.cartao_id
+         JOIN setores s ON s.id = c.departamento_id
+         LEFT JOIN conciliacoes_cartao co ON co.transacao_fatura_id = t.id
+         LEFT JOIN compras_cartao cc ON cc.id = co.compra_cartao_id
+         WHERE t.fatura_id = ?
+           AND t.status_conciliacao != 'conciliada'
+         ORDER BY t.data_transacao DESC, t.id DESC`,
+        [request.params.faturaId]
       );
-    }
-    await run("UPDATE transacoes_fatura SET status_conciliacao = ? WHERE id = ?", [status, transacao.id]);
-    if (compra && status === "conciliada") await run("UPDATE compras_cartao SET status = 'conferida' WHERE id = ?", [compra.id]);
-    if (compra && status !== "conciliada") await run("UPDATE compras_cartao SET status = ? WHERE id = ?", [status === "aguardando_comprovante" ? "sem_comprovante" : "divergente", compra.id]);
-
-    const alertTypes = {
-      sem_registro: "compra_sem_registro",
-      valor_divergente: "valor_divergente",
-      data_divergente: "data_divergente",
-      aguardando_comprovante: "compra_sem_comprovante"
-    };
-
-    await run(
-      `UPDATE alertas_cartao
-       SET status = 'resolvido', resolvido_em = CURRENT_TIMESTAMP, observacao_resolucao = 'Resolvido automaticamente ao reprocessar a conciliação.'
-       WHERE transacao_fatura_id = ?
-         AND status != 'resolvido'
-         AND tipo_alerta IN ('compra_sem_registro', 'valor_divergente', 'data_divergente', 'compra_sem_comprovante')
-         AND tipo_alerta != ?`,
-      [transacao.id, alertTypes[status] || ""]
-    );
-
-    if (alertTypes[status]) {
-      await criarAlertaCartao({
-        cartaoId: transacao.cartao_id,
-        departamentoId: transacao.departamento_id,
-        gerenteId: transacao.gerente_id,
-        transacaoId: transacao.id,
-        compraId: compra?.id || null,
-        tipo: alertTypes[status]
-      });
-    }
-    gerados += 1;
+      return { mensagem: "Concilia\u00e7\u00e3o conclu\u00edda.", processadas: gerados, ambiguas, pendencias: pendenciasAtuais };
+    });
+    response.json(resultado);
+  } catch (error) {
+    response.status(error.status || 500).json({ erro: error.status ? error.message : "N\u00e3o foi poss\u00edvel conciliar a fatura. Nenhuma altera\u00e7\u00e3o desta concilia\u00e7\u00e3o foi salva." });
   }
-
-  const pendencias = await get("SELECT COUNT(*)::int AS total FROM transacoes_fatura WHERE fatura_id = ? AND status_conciliacao != 'conciliada'", [request.params.faturaId]);
-  await run("UPDATE faturas_cartao SET status = ? WHERE id = ?", [pendencias.total ? "com_pendencias" : "conciliada", request.params.faturaId]);
-  const pendenciasAtuais = await all(
-    `SELECT t.id AS "transacaoId",
-            co.compra_cartao_id AS "compraId",
-            (
-              SELECT a.id
-              FROM alertas_cartao a
-              WHERE a.status != 'resolvido'
-                AND a.transacao_fatura_id = t.id
-                AND coalesce(a.compra_cartao_id, 0) = coalesce(co.compra_cartao_id, 0)
-              ORDER BY a.id DESC
-              LIMIT 1
-            ) AS "alertaId",
-            coalesce(co.status, t.status_conciliacao) AS status,
-            t.data_transacao AS "dataTransacao",
-            t.estabelecimento,
-            t.valor,
-            t.cartao_id AS "cartaoId",
-            c.nome_cartao AS cartao,
-            c.ultimos_4_digitos AS "ultimos4Digitos",
-            c.departamento_id AS "departamentoId",
-            s.nome AS departamento,
-            cc.fornecedor AS "compraFornecedor",
-            cc.data_compra AS "compraData",
-            cc.valor AS "compraValor",
-            coalesce(co.diferenca_valor, 0) AS "diferencaValor",
-            coalesce(co.diferenca_dias, 0) AS "diferencaDias"
-     FROM transacoes_fatura t
-     JOIN cartoes_corporativos c ON c.id = t.cartao_id
-     JOIN setores s ON s.id = c.departamento_id
-     LEFT JOIN conciliacoes_cartao co ON co.transacao_fatura_id = t.id
-     LEFT JOIN compras_cartao cc ON cc.id = co.compra_cartao_id
-     WHERE t.fatura_id = ?
-       AND t.status_conciliacao != 'conciliada'
-     ORDER BY t.data_transacao DESC, t.id DESC`,
-    [request.params.faturaId]
-  );
-  response.json({ mensagem: "Conciliação concluída.", processadas: gerados, pendencias: pendenciasAtuais });
 });
 
 app.get("/api/conciliacoes-cartao", async (request, response) => {

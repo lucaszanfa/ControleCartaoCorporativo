@@ -185,6 +185,7 @@ function rotuloPendencia(status) {
 }
 
 function linkResolucaoPendencia(pendencia) {
+  if (pendencia.ambigua) return "compra-cartao.html";
   if (pendencia.compraId) {
     const params = new URLSearchParams({ compraId: pendencia.compraId });
     if (pendencia.alertaId) params.set("alertaId", pendencia.alertaId);
@@ -205,6 +206,7 @@ function linkResolucaoPendencia(pendencia) {
 }
 
 function detalheCompraEncontrada(pendencia) {
+  if (pendencia.ambigua && pendencia.observacaoConciliacao) return pendencia.observacaoConciliacao;
   if (!pendencia.compraId) return "Nenhuma compra encontrada para essa transação.";
 
   const detalhes = [
@@ -306,7 +308,7 @@ function renderResultadoConciliacao(data) {
       ${pendencias.map((pendencia) => `
         <div class="pending-item">
           <div>
-            <span class="${classeStatus(pendencia.status)}">${escapeHtml(rotuloPendencia(pendencia.status))}</span>
+            <span class="${classeStatus(pendencia.status)}">${escapeHtml(pendencia.ambigua ? "Conferir correspond\u00eancia" : rotuloPendencia(pendencia.status))}</span>
             <strong>${escapeHtml(pendencia.estabelecimento || "-")} - ${moeda(pendencia.valor)}</strong>
             <p>${formatarData(pendencia.dataTransacao)} - ${escapeHtml(pendencia.cartao || "-")} - ${escapeHtml(pendencia.departamento || "-")}</p>
             <p>${escapeHtml(detalheCompraEncontrada(pendencia))}</p>
@@ -673,8 +675,10 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
 
   const pendenciasTotais = [];
   const resumoPorCartao = [];
+  const falhasConciliacao = [];
   for (const item of importadas) {
     const resultado = await rodarConciliacao(item.faturaId, { silencioso: true });
+    if (!resultado) falhasConciliacao.push(item.cartao);
     if (resultado) {
       pendenciasTotais.push(...(resultado.pendencias || []));
       resumoPorCartao.push(`${item.cartao}: ${resultado.pendencias?.length ? `${resultado.pendencias.length} pendência(s)` : "sem pendências"}`);
@@ -682,6 +686,7 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
   }
 
   let textoMensagem = `Fatura(s) importada(s) e conciliada(s). ${resumoPorCartao.join(" · ")}.`;
+  if (falhasConciliacao.length) textoMensagem = `Faturas importadas. Concilia\u00e7\u00e3o n\u00e3o conclu\u00edda para: ${falhasConciliacao.join(", ")}. Use o bot\u00e3o de conciliar para conferir o motivo. ${resumoPorCartao.join("; ")}`;
   if (ignoradas.length) {
     textoMensagem += ` Não importado(s): ${ignoradas.map((item) => `${item.cartao} (${item.motivo})`).join(", ")}.`;
   }
@@ -695,7 +700,8 @@ document.getElementById("faturaForm").addEventListener("submit", async (event) =
   mensagem.textContent = textoMensagem;
   mensagem.classList.remove("hidden");
   await renderArquivosPorCartao(importadas, payload.mesReferencia, payload.anoReferencia);
-  renderResultadoConciliacao({ pendencias: pendenciasTotais });
+  if (!falhasConciliacao.length) renderResultadoConciliacao({ pendencias: pendenciasTotais });
+  else document.getElementById("resultadoConciliacao").classList.add("hidden");
 
   event.target.reset();
   csvFaturaSelecionada = "";

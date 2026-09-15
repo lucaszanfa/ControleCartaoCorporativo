@@ -97,3 +97,40 @@ git push origin main
 ```
 
 O Render faz o deploy automático a cada push na branch `main`.
+
+## Conciliacao sem reutilizar compras
+
+A conciliacao automatica e o vinculo manual compartilham uma transacao SQL,
+com uma conexao exclusiva do pool. Os helpers run/all/get/exec usam essa conexao
+nas chamadas internas, inclusive na criacao de alertas. Nenhuma mensagem externa
+e enviada pela rotina de conciliacao.
+
+- Cada transacao da fatura tem no maximo um vinculo; cada compra/parcela pode
+  aparecer em apenas um vinculo, mesmo em faturas diferentes.
+- Compras ja vinculadas nao entram na busca de novas correspondencias.
+- Correspondencias ambiguas ficam sem vinculo, com status sem_registro e uma
+  observacao de conferencia. Nenhuma compra e escolhida pela ordem da consulta.
+- Para resolver: abra uma compra existente, clique em editar e salve. O modal
+  de pendencias permite escolher a transacao correspondente ou salvar sem vincular.
+- Vinculos concluidos sao preservados. Vinculos pendentes sao reavaliados somente
+  com sua propria compra (por exemplo, depois de anexar um comprovante).
+- Os extratores de faturas do Inter e Bradesco permanecem inalterados.
+
+Na primeira conciliacao ou vinculacao manual bem-sucedida, o sistema cria indices
+unicos em conciliacoes_cartao para transacao_fatura_id e compra_cartao_id nao nulo.
+Antes disso, verifica duplicidades existentes. Se houver duplicidades, a operacao
+e bloqueada para revisao, sem excluir ou desvincular registros automaticamente.
+O usuario do banco precisa ter permissao para criar esses indices.
+
+Nesta versao, uma trava de tabela serializa as conciliacoes e vinculacoes manuais
+entre processos. Consultas continuam permitidas, mas outras escritas nessa tabela
+podem aguardar a conclusao. Para volumes maiores, revisar essa granularidade.
+
+### Testes
+
+Execute npm test. A suite usa conexoes simuladas e armazenamento em memoria:
+nao carrega credenciais, nao acessa o banco real e nao envia alertas ao Teams.
+Ela cobre correspondencias, ambiguidades, repeticao, vinculos entre faturas,
+resolucao manual, rollback e isolamento do contexto das conexoes concorrentes.
+A verificacao de bloqueios/indices em um PostgreSQL real e o ensaio no navegador
+continuam sendo etapas de homologacao antes da publicacao.

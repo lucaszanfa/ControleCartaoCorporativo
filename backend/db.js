@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { Pool } = require("pg");
+const { AsyncLocalStorage } = require("node:async_hooks");
 const { loadEnv } = require("./config");
 
 loadEnv();
@@ -10,6 +11,34 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
+
+const contextoTransacao = new AsyncLocalStorage();
+
+function conexaoAtual() {
+  return contextoTransacao.getStore() || pool;
+}
+
+// Todos os helpers chamados pelo callback compartilham a mesma conexao.
+async function withTransaction(callback) {
+  if (contextoTransacao.getStore()) return callback();
+  const client = await pool.connect();
+  let erroConexao;
+  try {
+    await client.query("BEGIN");
+    const resultado = await contextoTransacao.run(client, callback);
+    await client.query("COMMIT");
+    return resultado;
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      erroConexao = rollbackError;
+    }
+    throw error;
+  } finally {
+    client.release(erroConexao);
+  }
+}
 
 function paraPlaceholdersPostgres(sql) {
   let indice = 0;
@@ -26,22 +55,22 @@ async function run(sql, params = []) {
     texto = `${texto.replace(/;\s*$/, "")} RETURNING id`;
   }
 
-  const resultado = await pool.query(texto, params);
+  const resultado = await conexaoAtual().query(texto, params);
   return { id: resultado.rows[0]?.id ?? null, changes: resultado.rowCount };
 }
 
 async function all(sql, params = []) {
-  const resultado = await pool.query(paraPlaceholdersPostgres(sql), params);
+  const resultado = await conexaoAtual().query(paraPlaceholdersPostgres(sql), params);
   return resultado.rows;
 }
 
 async function get(sql, params = []) {
-  const resultado = await pool.query(paraPlaceholdersPostgres(sql), params);
+  const resultado = await conexaoAtual().query(paraPlaceholdersPostgres(sql), params);
   return resultado.rows[0];
 }
 
 async function exec(sql) {
-  await pool.query(sql);
+  await conexaoAtual().query(sql);
 }
 
 async function initDb() {
@@ -78,6 +107,7 @@ async function ensureCartaoBancoSeed() {
 
 module.exports = {
   pool,
+  withTransaction,
   run,
   all,
   get,
