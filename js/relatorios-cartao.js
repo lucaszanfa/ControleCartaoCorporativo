@@ -1,3 +1,4 @@
+function escaparRelatorio(valor) { return String(valor ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 let ultimoRelatorioCartao = null;
 const coresRelatorioCartao = ["#2563eb", "#14b8a6", "#8b5cf6", "#f59e0b", "#94a3b8", "#ef4444"];
 let abaRelatorioCartaoAtiva = "cartao";
@@ -163,6 +164,7 @@ function escolherGranularidade(quantidadeMeses) {
 }
 
 function rotuloGranularidade(granularidade) {
+  if (granularidade === "total") return "Totais dos períodos";
   if (granularidade === "trimestre") return "Por trimestre";
   if (granularidade === "ano") return "Por ano";
   return "Por mês";
@@ -232,7 +234,7 @@ function calcularTicksEixoY(valorMaximo, quantidade = 4) {
   const ticks = [];
   let valor = 0;
   while (valor < valorMaximo + passo * 0.999) {
-    ticks.push(Math.round(valor));
+    ticks.push(Number(valor.toPrecision(12)));
     valor += passo;
   }
   return ticks;
@@ -279,8 +281,9 @@ let barrasGraficoTempo = [];
 // carregarRelatoriosCartao), então esta função nunca vê uma comparação
 // parcialmente pronta.
 function construirDadosGraficoTempo(relatorio) {
-  const dataInicial = document.getElementById("filtroDataInicial").value;
-  const dataFinal = document.getElementById("filtroDataFinal").value;
+  const datas = (relatorio.comprasPeriodo || []).map(c => String(c.data_compra).slice(0,10)).sort();
+  const dataInicial = relatorio.periodo.inicio || datas[0];
+  const dataFinal = relatorio.periodo.fim || datas[datas.length - 1];
   const mesesAtual = mesesEntre(dataInicial, dataFinal);
   const comparando = Boolean(relatorio.anterior);
 
@@ -296,9 +299,16 @@ function construirDadosGraficoTempo(relatorio) {
     return { comparando: false, granularidade, pontos };
   }
 
-  const prevInicio = document.getElementById("comparaDataInicial").value;
-  const prevFim = document.getElementById("comparaDataFinal").value;
+  const prevInicio = relatorio.periodo.anteriorInicio;
+  const prevFim = relatorio.periodo.anteriorFim;
   const mesesAnterior = mesesEntre(prevInicio, prevFim);
+  if (mesesAtual.length !== mesesAnterior.length) return {
+    comparando: true, granularidade: "total",
+    pontos: [{ label: "Totais dos períodos", atual: somaTotalGasto(relatorio.porCartao),
+      anterior: somaTotalGasto(relatorio.anterior.porCartao),
+      rotuloAtual: formatarData(dataInicial) + " a " + formatarData(dataFinal),
+      rotuloAnterior: formatarData(prevInicio) + " a " + formatarData(prevFim) }]
+  };
   const granularidade = escolherGranularidade(Math.max(mesesAtual.length, mesesAnterior.length, 1));
 
   // Reduz cada período aos seus buckets únicos (mês/trimestre/ano) e alinha
@@ -317,7 +327,7 @@ function construirDadosGraficoTempo(relatorio) {
     const rotuloAtual = chaveAtual ? rotuloBucket(chaveAtual, granularidade) : null;
     const rotuloAnterior = chaveAnterior ? rotuloBucket(chaveAnterior, granularidade) : null;
     return {
-      label: rotuloAtual || rotuloAnterior || `Período ${index + 1}`,
+      label: `${index + 1}º ${granularidade === "mes" ? "mês" : granularidade === "trimestre" ? "trimestre" : "ano"}`,
       // null (não 0) marca "esse período não cobre essa posição" — o
       // desenho usa isso para não pintar uma barra fantasma de valor zero.
       atual: chaveAtual ? (mapaAtual.get(chaveAtual) || 0) : null,
@@ -492,7 +502,7 @@ function agruparPrincipaisEOutros(itens, limitePrincipais = 5, limiteTotal = 6) 
 // Monta os dados da "Distribuição dos gastos" (função pura). Sem comparação,
 // devolve a mesma lista de sempre para o donut. Comparando, casa cada
 // categoria (cartão ou departamento) do período atual com a mesma categoria
-// do período anterior pelo nome — incluindo categorias que só existem em um
+// do período anterior pelos IDs do cartão e do departamento — incluindo categorias que só existem em um
 // dos dois períodos (ficam com o outro lado em 0) — e ordena pelo maior valor
 // entre os dois períodos.
 function construirDadosDistribuicao(relatorio) {
@@ -512,24 +522,25 @@ function construirDadosDistribuicao(relatorio) {
   }
 
   const listaAnterior = relatorio.anterior[chaveLista] || [];
-  const mapaAnterior = new Map(listaAnterior.map((item) => [item[campoNome], Number(item.total_gasto || 0)]));
+  const chave = item => porDepartamentoAtivo ? String(item.departamento_id) : item.cartao_id + ":" + item.departamento_id;
+  const mapaAnterior = new Map(listaAnterior.map((item) => [chave(item), Number(item.total_gasto || 0)]));
   const nomesVistos = new Set();
   const combinados = [];
 
   listaAtual.forEach((item) => {
     const nome = item[campoNome];
-    nomesVistos.add(nome);
+    nomesVistos.add(chave(item));
     combinados.push({
       nome,
       subtitulo: porDepartamentoAtivo ? null : item.departamento,
       atual: Number(item.total_gasto || 0),
-      anterior: mapaAnterior.get(nome) || 0
+      anterior: mapaAnterior.get(chave(item)) || 0
     });
   });
   listaAnterior.forEach((item) => {
     const nome = item[campoNome];
-    if (nomesVistos.has(nome)) return;
-    combinados.push({ nome, subtitulo: null, atual: 0, anterior: Number(item.total_gasto || 0) });
+    if (nomesVistos.has(chave(item))) return;
+    combinados.push({ nome, subtitulo: porDepartamentoAtivo ? null : item.departamento, atual: 0, anterior: Number(item.total_gasto || 0) });
   });
 
   const itens = combinados
@@ -635,8 +646,8 @@ function renderizarDistribuicaoComparativa(itens) {
   const maiorValor = Math.max(1, ...itens.flatMap((item) => [item.atual, item.anterior]));
 
   container.innerHTML = itens.map((item) => {
-    const percAtual = Math.max(2, Math.round((item.atual / maiorValor) * 100));
-    const percAnterior = Math.max(2, Math.round((item.anterior / maiorValor) * 100));
+    const percAtual = Math.max(0, Math.round((item.atual / maiorValor) * 100));
+    const percAnterior = Math.max(0, Math.round((item.anterior / maiorValor) * 100));
     const tituloCompleto = item.subtitulo ? `${item.nome} (${item.subtitulo})` : item.nome;
 
     let variacaoHtml;
@@ -656,16 +667,16 @@ function renderizarDistribuicaoComparativa(itens) {
     return `
       <div class="card-report-compare-bar-row">
         <div class="card-report-compare-bar-head">
-          <span title="${tituloCompleto}">${item.nome}</span>
+          <span title="${escaparRelatorio(tituloCompleto)}">${escaparRelatorio(tituloCompleto)}</span>
           ${variacaoHtml}
         </div>
         <div class="card-report-compare-bar-line">
           <span class="card-report-compare-bar-track"><span class="card-report-compare-bar-fill is-atual" style="width:${percAtual}%"></span></span>
-          <span class="card-report-compare-bar-value">${moeda(item.atual)}</span>
+          <span class="card-report-compare-bar-value">Atual: ${moeda(item.atual)}</span>
         </div>
         <div class="card-report-compare-bar-line">
           <span class="card-report-compare-bar-track"><span class="card-report-compare-bar-fill is-anterior" style="width:${percAnterior}%"></span></span>
-          <span class="card-report-compare-bar-value">${moeda(item.anterior)}</span>
+          <span class="card-report-compare-bar-value">Anterior: ${moeda(item.anterior)}</span>
         </div>
       </div>
     `;
@@ -693,14 +704,18 @@ function paraISO(data) {
 }
 
 function calcularPeriodoAnteriorPadrao(dataInicial, dataFinal) {
-  const inicio = new Date(`${dataInicial}T00:00:00`);
-  const fim = new Date(`${dataFinal}T00:00:00`);
-  const diasPeriodo = Math.round((fim - inicio) / 86400000) + 1;
-  const prevFim = new Date(inicio);
-  prevFim.setDate(prevFim.getDate() - 1);
-  const prevInicio = new Date(prevFim);
-  prevInicio.setDate(prevInicio.getDate() - diasPeriodo + 1);
-  return { inicio: paraISO(prevInicio), fim: paraISO(prevFim) };
+  if (!dataInicial || !dataFinal || dataInicial > dataFinal) return null;
+  const inicio = new Date(dataInicial + "T00:00:00Z");
+  const fim = new Date(dataFinal + "T00:00:00Z");
+  if (!Number.isFinite(+inicio) || !Number.isFinite(+fim)) return null;
+  const ultimoDia = new Date(Date.UTC(fim.getUTCFullYear(), fim.getUTCMonth() + 1, 0));
+  const anteriorFim = new Date(+inicio - 86400000);
+  let anteriorInicio;
+  if (inicio.getUTCDate() === 1 && fim.getUTCDate() === ultimoDia.getUTCDate()) {
+    const meses = (fim.getUTCFullYear() - inicio.getUTCFullYear()) * 12 + fim.getUTCMonth() - inicio.getUTCMonth() + 1;
+    anteriorInicio = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth() - meses, 1));
+  } else anteriorInicio = new Date(+anteriorFim - (+fim - +inicio));
+  return { inicio: anteriorInicio.toISOString().slice(0,10), fim: anteriorFim.toISOString().slice(0,10) };
 }
 
 function sincronizarPeriodoComparativoPadrao() {
@@ -709,6 +724,7 @@ function sincronizarPeriodoComparativoPadrao() {
   if (!dataInicial || !dataFinal) return;
 
   const padrao = calcularPeriodoAnteriorPadrao(dataInicial, dataFinal);
+  if (!padrao) return;
   document.getElementById("comparaDataInicial").value = padrao.inicio;
   document.getElementById("comparaDataFinal").value = padrao.fim;
 }
@@ -733,26 +749,21 @@ function somaTotalGasto(lista) {
 // total por cartão e por departamento (para a distribuição comparativa) e a
 // lista de compras (para o gráfico de tempo). Chamada só quando a comparação
 // está ativa e as duas datas do período anterior estão preenchidas.
-async function buscarDadosPeriodoAnterior(prevInicio, prevFim) {
-  const qs = new URLSearchParams();
-  const departamentoId = document.getElementById("filtroDepartamento").value;
-  const cartaoId = document.getElementById("filtroCartao").value;
-  const status = document.getElementById("filtroStatus").value;
-  if (departamentoId) qs.set("departamentoId", departamentoId);
-  if (cartaoId) qs.set("cartaoId", cartaoId);
+async function buscarListaRelatorio(url) {
+  const resposta = await fetch(url);
+  if (!resposta.ok) throw new Error("Não foi possível carregar os dados do relatório. Tente novamente.");
+  const dados = await resposta.json();
+  if (!Array.isArray(dados)) throw new Error("O servidor retornou dados inválidos para o relatório.");
+  return dados;
+}
+async function buscarDadosPeriodoAnterior(prevInicio, prevFim, query = qsRelatorio()) {
+  const qs = new URLSearchParams(query);
   qs.set("dataInicial", prevInicio);
   qs.set("dataFinal", prevFim);
-  qs.set("usuarioId", usuarioIdAtual());
-
-  const qsCompras = new URLSearchParams(qs);
-  if (status) qsCompras.set("status", status);
-
-  const [porCartao, porDepartamento, comprasPeriodo] = await Promise.all([
-    fetch(`/api/relatorios-cartao/gastos-por-cartao?${qs.toString()}`).then((r) => r.json()),
-    fetch(`/api/relatorios-cartao/gastos-por-departamento?${qs.toString()}`).then((r) => r.json()),
-    fetch(`/api/relatorios-cartao/compras?${qsCompras.toString()}`).then((r) => r.json())
-  ]);
-
+  const [porCartao, porDepartamento, comprasPeriodo] = await Promise.all(
+    ["gastos-por-cartao", "gastos-por-departamento", "compras"].map(tipo =>
+      buscarListaRelatorio("/api/relatorios-cartao/" + tipo + "?" + qs))
+  );
   return { porCartao, porDepartamento, comprasPeriodo };
 }
 
@@ -771,8 +782,8 @@ function atualizarDeltaTotal(relatorio) {
 
   const totalAtual = somaTotalGasto(relatorio.porCartao);
   const totalAnterior = somaTotalGasto(relatorio.anterior.porCartao);
-  const prevInicio = document.getElementById("comparaDataInicial").value;
-  const prevFim = document.getElementById("comparaDataFinal").value;
+  const prevInicio = relatorio.periodo.anteriorInicio;
+  const prevFim = relatorio.periodo.anteriorFim;
   const periodoTexto = `${formatarData(prevInicio)} – ${formatarData(prevFim)}`;
 
   if (!totalAnterior) {
@@ -783,14 +794,14 @@ function atualizarDeltaTotal(relatorio) {
 
   const variacao = ((totalAtual - totalAnterior) / totalAnterior) * 100;
   const subiu = variacao > 0;
-  const seta = subiu ? "↑" : "↓";
+  const seta = variacao === 0 ? "→" : subiu ? "↑" : "↓";
   elemento.className = `card-report-kpi-delta ${subiu ? "is-up" : "is-down"}`;
   elemento.textContent = `${seta} ${Math.abs(variacao).toFixed(1).replace(".", ",")}% vs ${periodoTexto}`;
 }
 
 function textoPeriodoSelecionado() {
-  const dataInicial = document.getElementById("filtroDataInicial").value;
-  const dataFinal = document.getElementById("filtroDataFinal").value;
+  const dataInicial = ultimoRelatorioCartao?.periodo.inicio;
+  const dataFinal = ultimoRelatorioCartao?.periodo.fim;
   if (!dataInicial && !dataFinal) return "Todos";
 
   const hoje = new Date();
@@ -812,8 +823,8 @@ function renderVisualRelatorioCartao() {
 function renderTabelas({ porCartao, porDepartamento, comprasPeriodo }) {
   document.getElementById("gastosCartaoTabela").innerHTML = porCartao.length
     ? porCartao.map((r) => linha([
-        `<strong>${r.cartao}</strong>`,
-        r.departamento,
+        `<strong>${escaparRelatorio(r.cartao)}</strong>`,
+        escaparRelatorio(r.departamento),
         `<span class="report-money-pill">${moeda(r.total_gasto)}</span>`,
         `<span class="report-number-pill">${r.quantidade_compras}</span>`,
         `<span class="report-money-pill">${moeda(r.media_compra)}</span>`
@@ -822,7 +833,7 @@ function renderTabelas({ porCartao, porDepartamento, comprasPeriodo }) {
 
   document.getElementById("gastosDepartamentoTabela").innerHTML = porDepartamento.length
     ? porDepartamento.map((r) => linha([
-        `<strong>${r.departamento}</strong>`,
+        `<strong>${escaparRelatorio(r.departamento)}</strong>`,
         `<span class="report-money-pill">${moeda(r.total_gasto)}</span>`,
         `<span class="report-number-pill">${r.quantidade_compras}</span>`,
         `<span class="report-number-pill">${Number(r.percentual || 0).toFixed(1)}%</span>`
@@ -832,13 +843,13 @@ function renderTabelas({ porCartao, porDepartamento, comprasPeriodo }) {
   document.getElementById("comprasPeriodoTabela").innerHTML = comprasPeriodo.length
     ? comprasPeriodo.map((r) => linha([
         formatarData(r.data_compra),
-        `<strong>${r.cartao}</strong>`,
-        r.departamento,
-        r.responsavel || "-",
-        r.fornecedor,
+        `<strong>${escaparRelatorio(r.cartao)}</strong>`,
+        escaparRelatorio(r.departamento),
+        escaparRelatorio(r.responsavel || "-"),
+        escaparRelatorio(r.fornecedor),
         `<span class="report-money-pill">${moeda(r.valor)}</span>`,
         `<span class="${classeStatus(r.status)}">${String(r.status || "-").replaceAll("_", " ")}</span>`,
-        `<a class="btn btn-secondary" href="compra-cartao.html?compraId=${r.id}">Ver compra</a>`
+        `<a class="btn btn-secondary" href="compra-cartao.html?verCompraId=${r.id}">Ver compra</a>`
       ])).join("")
     : vazio(8, "Nenhuma compra encontrada para o período selecionado.");
 }
@@ -853,45 +864,72 @@ let solicitacaoRelatorioCartaoAtual = 0;
 async function carregarRelatoriosCartao() {
   const idSolicitacao = ++solicitacaoRelatorioCartaoAtual;
   const comparando = atualizarCampoPeriodoComparativo();
-
   const query = qsRelatorio();
-  const suffix = query ? `?${query}` : "";
-  const comprasFiltro = qsComprasPeriodo();
-  const comprasPromise = comprasFiltro.blocked
-    ? Promise.resolve({ blocked: comprasFiltro.blocked, rows: [] })
-    : fetch(`/api/relatorios-cartao/compras${comprasFiltro.query ? `?${comprasFiltro.query}` : ""}`).then((r) => r.json()).then((rows) => ({ blocked: "", rows }));
-
-  const prevInicio = document.getElementById("comparaDataInicial").value;
-  const prevFim = document.getElementById("comparaDataFinal").value;
-  const anteriorPromise = comparando && prevInicio && prevFim
-    ? buscarDadosPeriodoAnterior(prevInicio, prevFim)
-    : Promise.resolve(null);
-
-  const [porCartao, porDepartamento, pendencias, comprasResultado, anterior] = await Promise.all([
-    fetch(`/api/relatorios-cartao/gastos-por-cartao${suffix}`).then((r) => r.json()),
-    fetch(`/api/relatorios-cartao/gastos-por-departamento${suffix}`).then((r) => r.json()),
-    fetch(`/api/relatorios-cartao/pendencias${suffix}`).then((r) => r.json()),
-    comprasPromise,
-    anteriorPromise
-  ]);
-
-  if (idSolicitacao !== solicitacaoRelatorioCartaoAtual) return; // resposta desatualizada, descarta
-
-  ultimoRelatorioCartao = {
-    porCartao,
-    porDepartamento,
-    pendencias,
-    comprasPeriodo: comprasResultado.rows,
-    comprasBloqueadas: comprasResultado.blocked || "",
-    anterior
+  const qs = new URLSearchParams(query);
+  const periodo = {
+    inicio: qs.get("dataInicial") || "", fim: qs.get("dataFinal") || "",
+    anteriorInicio: document.getElementById("comparaDataInicial").value,
+    anteriorFim: document.getElementById("comparaDataFinal").value
   };
-  renderResumo({ porCartao, porDepartamento, pendencias });
-  renderTabelas({ porCartao, porDepartamento, pendencias, comprasPeriodo: comprasResultado.rows });
-  renderVisualRelatorioCartao();
-  atualizarDeltaTotal(ultimoRelatorioCartao);
-  if (comprasResultado.blocked) {
-    document.getElementById("comprasPeriodoTabela").innerHTML = vazio(8, comprasResultado.blocked);
+  const mensagem = document.getElementById("relatorioMensagem");
+  const workspace = document.querySelector(".card-report-workspace");
+  const resumo = document.querySelector(".card-report-summary-grid");
+  const pdf = document.getElementById("baixarPdfCartao");
+  ultimoRelatorioCartao = null;
+  workspace.hidden = true;
+  resumo.hidden = true;
+  pdf.disabled = true;
+  mensagem.textContent = "Carregando relatório…";
+  mensagem.setAttribute("role", "status");
+  try {
+    if (periodo.inicio && periodo.fim && periodo.inicio > periodo.fim)
+      throw new Error("A data inicial deve ser anterior ou igual à data final.");
+    if (comparando && (!periodo.inicio || !periodo.fim || !periodo.anteriorInicio || !periodo.anteriorFim))
+      throw new Error("Preencha as quatro datas para comparar os períodos.");
+    if (comparando && periodo.anteriorInicio > periodo.anteriorFim)
+      throw new Error("Confira a ordem das datas do período anterior.");
+    if (comparando && periodo.anteriorFim >= periodo.inicio)
+      throw new Error("O período anterior deve terminar antes do início do período atual.");
+    const [porCartao, porDepartamento, pendencias, comprasPeriodo, anterior] = await Promise.all([
+      ...["gastos-por-cartao", "gastos-por-departamento", "pendencias", "compras"].map(tipo =>
+        buscarListaRelatorio("/api/relatorios-cartao/" + tipo + "?" + query)),
+      comparando ? buscarDadosPeriodoAnterior(periodo.anteriorInicio, periodo.anteriorFim, query) : null
+    ]);
+    if (idSolicitacao !== solicitacaoRelatorioCartaoAtual) return;
+    ultimoRelatorioCartao = { porCartao, porDepartamento, pendencias, comprasPeriodo, anterior, periodo, comprasBloqueadas: "" };
+    workspace.hidden = false;
+    resumo.hidden = false;
+    pdf.disabled = false;
+    const descrever = (inicio, fim) => (inicio ? formatarData(inicio) : "Início") + " a " + (fim ? formatarData(fim) : "sem limite final") + (inicio && fim ? " (" + (Math.round((Date.parse(fim) - Date.parse(inicio)) / 86400000) + 1) + " dias)" : "");
+    mensagem.textContent = "Atual: " + descrever(periodo.inicio, periodo.fim) +
+      (anterior ? " • Anterior: " + descrever(periodo.anteriorInicio, periodo.anteriorFim) : "");
+    if (anterior && mesesEntre(periodo.inicio, periodo.fim).length !== mesesEntre(periodo.anteriorInicio, periodo.anteriorFim).length)
+      mensagem.textContent += " • Os períodos têm durações diferentes. O gráfico compara os totais, sem ajuste por duração.";
+    const seletor = document.getElementById("periodoTabelas");
+    seletor.hidden = !anterior;
+    if (!anterior) seletor.value = "atual";
+    renderResumo(ultimoRelatorioCartao);
+    renderTabelasSelecionadas();
+    renderVisualRelatorioCartao();
+    atualizarDeltaTotal(ultimoRelatorioCartao);
+  } catch (erro) {
+    if (idSolicitacao !== solicitacaoRelatorioCartaoAtual) return;
+    mensagem.setAttribute("role", "alert");
+    mensagem.textContent = erro.message || "Não foi possível carregar o relatório.";
   }
+}
+
+function renderTabelasSelecionadas() {
+  if (!ultimoRelatorioCartao) return;
+  const anterior = document.getElementById("periodoTabelas").value === "anterior" && ultimoRelatorioCartao.anterior;
+  const dados = anterior || ultimoRelatorioCartao;
+  const p = ultimoRelatorioCartao.periodo;
+  document.getElementById("contextoTabelas").textContent =
+    (anterior ? "Período anterior: " : "Período atual: ") +
+    (formatarData(anterior ? p.anteriorInicio : p.inicio) || "Início") + " a " +
+    (formatarData(anterior ? p.anteriorFim : p.fim) || "hoje") +
+    " • " + dados.comprasPeriodo.length + " compras • " + moeda(somaTotalGasto(dados.porCartao));
+  renderTabelas(dados);
 }
 
 function textoSelecionadoCartao(id) {
@@ -921,7 +959,7 @@ function baixarPdfRelatorioCartao() {
     { label: "Status da pendencia", value: textoSelecionadoCartao("filtroStatus") },
     { label: "Data inicial", value: document.getElementById("filtroDataInicial").value || "-" },
     { label: "Data final", value: document.getElementById("filtroDataFinal").value || "-" },
-    { label: "Listagem de compras", value: "Mesmo filtro do relatório" }
+    { label: "Listagem de compras", value: "Período atual" }
   ]);
 
   pdf.section("Resumo executivo");
@@ -972,10 +1010,22 @@ function baixarPdfRelatorioCartao() {
     );
   }
 
+  if (ultimoRelatorioCartao.anterior) {
+    const anterior = ultimoRelatorioCartao.anterior;
+    pdf.section("Período anterior");
+    pdf.keyValues([{label: "De", value: formatarData(ultimoRelatorioCartao.periodo.anteriorInicio)}, {label: "Até", value: formatarData(ultimoRelatorioCartao.periodo.anteriorFim)}, {label: "Total gasto", value: moeda(somaTotalGasto(anterior.porCartao))}, {label: "Compras", value: anterior.comprasPeriodo.length}]);
+    pdf.table(
+      ["Data", "Cartao", "Departamento", "Responsavel", "Fornecedor", "Valor", "Status"],
+      anterior.comprasPeriodo.map(r => [formatarData(r.data_compra), r.cartao, r.departamento, r.responsavel || "-", r.fornecedor, moeda(r.valor), r.status || "-"]),
+      [70, 130, 110, 105, 145, 80, 90]
+    );
+  }
   pdf.output(`relatorio-cartoes-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 function configurarEventos() {
+  document.getElementById("periodoTabelas").addEventListener("change", renderTabelasSelecionadas);
+  document.getElementById("recarregarRelatorio").addEventListener("click", carregarRelatoriosCartao);
   ["filtroDepartamento", "filtroCartao", "filtroStatus"].forEach((id) => {
     document.getElementById(id).addEventListener("change", carregarRelatoriosCartao);
   });
@@ -1072,4 +1122,6 @@ async function initRelatoriosCartao() {
   await carregarRelatoriosCartao();
 }
 
-initRelatoriosCartao();
+initRelatoriosCartao().catch(() => {
+  document.getElementById("relatorioMensagem").textContent = "Não foi possível iniciar o relatório. Atualize a página para tentar novamente.";
+});

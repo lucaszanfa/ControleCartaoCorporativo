@@ -1,0 +1,20 @@
+.card-reports-page [hidden],
+.card-reports-page .card-report-donut-layout.hidden { display: none !important; }
+.card-report-visuals { align-items: start; }
+.card-report-visuals canvas { height: 260px; }
+.card-report-donut-layout { grid-template-columns: 1fr; }
+.card-report-donut-layout canvas { max-width: 300px; }
+.card-report-donut-legend span, .card-report-donut-legend small,
+.card-report-compare-bar-head span:first-child { white-space: normal; overflow-wrap: anywhere; }
+.card-report-compare-bar-line { grid-template-columns: minmax(0, 1fr) auto; }
+.card-report-compare-bar-value { min-width: 130px; }
+.card-report-block-header { flex-wrap: wrap; }
+.report-feedback, .report-period-selector { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 16px 0; }
+.report-feedback p, .report-period-selector p { flex: 1; min-width: 200px; color: var(--text-muted); margin: 0; line-height: 1.6; }
+.report-feedback [role="alert"] { color: #dc2626; }
+.report-period-selector select { margin-top: 6px; }
+.card-report-period-group { flex-wrap: wrap; min-width: 0; }
+@media (max-width: 600px) {
+  .card-report-period-inputs { flex-wrap: wrap; }
+  .card-report-period-inputs input { min-width: 0; max-width: 100%; }
+}

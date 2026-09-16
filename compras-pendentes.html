@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compras pendentes | Cartões Corporativos</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/pendencias-filtros.css">
 </head>
 <body>
   <div class="app-shell">
@@ -26,86 +27,39 @@
       </section>
 
       <div id="painelPendentes" class="pending-tab-panel">
-        <section class="card report-hero-card pending-hero-card">
-          <div class="pending-hero">
-            <div class="pending-hero-media">
-              <img src="img/smamateriais1.png" alt="SM&amp;A materiais">
-            </div>
-            <div class="pending-hero-copy">
-              <strong>Fila de compras para completar</strong>
-              <span>Revise compras que ainda precisam de respons&aacute;vel, motivo, comprovante ou confer&ecirc;ncia.</span>
-            </div>
-            <a class="btn btn-secondary pending-hero-action" href="#comprasPendentesTabela">
-              Ver todas as pend&ecirc;ncias
-              <span aria-hidden="true">&rsaquo;</span>
-            </a>
-          </div>
-        </section>
-
-        <section class="cards-grid report-summary-grid pending-summary-grid">
-          <article class="card metric-card pending-metric pending-metric-total">
-            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 7h12l1 14H5Z"></path><path d="M9 7a3 3 0 0 1 6 0"></path></svg></span>
-            <div>
-              <span>Pendentes</span>
-              <strong id="resumoPendentes">0</strong>
-              <small>Compras aguardando conclus&atilde;o</small>
-            </div>
-            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-          </article>
-          <article class="card metric-card pending-metric pending-metric-proof">
-            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"></path><path d="M9 8h6M9 12h6"></path></svg></span>
-            <div>
-              <span>Sem comprovante</span>
-              <strong id="resumoSemComprovante">0</strong>
-              <small>Aguardando envio de comprovante</small>
-            </div>
-            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-          </article>
-          <article class="card metric-card pending-metric pending-metric-review">
-            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg></span>
-            <div>
-              <span>Em confer&ecirc;ncia</span>
-              <strong id="resumoConferencia">0</strong>
-              <small>Em an&aacute;lise pela confer&ecirc;ncia</small>
-            </div>
-            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-          </article>
-          <article class="card metric-card pending-metric pending-metric-risk">
-            <span class="pending-metric-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><path d="M12 2 2 20h20Z"></path><path d="M12 9v5M12 17v.01"></path></svg></span>
-            <div>
-              <span>Divergentes</span>
-              <strong id="resumoDivergentes">0</strong>
-              <small>Itens com diverg&ecirc;ncias</small>
-            </div>
-            <span class="pending-metric-arrow" aria-hidden="true">&rsaquo;</span>
-          </article>
-        </section>
-
-        <section class="card report-filter-card pending-filter-card">
+        <section class="card report-filter-card pending-filter-card pending-search-card" aria-label="Pesquisa de pendências">
           <div id="pendentesMensagem" class="alert-success hidden"></div>
-          <div class="pending-filter-title">
-            <span aria-hidden="true">▽</span>
-            <strong>Filtros</strong>
+          <div class="pending-search-heading">
+            <div><h2>Buscar pendências</h2><p id="pendentesContagem" role="status" aria-live="polite">Carregando pendências...</p></div>
+            <button class="btn btn-secondary" id="limparFiltrosPendentes" type="button" disabled>Limpar filtros</button>
           </div>
-          <div class="filters-row filters-three">
-            <label>Status
-              <select id="filtroStatus">
-                <option value="">Todos</option>
+          <div class="pending-search-fields">
+            <label class="pending-search-supplier">Fornecedor
+              <span class="pending-search-input">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></svg>
+                <input id="filtroFornecedor" type="search" placeholder="Buscar pelo nome do fornecedor..." autocomplete="off" aria-controls="comprasPendentesTabela">
+              </span>
+            </label>
+            <label>Cartão
+              <select id="filtroCartao" aria-controls="comprasPendentesTabela"><option value="">Todos os cartões</option></select>
+            </label>
+            <label>Situação
+              <select id="filtroStatus" aria-controls="comprasPendentesTabela">
+                <option value="">Todas as situações</option>
                 <option value="sem_registro">Sem registro</option>
                 <option value="sem_comprovante">Sem comprovante</option>
-                <option value="aguardando_conferencia">Aguardando confer&ecirc;ncia</option>
+                <option value="aguardando_conferencia">Aguardando conferência</option>
                 <option value="divergente">Divergente</option>
               </select>
             </label>
-            <label>Cart&atilde;o
-              <select id="filtroCartao">
-                <option value="">Todos os cart&otilde;es</option>
-              </select>
+            <label>Data inicial
+              <input id="filtroDataInicialPendentes" type="date" aria-label="Data inicial da compra" aria-controls="comprasPendentesTabela" aria-describedby="erroPeriodoPendentes">
             </label>
-            <label>Fornecedor
-              <input id="filtroFornecedor" type="search" placeholder="Fornecedor">
+            <label>Data final
+              <input id="filtroDataFinalPendentes" type="date" aria-label="Data final da compra" aria-controls="comprasPendentesTabela" aria-describedby="erroPeriodoPendentes">
             </label>
           </div>
+          <p id="erroPeriodoPendentes" class="pending-search-error hidden" role="alert"></p>
         </section>
 
         <section class="card report-workspace-card pending-table-card">

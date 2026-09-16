@@ -1,0 +1,20 @@
+
+.pending-page .pending-search-card { padding: 18px 22px; }
+.pending-search-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.pending-search-heading h2 { margin: 0; font-size: 17px; line-height: 1.4; }
+.pending-search-heading p { margin: 3px 0 0; color: var(--texto-secundario, #64748b); font-size: 12px; }
+.pending-search-heading .btn { min-height: 34px; padding: 7px 12px; font-size: 12px; white-space: nowrap; }
+.pending-search-fields { display: grid; grid-template-columns: minmax(200px, 1.6fr) minmax(150px, 1fr) minmax(170px, 1fr) repeat(2, minmax(140px, .8fr)); gap: 16px; align-items: end; }
+.pending-search-fields > label { display: grid; gap: 7px; margin: 0; min-width: 0; font-size: 12px; }
+.pending-search-card .pending-search-fields input, .pending-search-card .pending-search-fields select { height: 42px; min-height: 42px; width: 100%; min-width: 0; padding: 9px 12px; border-radius: 9px; }
+.pending-search-input { display: block; position: relative; }
+.pending-search-input svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; color: var(--azul, #2563eb); pointer-events: none; }
+.pending-search-card .pending-search-input input { padding-left: 40px; }
+.pending-search-card .alert-success { margin: 0 0 14px; }
+[data-theme="dark"] .pending-search-heading p { color: #a7bfd7; }
+[data-theme="dark"] .pending-search-input svg { color: #74a7ff; }
+@media (max-width: 1250px) { .pending-search-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pending-search-supplier { grid-column: 1 / -1; } }
+@media (max-width: 600px) { .pending-page .pending-search-card { padding: 16px; } .pending-search-fields { grid-template-columns: minmax(0, 1fr); gap: 12px; } .pending-search-heading { gap: 8px; align-items: start; } .pending-search-heading h2 { font-size: 16px; } }
+
+.pending-search-error { margin: 12px 0 0; font-size: 13px; color: #b91c1c; }
+[data-theme="dark"] .pending-search-error { color: #fca5a5; }

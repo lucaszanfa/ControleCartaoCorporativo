@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Relatórios de Cartão</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/relatorios-cartao.css">
 </head>
 <body>
   <div class="app-shell">
@@ -84,6 +85,7 @@
         </label>
       </section>
 
+      <div class="report-feedback"><p id="relatorioMensagem" role="status" aria-live="polite"></p><button id="recarregarRelatorio" type="button" class="btn btn-secondary">Atualizar</button></div>
       <section class="card-report-summary-grid">
         <article>
           <span class="card-report-kpi-icon" aria-hidden="true"><svg class="icon-sm" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><path d="M6 9v.01M18 15v.01"></path></svg></span>
@@ -135,6 +137,10 @@
               </article>
             </div>
 
+            <div class="report-period-selector">
+              <label>Consultar tabelas <select id="periodoTabelas" hidden><option value="atual">Período atual</option><option value="anterior">Período anterior</option></select></label>
+              <p id="contextoTabelas" aria-live="polite"></p>
+            </div>
             <div class="report-tabs" role="tablist">
               <button class="active" data-tab="cartao" type="button">Por cartão</button>
               <button data-tab="departamento" type="button">Por departamento</button>

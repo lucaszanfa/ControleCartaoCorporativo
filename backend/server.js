@@ -2651,19 +2651,19 @@ async function aplicarFiltroCartoesPermitidos(where, params, usuarioId, coluna) 
 
 app.get("/api/relatorios-cartao/gastos-por-cartao", async (request, response) => {
   const { where, params } = await filtrosRelatorioComprasCartao(request.query);
-  response.json(await all(`SELECT c.nome_cartao AS cartao, s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*)::int AS quantidade_compras, AVG(cc.valor) AS media_compra
+  response.json(await all(`SELECT c.id AS cartao_id, s.id AS departamento_id, c.nome_cartao AS cartao, s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*)::int AS quantidade_compras, AVG(cc.valor) AS media_compra
                            FROM compras_cartao cc JOIN cartoes_corporativos c ON c.id = cc.cartao_id JOIN setores s ON s.id = cc.departamento_id
                            ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-                           GROUP BY c.id, s.nome ORDER BY total_gasto DESC`, params));
+                           GROUP BY c.id, s.id ORDER BY total_gasto DESC`, params));
 });
 
 app.get("/api/relatorios-cartao/gastos-por-departamento", async (request, response) => {
   const { where, params } = await filtrosRelatorioComprasCartao(request.query);
-  const rows = await all(`SELECT s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*)::int AS quantidade_compras
+  const rows = await all(`SELECT s.id AS departamento_id, s.nome AS departamento, SUM(cc.valor) AS total_gasto, COUNT(*)::int AS quantidade_compras
                           FROM compras_cartao cc JOIN setores s ON s.id = cc.departamento_id
                           ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
                           GROUP BY s.id ORDER BY total_gasto DESC`, params);
-  const total = rows.reduce((sum, row) => sum + row.total_gasto, 0);
+  const total = rows.reduce((sum, row) => sum + Number(row.total_gasto || 0), 0);
   response.json(rows.map((row) => ({ ...row, percentual: total ? (row.total_gasto / total) * 100 : 0 })));
 });
 

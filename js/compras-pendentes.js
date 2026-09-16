@@ -4,6 +4,8 @@ const tabelaPendentes = document.getElementById("comprasPendentesTabela");
 const filtroStatus = document.getElementById("filtroStatus");
 const filtroCartao = document.getElementById("filtroCartao");
 const filtroFornecedor = document.getElementById("filtroFornecedor");
+const filtroDataInicialPendentes = document.getElementById("filtroDataInicialPendentes");
+const filtroDataFinalPendentes = document.getElementById("filtroDataFinalPendentes");
 const pendentesMensagem = document.getElementById("pendentesMensagem");
 const teamsConfirmModal = document.getElementById("teamsConfirmModal");
 const teamsConfirmCompra = document.getElementById("teamsConfirmCompra");
@@ -147,29 +149,50 @@ function destinoTeams(compra) {
   };
 }
 
-function atualizarResumo(lista) {
-  document.getElementById("resumoPendentes").textContent = lista.length;
-  document.getElementById("resumoSemComprovante").textContent = lista.filter((compra) => compra.pendencias.includes("Comprovante")).length;
-  document.getElementById("resumoConferencia").textContent = lista.filter((compra) => compra.status === "aguardando_conferencia").length;
-  document.getElementById("resumoDivergentes").textContent = lista.filter((compra) => compra.status === "divergente").length;
+
+
+function normalizarFornecedorPendencia(valor) {
+  return String(valor || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 }
 
 function comprasFiltradas() {
   const status = filtroStatus.value;
   const cartaoId = filtroCartao.value;
-  const fornecedor = filtroFornecedor.value.trim().toLowerCase();
+  const fornecedor = normalizarFornecedorPendencia(filtroFornecedor.value);
+  const inicio = filtroDataInicialPendentes.value;
+  const fim = filtroDataFinalPendentes.value;
 
   return comprasPendentes.filter((compra) => {
     const correspondeStatus = !status || compra.status === status;
     const correspondeCartao = !cartaoId || String(compra.cartaoId) === cartaoId;
-    const correspondeFornecedor = !fornecedor || String(compra.fornecedor || "").toLowerCase().includes(fornecedor);
-    return correspondeStatus && correspondeCartao && correspondeFornecedor;
+    const correspondeFornecedor = !fornecedor || normalizarFornecedorPendencia(compra.fornecedor).includes(fornecedor);
+    const data = String(compra.dataCompra || "").slice(0, 10);
+    const correspondePeriodo = (!inicio && !fim) || (Boolean(data) && (!inicio || data >= inicio) && (!fim || data <= fim));
+    return correspondeStatus && correspondeCartao && correspondeFornecedor && correspondePeriodo;
   });
 }
 
 function renderizarPendentes() {
-  const lista = comprasFiltradas();
-  atualizarResumo(lista);
+  const inicio = filtroDataInicialPendentes.value;
+  const fim = filtroDataFinalPendentes.value;
+  const periodoInvalido = Boolean(inicio && fim && inicio > fim);
+  const erroPeriodo = document.getElementById("erroPeriodoPendentes");
+  erroPeriodo.textContent = periodoInvalido ? "A data inicial deve ser anterior ou igual à data final." : "";
+  erroPeriodo.classList.toggle("hidden", !periodoInvalido);
+  filtroDataInicialPendentes.setAttribute("aria-invalid", String(periodoInvalido));
+  filtroDataFinalPendentes.setAttribute("aria-invalid", String(periodoInvalido));
+  const lista = periodoInvalido ? [] : comprasFiltradas();
+  const filtrosAtivos = Boolean(filtroStatus.value || filtroCartao.value || filtroFornecedor.value.trim() || inicio || fim);
+  document.getElementById("limparFiltrosPendentes").disabled = !filtrosAtivos;
+  document.getElementById("pendentesContagem").textContent = filtrosAtivos
+    ? lista.length + " de " + comprasPendentes.length + " pendências encontradas"
+    : comprasPendentes.length + (comprasPendentes.length === 1 ? " pendência para revisar" : " pendências para revisar");
+
+  if (periodoInvalido) {
+    document.getElementById("pendentesContagem").textContent = "Revise o período informado.";
+    tabelaPendentes.innerHTML = '<tr><td class="empty-state" colspan="7">Corrija as datas para consultar as pendências.</td></tr>';
+    return;
+  }
 
   if (!lista.length) {
     tabelaPendentes.innerHTML = `<tr><td class="empty-state" colspan="7">Nenhuma compra pendente encontrada.</td></tr>`;
@@ -318,7 +341,17 @@ async function confirmarEnvioTeams() {
   }
 }
 
-[filtroStatus, filtroCartao, filtroFornecedor].forEach((campo) => {
+document.getElementById("limparFiltrosPendentes").addEventListener("click", () => {
+  filtroStatus.value = "";
+  filtroCartao.value = "";
+  filtroFornecedor.value = "";
+  filtroDataInicialPendentes.value = "";
+  filtroDataFinalPendentes.value = "";
+  renderizarPendentes();
+  filtroFornecedor.focus();
+});
+
+[filtroStatus, filtroCartao, filtroFornecedor, filtroDataInicialPendentes, filtroDataFinalPendentes].forEach((campo) => {
   campo.addEventListener("input", renderizarPendentes);
   campo.addEventListener("change", renderizarPendentes);
 });
