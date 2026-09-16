@@ -117,6 +117,9 @@ ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS lancamento_atualizado_por_id
 ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS lancamento_atualizado_em TIMESTAMPTZ;
 ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS lancamento_versao INTEGER NOT NULL DEFAULT 0;
 
+-- Campo livre e opcional, no mesmo espirito do motivo.
+ALTER TABLE compras_cartao ADD COLUMN IF NOT EXISTS centro_custo TEXT;
+
 
 CREATE TABLE IF NOT EXISTS faturas_cartao (
   id SERIAL PRIMARY KEY,

@@ -675,6 +675,7 @@ async function abrirDetalheCompra(id) {
         ${detalheCompraCampo("Responsável", compra.responsavelCompra || compra.responsavel, "pessoa")}
         ${detalheCompraCampo("Fornecedor", compra.fornecedor, "loja")}
         ${detalheCompraCampo("Motivo", compra.motivo, "chat")}
+        ${detalheCompraCampo("Centro de custo", compra.centroCusto, "etiqueta")}
         ${detalheCompraCampoAutoria(compra)}
       </section>
       ${renderHistoricoCompra(compra)}
@@ -698,6 +699,7 @@ function getPayloadCompra() {
     fornecedor: document.getElementById("fornecedor").value,
     categoria: document.getElementById("categoria").value,
     motivo: document.getElementById("motivo").value,
+    centroCusto: document.getElementById("centroCusto").value,
     comprovanteUrl: document.getElementById("comprovanteUrl").value,
     observacao: document.getElementById("observacao").value,
     usuarioLogadoId: usuarioIdAtual(),
@@ -778,6 +780,7 @@ async function carregarCompraParaEdicao(id) {
   document.getElementById("fornecedor").value = compra.fornecedor;
   document.getElementById("categoria").value = compra.categoria;
   document.getElementById("motivo").value = compra.motivo;
+  document.getElementById("centroCusto").value = compra.centroCusto || "";
   document.getElementById("comprovanteUrl").value = comprovanteUrlValido(compra.comprovanteUrl) ? compra.comprovanteUrl : "";
   document.getElementById("comprovanteAtual").innerHTML = linkComprovanteAtual(compra.comprovanteUrl);
   document.getElementById("observacao").value = compra.observacao || "";

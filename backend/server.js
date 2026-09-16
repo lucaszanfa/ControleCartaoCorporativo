@@ -238,6 +238,7 @@ function mapCompraCartao(row) {
     fornecedor: row.fornecedor,
     categoria: row.categoria,
     motivo: row.motivo,
+    centroCusto: row.centro_custo || "",
     comprovanteUrl: row.comprovante_url || "",
     observacao: row.observacao || "",
     status: row.status,
@@ -292,14 +293,14 @@ function somarMeses(dataISO, quantidadeMeses) {
   return `${primeiroDiaAlvo.getUTCFullYear()}-${String(primeiroDiaAlvo.getUTCMonth() + 1).padStart(2, "0")}-${String(diaFinal).padStart(2, "0")}`;
 }
 
-async function gerarParcelasFuturas({ compraOrigemId, cartaoId, departamentoId, responsavelCompraId, dataCompra, valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, comprovanteUrl, observacao, criadoPorId }) {
+async function gerarParcelasFuturas({ compraOrigemId, cartaoId, departamentoId, responsavelCompraId, dataCompra, valorTotal, totalParcelas, valorParcela, fornecedor, categoria, motivo, centroCusto, comprovanteUrl, observacao, criadoPorId }) {
   const valorUltimaParcela = Number((valorTotal - valorParcela * (totalParcelas - 1)).toFixed(2));
   for (let parcela = 2; parcela <= totalParcelas; parcela += 1) {
     const dataParcela = somarMeses(dataCompra, parcela - 1);
     const valorDestaParcela = parcela === totalParcelas ? valorUltimaParcela : valorParcela;
     await run(
-      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, parcelamento_grupo_id, criado_por_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [cartaoId, departamentoId, responsavelCompraId, dataParcela, valorDestaParcela, fornecedor, categoria, motivo, comprovanteUrl || "", observacao || "", "aguardando_fatura", parcela, totalParcelas, compraOrigemId, criadoPorId || null]
+      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, centro_custo, comprovante_url, observacao, status, parcela_atual, parcela_total, parcelamento_grupo_id, criado_por_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [cartaoId, departamentoId, responsavelCompraId, dataParcela, valorDestaParcela, fornecedor, categoria, motivo, centroCusto || "", comprovanteUrl || "", observacao || "", "aguardando_fatura", parcela, totalParcelas, compraOrigemId, criadoPorId || null]
     );
   }
 }
@@ -1617,7 +1618,7 @@ app.post("/api/compras-cartao/automatica", validarChaveCompraAutomatica, async (
 
 app.post("/api/compras-cartao", async (request, response) => {
   try {
-    const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, vincularPendencia, transacaoFaturaId, usuarioLogadoId, parcelas } = request.body;
+    const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, centroCusto, comprovanteUrl, observacao, vincularPendencia, transacaoFaturaId, usuarioLogadoId, parcelas } = request.body;
     if (!cartaoId || !departamentoId || !responsavelCompraId || !dataCompra || !valor || !fornecedor || !categoria) return response.status(400).json({ erro: "Preencha todos os campos obrigatórios." });
     if (Number(valor) <= 0) return response.status(400).json({ erro: "Valor deve ser maior que zero." });
     const cartao = await get("SELECT * FROM cartoes_corporativos WHERE id = ?", [cartaoId]);
@@ -1634,15 +1635,15 @@ app.post("/api/compras-cartao", async (request, response) => {
     const fornecedorFinal = await fornecedorCanonico(fornecedor);
 
     const result = await run(
-      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, comprovante_url, observacao, status, parcela_atual, parcela_total, criado_por_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valorParcela, fornecedorFinal, categoria, motivo, comprovanteUrl || "", observacao || "", status, 1, totalParcelas, usuarioLogadoId || null]
+      "INSERT INTO compras_cartao (cartao_id, departamento_id, responsavel_compra_id, data_compra, valor, fornecedor, categoria, motivo, centro_custo, comprovante_url, observacao, status, parcela_atual, parcela_total, criado_por_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [cartaoId, departamentoId, responsavelCompraId, dataCompra, valorParcela, fornecedorFinal, categoria, motivo, centroCusto || "", comprovanteUrl || "", observacao || "", status, 1, totalParcelas, usuarioLogadoId || null]
     );
 
     if (totalParcelas > 1) {
       await run("UPDATE compras_cartao SET parcelamento_grupo_id = ? WHERE id = ?", [result.id, result.id]);
       await gerarParcelasFuturas({
         compraOrigemId: result.id, cartaoId, departamentoId, responsavelCompraId, dataCompra,
-        valorTotal, totalParcelas, valorParcela, fornecedor: fornecedorFinal, categoria, motivo, comprovanteUrl, observacao,
+        valorTotal, totalParcelas, valorParcela, fornecedor: fornecedorFinal, categoria, motivo, centroCusto, comprovanteUrl, observacao,
         criadoPorId: usuarioLogadoId || null
       });
     }
@@ -1668,7 +1669,7 @@ app.post("/api/compras-cartao", async (request, response) => {
 });
 
 app.put("/api/compras-cartao/:id", async (request, response) => {
-  const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, comprovanteUrl, observacao, status, vincularPendencia, transacaoFaturaId, alertaId, usuarioLogadoId, parcelas } = request.body;
+  const { cartaoId, departamentoId, responsavelCompraId, dataCompra, valor, fornecedor, categoria, motivo, centroCusto, comprovanteUrl, observacao, status, vincularPendencia, transacaoFaturaId, alertaId, usuarioLogadoId, parcelas } = request.body;
   const compraAtual = await get("SELECT * FROM compras_cartao WHERE id = ?", [request.params.id]);
   if (!compraAtual) {
     response.status(404).json({ erro: "Compra não encontrada." });
@@ -1709,7 +1710,7 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
   const valorFinal = podeParcelarAgora ? Number((valorTotalOriginal / totalParcelas).toFixed(2)) : dadosProtegidos.valor;
 
   await run(
-    "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, comprovante_url = ?, observacao = ?, status = ?, parcela_total = ?, parcelamento_grupo_id = ?, atualizado_em = CURRENT_TIMESTAMP, atualizado_por_id = ? WHERE id = ?",
+    "UPDATE compras_cartao SET cartao_id = ?, departamento_id = ?, responsavel_compra_id = ?, data_compra = ?, valor = ?, fornecedor = ?, categoria = ?, motivo = ?, centro_custo = ?, comprovante_url = ?, observacao = ?, status = ?, parcela_total = ?, parcelamento_grupo_id = ?, atualizado_em = CURRENT_TIMESTAMP, atualizado_por_id = ? WHERE id = ?",
     [
       dadosProtegidos.cartaoId,
       dadosProtegidos.departamentoId,
@@ -1719,6 +1720,7 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       dadosProtegidos.fornecedor,
       categoria || "",
       motivo || "",
+      centroCusto || "",
       comprovanteUrl || "",
       dadosProtegidos.observacao,
       status || "registrada",
@@ -1742,6 +1744,7 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       fornecedor: dadosProtegidos.fornecedor,
       categoria,
       motivo,
+      centroCusto,
       comprovanteUrl,
       observacao: dadosProtegidos.observacao,
       criadoPorId: usuarioLogadoId || null
@@ -1762,6 +1765,7 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       fornecedor: dadosProtegidos.fornecedor,
       categoria: categoria || "",
       motivo: motivo || "",
+      centro_custo: centroCusto || "",
       observacao: dadosProtegidos.observacao,
       status: status || "registrada"
     }, [
@@ -1773,6 +1777,7 @@ app.put("/api/compras-cartao/:id", async (request, response) => {
       { chave: "fornecedor", rotulo: "Fornecedor" },
       { chave: "categoria", rotulo: "Categoria" },
       { chave: "motivo", rotulo: "Motivo" },
+      { chave: "centro_custo", rotulo: "Centro de custo" },
       { chave: "observacao", rotulo: "Observação" },
       { chave: "status", rotulo: "Status" }
     ])
