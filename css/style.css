@@ -7117,7 +7117,7 @@ textarea {
 .sidebar-logo {
   width: 58px;
   height: 58px;
-  padding: 7px;
+  padding: 0;
   border-radius: 17px;
 }
 
