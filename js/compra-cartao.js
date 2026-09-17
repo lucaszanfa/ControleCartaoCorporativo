@@ -198,6 +198,7 @@ function carregarTransacaoParaNovaCompra() {
   document.getElementById("fornecedor").value = compraParams.get("fornecedor") || "";
   document.getElementById("categoria").value = compraParams.get("categoria") || "outros";
   document.getElementById("responsavelCompraId").value = usuarioIdAtual();
+  abrirSecaoFornecedorComprovante();
 }
 
 function preencherDepartamentoPorCartao() {
@@ -257,10 +258,20 @@ function atualizarComprovanteVisual() {
   }
 }
 
+function abrirSecaoFornecedorComprovante() {
+  document.getElementById("fornecedorSecaoBody")?.classList.remove("hidden");
+  document.getElementById("fornecedorSecaoToggle")?.setAttribute("aria-expanded", "true");
+}
+
 function prepararInteracoesCompraCartao() {
   document.getElementById("observacao")?.addEventListener("input", atualizarContadorCompra);
   document.getElementById("valor")?.addEventListener("input", atualizarResumoCartao);
   document.getElementById("comprovanteArquivo")?.addEventListener("change", atualizarComprovanteVisual);
+  document.getElementById("fornecedorSecaoToggle")?.addEventListener("click", () => {
+    const corpo = document.getElementById("fornecedorSecaoBody");
+    const expandido = corpo.classList.toggle("hidden") === false;
+    document.getElementById("fornecedorSecaoToggle").setAttribute("aria-expanded", String(expandido));
+  });
   atualizarContadorCompra();
   atualizarComprovanteVisual();
 }
@@ -718,6 +729,7 @@ async function carregarCompraParaEdicao(id) {
   document.getElementById("observacao").value = compra.observacao || "";
   atualizarContadorCompra();
   atualizarResumoCartao();
+  abrirSecaoFornecedorComprovante();
 
   if (compra.parcelaTotal > 1) {
     document.getElementById("parcelasCampo").classList.add("hidden");
