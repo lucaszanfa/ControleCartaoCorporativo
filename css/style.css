@@ -4097,6 +4097,10 @@ textarea {
   gap: 16px 20px;
 }
 
+.purchase-form-grid.hidden {
+  display: none;
+}
+
 .purchase-form-grid-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -4275,8 +4279,6 @@ textarea {
 }
 
 @media (max-width: 780px) {
-  .purchase-table-card .section-header,
-  .purchase-table-tools,
   .purchase-actions {
     align-items: stretch;
     flex-direction: column;
@@ -4286,7 +4288,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .purchase-table-tools input,
   .purchase-actions .btn {
     width: 100%;
   }
