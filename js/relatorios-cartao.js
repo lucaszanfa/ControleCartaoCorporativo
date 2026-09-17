@@ -1093,11 +1093,7 @@ function configurarEventos() {
     });
   });
 
-  document.addEventListener("click", (event) => {
-    if (event.target.closest("#themeToggle")) {
-      window.setTimeout(renderVisualRelatorioCartao, 0);
-    }
-  });
+  document.addEventListener("temaAlterado", renderVisualRelatorioCartao);
 }
 
 // Registra (uma única vez) o redesenho responsivo dos dois gráficos: quando

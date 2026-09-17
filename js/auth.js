@@ -74,6 +74,11 @@ function alternarTema() {
   localStorage.setItem("temaSistema", novoTema);
   aplicarTemaSalvo();
   atualizarBotaoTema();
+  // Dispara um evento assim que o tema muda de fato, em vez de deixar quem
+  // depende disso (ex.: gráficos em canvas) inferir a troca a partir do
+  // clique no botão — essa inferência por bubbling de clique podia perder o
+  // redesenho e deixar o gráfico preso no tema anterior.
+  document.dispatchEvent(new CustomEvent("temaAlterado", { detail: { tema: novoTema } }));
 }
 
 function atualizarBotaoTema() {
