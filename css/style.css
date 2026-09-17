@@ -7118,7 +7118,11 @@ textarea {
   width: 58px;
   height: 58px;
   padding: 0;
-  border-radius: 17px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
 }
 
 .sidebar-brand strong {
@@ -7244,7 +7248,7 @@ textarea {
   .sidebar-logo {
     width: 58px;
     height: 58px;
-    border-radius: 17px;
+    border-radius: 0;
   }
 
   .sidebar-menu-button {
