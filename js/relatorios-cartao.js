@@ -1082,6 +1082,13 @@ function configurarEventos() {
     }
   });
 
+  document.getElementById("detalhesRelatorioToggle").addEventListener("click", () => {
+    const painel = document.getElementById("detalhesRelatorioPainel");
+    const botao = document.getElementById("detalhesRelatorioToggle");
+    const expandido = painel.classList.toggle("hidden") === false;
+    botao.setAttribute("aria-expanded", String(expandido));
+  });
+
   document.querySelectorAll(".report-tabs button").forEach((button) => {
     button.addEventListener("click", () => {
       document.querySelectorAll(".report-tabs button").forEach((item) => item.classList.remove("active"));
