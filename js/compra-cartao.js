@@ -208,69 +208,7 @@ function preencherDepartamentoPorCartao() {
 async function carregarComprasCartao() {
   const compras = await (await fetch(`/api/compras-cartao?usuarioId=${usuarioIdAtual()}`)).json();
   comprasCartaoCache = compras;
-  renderizarComprasCartao();
   atualizarResumoCartao();
-}
-
-const LIMITE_COMPRAS_RECENTES = 5;
-let mostrandoTodasComprasCartao = false;
-
-function atualizarModoListaComprasCartao() {
-  const busca = document.getElementById("comprasCartaoBusca");
-  const botao = document.getElementById("alternarComprasCartaoBtn");
-  const titulo = document.getElementById("comprasCartaoTitulo");
-  const subtitulo = document.getElementById("comprasCartaoSubtitulo");
-
-  if (mostrandoTodasComprasCartao) {
-    busca?.classList.remove("hidden");
-    if (botao) botao.textContent = "Ver só as últimas 5";
-    if (titulo) titulo.textContent = "Todas as compras registradas";
-    if (subtitulo) subtitulo.textContent = "Histórico completo dos cartões que você tem permissão de ver.";
-  } else {
-    if (busca) busca.value = "";
-    busca?.classList.add("hidden");
-    if (botao) botao.textContent = "Ver todas as compras";
-    if (titulo) titulo.textContent = "Últimas compras registradas";
-    if (subtitulo) subtitulo.textContent = "As 5 compras mais recentes deste histórico.";
-  }
-}
-
-function renderizarComprasCartao() {
-  let compras = comprasCartaoCache;
-
-  if (mostrandoTodasComprasCartao) {
-    const termo = String(document.getElementById("comprasCartaoBusca")?.value || "").trim().toLowerCase();
-    if (termo) {
-      compras = compras.filter((compra) => [compra.cartao, compra.fornecedor, compra.categoria, compra.status, compra.responsavel]
-        .some((valor) => String(valor || "").toLowerCase().includes(termo)));
-    }
-  } else {
-    compras = compras.slice(0, LIMITE_COMPRAS_RECENTES);
-  }
-
-  const podeVerDetalhes = (typeof ehAdminOuGerente === "function" && ehAdminOuGerente())
-    || (typeof usuarioTemCartaoComPermissao === "function" && usuarioTemCartaoComPermissao("ver"));
-  document.getElementById("comprasCartaoTabela").innerHTML = compras.map((compra) => `
-    <tr class="report-data-row purchase-row">
-      <td><strong>${formatarData(compra.dataCompra)}</strong></td>
-      <td>
-        <strong>${compra.cartao}</strong>
-        <small>final ${compra.ultimos4Digitos || "----"}</small>
-      </td>
-      <td>
-        ${compra.fornecedor}
-        ${compra.parcelaTotal > 1 ? `<small class="field-hint">Parcela ${compra.parcelaAtual}/${compra.parcelaTotal}</small>` : ""}
-      </td>
-      <td><span class="report-money-pill">${moeda(compra.valor)}</span></td>
-      <td><span class="${classeStatus(compra.status)}">${compra.status === "aguardando_fatura" ? "aguardando fatura" : compra.status}</span></td>
-      <td>${LancamentoManual.html(compra)}</td>
-      <td>
-        ${podeVerDetalhes
-          ? `<button class="btn btn-secondary btn-compact" type="button" onclick="abrirDetalheCompra(${compra.id})">Ver detalhes</button>`
-          : "-"}
-      </td>
-    </tr>
-  `).join("");
 }
 
 function comprasDoMesAtual() {
@@ -323,12 +261,6 @@ function prepararInteracoesCompraCartao() {
   document.getElementById("observacao")?.addEventListener("input", atualizarContadorCompra);
   document.getElementById("valor")?.addEventListener("input", atualizarResumoCartao);
   document.getElementById("comprovanteArquivo")?.addEventListener("change", atualizarComprovanteVisual);
-  document.getElementById("comprasCartaoBusca")?.addEventListener("input", renderizarComprasCartao);
-  document.getElementById("alternarComprasCartaoBtn")?.addEventListener("click", () => {
-    mostrandoTodasComprasCartao = !mostrandoTodasComprasCartao;
-    atualizarModoListaComprasCartao();
-    renderizarComprasCartao();
-  });
   atualizarContadorCompra();
   atualizarComprovanteVisual();
 }
@@ -1031,5 +963,4 @@ initCompraCartao();
 document.addEventListener('lancamento-compra-atualizado', event => {
   const compra = comprasCartaoCache.find(item => Number(item.id) === Number(event.detail.id));
   if (compra) Object.assign(compra, event.detail);
-  renderizarComprasCartao();
 });
